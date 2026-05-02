@@ -233,11 +233,11 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
                   <span className="text-xs text-green-500 font-semibold">{unread} new</span>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
-                  {notifications.length === 0 ? (
+                  {notifications.filter(n => !n.read).length === 0 ? (
                     <div className={`px-4 py-8 text-center text-sm ${textSub}`}>
-                      You have no new notifications.
+                      No new notifications.
                     </div>
-                  ) : notifications.map(n => (
+                  ) : notifications.filter(n => !n.read).map(n => (
                     <div 
                       key={n.id} 
                       onClick={() => handleNotifClick(n)}

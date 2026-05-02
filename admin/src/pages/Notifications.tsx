@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, Loader, CheckCircle, Trash2, Search, Filter } from 'lucide-react';
+import { Bell, Loader, CheckCircle, Trash2, Search } from 'lucide-react';
 import { fetchAPI } from '../utils/api';
 import { useSearch } from '../context/SearchContext';
 
@@ -17,7 +17,8 @@ export default function Notifications({ darkMode }: Props) {
   const fetchNotifications = async () => {
     try {
       const res = await fetchAPI('/api/chat/notifications/');
-      setNotifications(res.results || res || []);
+      const data = res.results || res || [];
+      setNotifications(data.filter((n: any) => n.status !== 'Recycled'));
     } catch (err) {
       console.error("Failed to fetch notifications", err);
     } finally {
@@ -42,14 +43,15 @@ export default function Notifications({ darkMode }: Props) {
   };
 
   const deleteNotification = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this notification?")) return;
+    if (!confirm("Move this notification to Recycle Bin?")) return;
     try {
       await fetchAPI(`/api/chat/notifications/${id}/`, {
-        method: 'DELETE'
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'Recycled' })
       });
       setNotifications(prev => prev.filter(n => n.id !== id));
     } catch (err) {
-      console.error("Failed to delete notification", err);
+      console.error("Failed to move to recycle bin", err);
     }
   };
 

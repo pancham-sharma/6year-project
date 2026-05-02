@@ -7,7 +7,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['id', 'sender', 'sender_username', 'receiver', 'receiver_username', 'message_body', 'attachment_url', 'timestamp', 'read']
+        fields = ['id', 'sender', 'sender_username', 'receiver', 'receiver_username', 'message_body', 'attachment_url', 'timestamp', 'read', 'status']
         read_only_fields = ['sender', 'timestamp', 'read']
 
 class NotificationSerializer(serializers.ModelSerializer):

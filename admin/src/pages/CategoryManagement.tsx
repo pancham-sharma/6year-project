@@ -84,11 +84,17 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
       const data = await fetchAPI('/api/donations/categories/');
       const res = Array.isArray(data) ? data : (data.results || []);
       
-      // Merge with permanent ones, filtering out DB duplicates if any
-      const dbCategories = res.filter((cat: any) => 
+      // Merge logic: Use DB category if it exists (by name matching), otherwise use permanent default
+      const merged = permanentCategories.map(p => {
+        const dbVersion = res.find((cat: any) => cat.name.toLowerCase() === p.name.toLowerCase());
+        return dbVersion ? { ...dbVersion, is_system: true } : p;
+      });
+
+      const dbOnlyCategories = res.filter((cat: any) => 
         !permanentCategories.some(p => p.name.toLowerCase() === cat.name.toLowerCase())
       );
-      setCategories([...permanentCategories, ...dbCategories]);
+      
+      setCategories([...merged, ...dbOnlyCategories]);
     } catch (err) {
       console.error("Failed to fetch categories", err);
       setCategories(permanentCategories);
@@ -98,8 +104,16 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
   };
 
   const handleEdit = (cat: Category) => {
-    setEditingId(cat.id!);
-    setFormData({ ...cat, image: null }); // Don't try to edit the existing image path as a File
+    if (!cat.id) return;
+    setEditingId(cat.id);
+    setFormData({
+      name: cat.name || '',
+      description: cat.description || '',
+      image: null, // Reset image for upload
+      impact_badge: cat.impact_badge || '',
+      icon_name: cat.icon_name || 'Heart',
+      is_active: cat.is_active ?? true
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -127,11 +141,19 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
       data.append('is_active', String(formData.is_active));
       
       if (formData.image instanceof File) {
-        data.append('image', formData.image);
+        let fileToUpload = formData.image;
+        // Handle long filenames that exceed Django's default 100-char limit
+        if (fileToUpload.name.length > 90) {
+          const extension = fileToUpload.name.split('.').pop();
+          const newName = `category_${Date.now()}.${extension}`;
+          fileToUpload = new File([formData.image], newName, { type: formData.image.type });
+        }
+        data.append('image', fileToUpload);
       }
 
-      const url = editingId === 'new' ? '/api/donations/categories/' : `/api/donations/categories/${editingId}/`;
-      const method = editingId === 'new' ? 'POST' : 'PATCH';
+      const isNew = editingId === 'new' || (typeof editingId === 'string' && editingId.startsWith('p'));
+      const url = isNew ? '/api/donations/categories/' : `/api/donations/categories/${editingId}/`;
+      const method = isNew ? 'POST' : 'PATCH';
 
       await fetchAPI(url, {
         method,
@@ -214,118 +236,122 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
         </div>
       )}
 
-      {editingId && (
-        <div className={`p-6 rounded-2xl border shadow-xl ${cardClass} animate-slide-up`}>
-          <div className="flex justify-between items-center mb-6">
-            <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-              {editingId === 'new' ? 'Add New Category' : 'Edit Category'}
-            </h3>
-            <button onClick={() => setEditingId(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-              <X size={18} className={darkMode ? 'text-gray-400' : 'text-gray-500'} />
-            </button>
-          </div>
+      {/* Category Edit/Add Modal Overlay */}
+      {editingId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditingId(null)}></div>
+          <div className={`relative w-full max-w-2xl p-6 rounded-3xl border shadow-2xl ${cardClass} animate-slide-up max-h-[90vh] overflow-y-auto`}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                {editingId === 'new' ? 'Create New Category' : 'Edit Cause Category'}
+              </h3>
+              <button onClick={() => setEditingId(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
+                <X size={20} className={darkMode ? 'text-gray-400' : 'text-gray-500'} />
+              </button>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Category Name</label>
-                <input 
-                  type="text" 
-                  value={formData.name} 
-                  onChange={e => setFormData({...formData, name: e.target.value})}
-                  placeholder="e.g. Health & Medical"
-                  className={inputClass}
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Category Name</label>
+                  <input 
+                    type="text" 
+                    value={formData.name} 
+                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    placeholder="e.g. Health & Medical"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Description</label>
+                  <textarea 
+                    rows={3}
+                    value={formData.description} 
+                    onChange={e => setFormData({...formData, description: e.target.value})}
+                    placeholder="Short description for the user..."
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Impact Badge Text</label>
+                  <input 
+                    type="text" 
+                    value={formData.impact_badge} 
+                    onChange={e => setFormData({...formData, impact_badge: e.target.value})}
+                    placeholder="e.g. ₹1000 provides basic kit"
+                    className={inputClass}
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Description</label>
-                <textarea 
-                  rows={3}
-                  value={formData.description} 
-                  onChange={e => setFormData({...formData, description: e.target.value})}
-                  placeholder="Short description for the user..."
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Impact Badge Text</label>
-                <input 
-                  type="text" 
-                  value={formData.impact_badge} 
-                  onChange={e => setFormData({...formData, impact_badge: e.target.value})}
-                  placeholder="e.g. ₹1000 provides basic kit"
-                  className={inputClass}
-                />
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Choose Icon</label>
+                  <div className="grid grid-cols-7 gap-2 p-3 border dark:border-gray-700 rounded-xl max-h-32 overflow-y-auto">
+                    {iconList.map(item => {
+                      const Icon = item.icon;
+                      return (
+                        <button 
+                          key={item.name}
+                          onClick={() => setFormData({...formData, icon_name: item.name})}
+                          className={`p-2 rounded-lg flex items-center justify-center transition-all ${formData.icon_name === item.name ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+                        >
+                          <Icon size={16} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Cover Image</label>
+                  <div className={`relative h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${darkMode ? 'border-gray-700 hover:border-green-500' : 'border-gray-200 hover:border-green-500'}`}>
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={e => setFormData({...formData, image: e.target.files ? e.target.files[0] : null})}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    {formData.image ? (
+                      <div className="flex items-center gap-2 text-green-500 font-semibold text-sm">
+                        <CheckCircle2 size={16} /> Image Selected
+                      </div>
+                    ) : (
+                      <>
+                        <ImageIcon className="text-gray-400 mb-1" size={20} />
+                        <span className="text-xs text-gray-500 font-medium">Click to upload</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <input 
+                    type="checkbox" 
+                    id="is_active"
+                    checked={formData.is_active}
+                    onChange={e => setFormData({...formData, is_active: e.target.checked})}
+                    className="w-4 h-4 accent-green-600 rounded"
+                  />
+                  <label htmlFor="is_active" className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Visible on Website</label>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Icon</label>
-                <div className="grid grid-cols-7 gap-2 p-3 border dark:border-gray-700 rounded-xl max-h-32 overflow-y-auto">
-                  {iconList.map(item => {
-                    const Icon = item.icon;
-                    return (
-                      <button 
-                        key={item.name}
-                        onClick={() => setFormData({...formData, icon_name: item.name})}
-                        className={`p-2 rounded-lg flex items-center justify-center transition-all ${formData.icon_name === item.name ? 'bg-green-500 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
-                      >
-                        <Icon size={16} />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Cover Image</label>
-                <div className={`relative h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${darkMode ? 'border-gray-700 hover:border-green-500' : 'border-gray-200 hover:border-green-500'}`}>
-                   <input 
-                    type="file" 
-                    accept="image/*"
-                    onChange={e => setFormData({...formData, image: e.target.files ? e.target.files[0] : null})}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                   />
-                   {formData.image ? (
-                     <div className="flex items-center gap-2 text-green-500 font-semibold text-sm">
-                       <CheckCircle2 size={16} /> Image Selected
-                     </div>
-                   ) : (
-                     <>
-                       <ImageIcon className="text-gray-400 mb-1" size={20} />
-                       <span className="text-xs text-gray-500 font-medium">Click to upload</span>
-                     </>
-                   )}
-                </div>
-              </div>
-              <div className="flex items-center gap-3 pt-2">
-                <input 
-                  type="checkbox" 
-                  id="is_active"
-                  checked={formData.is_active}
-                  onChange={e => setFormData({...formData, is_active: e.target.checked})}
-                  className="w-4 h-4 accent-green-600"
-                />
-                <label htmlFor="is_active" className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Visible on Website</label>
-              </div>
+            <div className="flex justify-end gap-3 mt-8 pt-6 border-t dark:border-gray-700">
+              <button 
+                onClick={() => setEditingId(null)}
+                className={`px-5 py-2 rounded-xl font-semibold ${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-8 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-xl font-bold shadow-lg shadow-green-900/20"
+              >
+                {saving ? <Loader className="animate-spin" size={18} /> : <Save size={18} />}
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
             </div>
-          </div>
-
-          <div className="flex justify-end gap-3 mt-8 pt-6 border-t dark:border-gray-700">
-            <button 
-              onClick={() => setEditingId(null)}
-              className={`px-5 py-2 rounded-xl font-semibold ${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`}
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-xl font-bold shadow-lg shadow-green-900/20 border border-green-500/50"
-            >
-              {saving ? <Loader className="animate-spin" size={18} /> : <Save size={18} />}
-              {saving ? 'Saving...' : 'Save Category'}
-            </button>
           </div>
         </div>
       )}
@@ -349,23 +375,21 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
                   </div>
                 )}
                 <div className="absolute top-3 right-3 flex gap-2 transition-all duration-300">
+                  <button 
+                    onClick={() => handleEdit(cat)}
+                    className="p-2 bg-white/90 dark:bg-gray-800/90 text-blue-600 rounded-lg shadow-lg hover:scale-110 transition-transform"
+                    title="Edit Category"
+                  >
+                    <Edit2 size={16} />
+                  </button>
                   {!cat.is_system && (
-                    <>
-                      <button 
-                        onClick={() => handleEdit(cat)}
-                        className="p-2 bg-white/90 dark:bg-gray-800/90 text-blue-600 rounded-lg shadow-lg hover:scale-110 transition-transform"
-                        title="Edit Category"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(cat.id as number)}
-                        className="p-2 bg-white/90 dark:bg-gray-800/90 text-red-600 rounded-lg shadow-lg hover:scale-110 transition-transform"
-                        title="Delete Category"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </>
+                    <button 
+                      onClick={() => handleDelete(cat.id as number)}
+                      className="p-2 bg-white/90 dark:bg-gray-800/90 text-red-600 rounded-lg shadow-lg hover:scale-110 transition-transform"
+                      title="Delete Category"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   )}
                   {cat.is_system && (
                     <div className="p-2 bg-green-500/90 text-white rounded-lg shadow-lg text-[10px] font-bold px-3">

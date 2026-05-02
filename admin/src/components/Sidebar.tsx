@@ -81,9 +81,28 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
   const filteredCat = categoryNav.filter(item => !q || item.label.toLowerCase().includes(q));
 
 
+  const [lastSeen, setLastSeen] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem('admin_sidebar_seen') || '{}'); } catch { return {}; }
+  });
+
+  useEffect(() => {
+    // If the active section is a category, mark its current count as "seen"
+    const isCat = categoryNav.some(c => c.id === active);
+    if (isCat && counts[active] !== undefined) {
+      const newSeen = { ...lastSeen, [active]: counts[active] };
+      setLastSeen(newSeen);
+      localStorage.setItem('admin_sidebar_seen', JSON.stringify(newSeen));
+    }
+  }, [active, counts]);
+
   const NavItem = ({ item, iconColor }: { item: typeof mainNav[0]; iconColor?: string }) => {
     const Icon = item.icon;
     const isActive = active === item.id;
+    const isCategory = !!iconColor;
+    
+    // Show green dot if it's a category and the count has increased since last visit
+    const hasNew = isCategory && (counts[item.id] || 0) > (lastSeen[item.id] || 0);
+
     return (
       <button
         onClick={() => { onNavigate(item.id); onMobileClose(); }}
@@ -93,11 +112,23 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
       >
         <Icon size={18} className={`flex-shrink-0 transition-colors ${isActive ? 'text-green-600' : iconColor || ''}`} />
         {!collapsed && <span className="truncate">{item.label}</span>}
+        
         {!collapsed && counts[item.id] !== undefined && (
-          <span className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? 'bg-green-500 text-white' : (darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500')}`}>
-            {counts[item.id]}
-          </span>
+          <>
+            {/* Show number badge ONLY for main menu items, not categories */}
+            {!isCategory ? (
+              <span className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? 'bg-green-500 text-white' : (darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500')}`}>
+                {counts[item.id]}
+              </span>
+            ) : (
+              /* Show green dot for categories with NEW donations */
+              hasNew && (
+                <span className="ml-auto w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)] animate-pulse" />
+              )
+            )}
+          </>
         )}
+        
         {!collapsed && isActive && counts[item.id] === undefined && (
           <span className="ml-auto w-1.5 h-1.5 rounded-full bg-green-500" />
         )}

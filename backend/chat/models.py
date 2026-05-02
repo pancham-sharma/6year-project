@@ -4,12 +4,17 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 class Message(models.Model):
+    STATUS_CHOICES = (
+        ('Active', 'Active'),
+        ('Recycled', 'Recycled'),
+    )
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='sent_messages', on_delete=models.CASCADE)
     receiver = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='received_messages', on_delete=models.CASCADE)
     message_body = models.TextField()
     attachment_url = models.URLField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     read = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
 
     class Meta:
         ordering = ['timestamp']
@@ -18,11 +23,16 @@ class Message(models.Model):
         return f"From {self.sender.username} to {self.receiver.username}"
 
 class Notification(models.Model):
+    STATUS_CHOICES = (
+        ('Active', 'Active'),
+        ('Recycled', 'Recycled'),
+    )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
     title = models.CharField(max_length=200)
     message = models.TextField()
     read = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
 
     class Meta:
         ordering = ['-timestamp']

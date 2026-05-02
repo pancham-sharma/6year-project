@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Eye, Edit3, CheckCircle, Trash2, ChevronDown, X, Phone, MapPin, Loader, Download } from 'lucide-react';
-import { donations as mockDonations, Donation, DonationStatus, DonationCategory } from '../data/mockData';
+import { Search, Filter, Eye, Edit3, CheckCircle, Trash2, ChevronDown, X, Phone, MapPin } from 'lucide-react';
+import { DonationStatus, DonationCategory } from '../data/mockData';
 import { fetchAPI } from '../utils/api';
 import { useSearch } from '../context/SearchContext';
 
@@ -47,7 +47,7 @@ export default function DonationManagement({ darkMode }: Props) {
         const formatted = (data.results || data).map((d: any) => ({
           id: d.id.toString(),
           donorName: d.donor,
-          contact: 'N/A', // Phone number not included in serializer
+          contact: 'N/A',
           address: d.pickup_details ? d.pickup_details.full_address : 'N/A',
           city: d.pickup_details ? d.pickup_details.city : 'N/A',
           category: d.category,
@@ -57,7 +57,7 @@ export default function DonationManagement({ darkMode }: Props) {
           pickupTime: d.pickup_details ? d.pickup_details.scheduled_time : '',
           assignedTo: d.pickup_details ? d.pickup_details.volunteer : null,
           notes: ''
-        }));
+        })).filter((d: any) => d.status !== 'Recycled');
         setLocalDonations(formatted);
       } catch (err) {
         console.error(err);
@@ -132,12 +132,15 @@ export default function DonationManagement({ darkMode }: Props) {
 
 
   const deleteDon = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this donation record?")) return;
+    if (!window.confirm("Move this donation to Recycle Bin?")) return;
     try {
-      await fetchAPI(`/api/donations/${id}/`, { method: 'DELETE' });
+      await fetchAPI(`/api/donations/${id}/`, { 
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'Recycled' })
+      });
       setLocalDonations(prev => prev.filter(d => d.id !== id));
     } catch (err) {
-      console.error("Failed to delete donation", err);
+      console.error("Failed to move to recycle bin", err);
     }
   };
 

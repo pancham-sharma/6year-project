@@ -43,7 +43,8 @@ export default function Dashboard() {
         
         setDonations(donsRes.results || donsRes || []);
         setNotifications(notifRes.results || notifRes || []);
-        setMessages(msgRes.results || msgRes || []);
+        const rawMsgs = msgRes.results || msgRes || [];
+        setMessages(rawMsgs.filter((m: any) => m.status !== 'Recycled'));
 
         // --- Volunteer Status Monitor ---
         const apps = volRes.results || volRes || [];

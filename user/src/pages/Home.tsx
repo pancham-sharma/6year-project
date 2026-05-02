@@ -34,7 +34,7 @@ export default function Home() {
     { id: 'p5', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', image: '/images/stories-trees.jpg' },
   ];
 
-  const [dynamicCategories, setDynamicCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>(permanentCategories);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -60,11 +60,25 @@ export default function Home() {
       try {
         const res = await fetchAPI('/api/donations/categories/');
         const categoriesData = Array.isArray(res) ? res : (res.results || []);
-        // Filter out categories that match the permanent ones to avoid duplicates
-        const filtered = categoriesData.filter((cat: any) => 
+        
+        // Merge logic: Use DB version of permanent categories if they exist
+        const updatedPermanent = permanentCategories.map(p => {
+          const dbVersion = categoriesData.find((cat: any) => cat.name.toLowerCase() === p.name.toLowerCase());
+          if (dbVersion) {
+            return {
+              ...p,
+              ...dbVersion,
+              image: dbVersion.image ? getImageUrl(dbVersion.image) : p.image
+            };
+          }
+          return p;
+        });
+
+        const onlyDynamic = categoriesData.filter((cat: any) => 
           !permanentCategories.some(p => p.name.toLowerCase() === cat.name.toLowerCase())
         );
-        setDynamicCategories(filtered);
+
+        setCategories([...updatedPermanent, ...onlyDynamic]);
       } catch (err) {
         console.error("Failed to load categories", err);
       }
@@ -73,8 +87,6 @@ export default function Home() {
     fetchStats();
     fetchCategories();
   }, []);
-
-  const allCategories = [...permanentCategories, ...dynamicCategories];
 
   return (
     <div className={`min-h-screen ${dark ? 'bg-near-black text-white' : 'bg-white text-near-black'}`}>
@@ -122,7 +134,7 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {allCategories.map((cat) => {
+            {categories.map((cat) => {
               const Icon = iconMap[cat.icon_name];
               return (
                 <div key={cat.id} className={`card-modern group w-full ${dark ? 'bg-white/5 border-white/10' : 'bg-white shadow-xl shadow-gray-200/40 border-gray-100'}`}>

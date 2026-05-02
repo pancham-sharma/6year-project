@@ -25,6 +25,7 @@ class Donation(models.Model):
         ('Scheduled', 'Scheduled'),
         ('Completed', 'Completed'),
         ('Cancelled', 'Cancelled'),
+        ('Recycled', 'Recycled'),
     )
 
     donor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='donations')

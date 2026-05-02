@@ -15,6 +15,7 @@ import CategoryPage from './pages/CategoryPage';
 import Notifications from './pages/Notifications';
 import Volunteers from './pages/Volunteers';
 import CategoryManagement from "./pages/CategoryManagement.tsx";
+import RecycleBin from './pages/RecycleBin';
 import { DonationCategory } from './data/mockData';
 import { SearchProvider } from './context/SearchContext';
 
@@ -31,6 +32,7 @@ const pageTitles: Record<NavSection, string> = {
   notifications: 'Notifications',
   reports: 'Reports & Analytics',
   category_mgmt: 'Category Management',
+  recycle: 'Recycle Bin',
   settings: 'Settings',
   food: 'Food Donations',
   clothes: 'Clothes Donations',
@@ -87,6 +89,7 @@ export default function App() {
       case 'notifications': return <Notifications darkMode={darkMode} />;
       case 'reports': return <Reports darkMode={darkMode} />;
       case 'category_mgmt': return <CategoryManagement darkMode={darkMode} />;
+      case 'recycle': return <RecycleBin darkMode={darkMode} />;
       case 'settings': return <Settings darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} />;
       default: return <Dashboard darkMode={darkMode} />;
     }

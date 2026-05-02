@@ -2,23 +2,26 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { fetchAPI } from '../utils/api';
-import { Check, ChevronRight, ChevronLeft, Package, MapPin, Navigation, Shield, Upload, Calendar, Clock, Utensils, Shirt, BookOpen, Banknote, Sprout, Loader } from 'lucide-react';
+import { 
+  Check, ChevronRight, ChevronLeft, Package, MapPin, Navigation, Shield, Upload, Calendar, Clock, Loader,
+  Utensils, Shirt, BookOpen, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins
+} from 'lucide-react';
 
-const donationTypes = [
-  { value: 'food', label: 'Food', icon: Utensils, color: 'from-orange-400 to-red-400' },
-  { value: 'clothes', label: 'Clothes', icon: Shirt, color: 'from-blue-400 to-indigo-400' },
-  { value: 'books', label: 'Books', icon: BookOpen, color: 'from-purple-400 to-pink-400' },
-  { value: 'money', label: 'Monetary', icon: Banknote, color: 'from-green-400 to-emerald-400' },
-  { value: 'trees', label: 'Environment', icon: Sprout, color: 'from-teal-400 to-cyan-400' },
-];
-
-const categoryMap: Record<string, string> = {
-  food: 'Food',
-  clothes: 'Clothes',
-  books: 'Books',
-  money: 'Monetary',
-  trees: 'Environment'
+const getCategoryIcon = (iconName: string) => {
+  const iconMap: Record<string, any> = { Utensils, Shirt, BookOpen, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins };
+  return iconMap[iconName] || LayoutGrid;
 };
+
+const categoryColors: string[] = [
+  'from-orange-400 to-red-400',
+  'from-blue-400 to-indigo-400',
+  'from-purple-400 to-pink-400',
+  'from-green-400 to-emerald-400',
+  'from-teal-400 to-cyan-400',
+  'from-amber-400 to-orange-500',
+  'from-rose-400 to-pink-500',
+  'from-emerald-400 to-teal-500',
+];
 
 export default function DonationForm() {
   const { dark, t, user } = useApp();
@@ -26,6 +29,7 @@ export default function DonationForm() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [dynamicTypes, setDynamicTypes] = useState<any[]>([]);
   const [form, setForm] = useState({
     types: [] as string[], quantities: {} as Record<string, string>, descriptions: {} as Record<string, string>, images: {} as Record<string, string | null>,
     address: '', city: '', state: '', pincode: '', landmark: '', phone: '', date: '', time: '',
@@ -41,6 +45,58 @@ export default function DonationForm() {
         phone: prev.phone || user.phone || ''
       }));
     }
+
+    const loadCategories = async () => {
+      try {
+        const res = await fetchAPI('/api/donations/categories/');
+        const data = Array.isArray(res) ? res : (res.results || []);
+        
+        // Define system defaults to ensure they exist even if not in DB
+        const defaults = [
+          { name: 'Food', icon_name: 'Utensils' },
+          { name: 'Clothes', icon_name: 'Shirt' },
+          { name: 'Books', icon_name: 'BookOpen' },
+          { name: 'Monetary', icon_name: 'Banknote' },
+          { name: 'Environment', icon_name: 'Sprout' }
+        ];
+
+        // Merge DB categories with defaults
+        const merged = defaults.map(def => {
+          const dbVer = data.find((c: any) => c.name.toLowerCase() === def.name.toLowerCase());
+          return dbVer || def;
+        });
+
+        const dbOnly = data.filter((c: any) => 
+          !defaults.some(def => def.name.toLowerCase() === c.name.toLowerCase())
+        );
+
+        // Filter out 'Money' and 'Trees' to avoid duplicates with 'Monetary' and 'Environment'
+        const forbidden = ['money', 'trees'];
+        const all = [...merged, ...dbOnly].filter(c => 
+          c.is_active !== false && !forbidden.includes(c.name.toLowerCase())
+        );
+
+        const formatted = all.map((c, index) => ({
+          value: c.name.toLowerCase(),
+          label: c.name,
+          icon: getCategoryIcon(c.icon_name),
+          color: categoryColors[index % categoryColors.length]
+        }));
+
+        setDynamicTypes(formatted);
+      } catch (err) {
+        console.error("Failed to load categories", err);
+        // Fallback to static if API fails
+        setDynamicTypes([
+          { value: 'food', label: 'Food', icon: Utensils, color: categoryColors[0] },
+          { value: 'clothes', label: 'Clothes', icon: Shirt, color: categoryColors[1] },
+          { value: 'books', label: 'Books', icon: BookOpen, color: categoryColors[2] },
+          { value: 'monetary', label: 'Monetary', icon: Banknote, color: categoryColors[3] },
+          { value: 'environment', label: 'Environment', icon: Sprout, color: categoryColors[4] },
+        ]);
+      }
+    };
+    loadCategories();
   }, [user]);
 
   const steps = [
@@ -89,10 +145,13 @@ export default function DonationForm() {
     try {
       // Create a separate donation record for each type selected
       const promises = form.types.map(type => {
+        const dt = dynamicTypes.find(d => d.value === type);
+        const categoryLabel = dt ? dt.label : type;
+
         const payload = {
-          category: categoryMap[type],
+          category: categoryLabel,
           quantity: parseInt(form.quantities[type] || '1', 10),
-          quantity_description: type === 'money'
+          quantity_description: type === 'monetary' || type === 'money'
             ? `₹${form.quantities[type] || '0'} (Txn: ${form.transactionId})`
             : `${form.quantities[type] || 'N/A'} - ${form.descriptions[type] || ''}`,
 
@@ -172,7 +231,7 @@ export default function DonationForm() {
               <div>
                 <label className={`block text-sm font-semibold mb-3 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>{t.donate.type} (Select multiple)</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {donationTypes.map(dt => {
+                  {dynamicTypes.map(dt => {
                     const isSelected = form.types.includes(dt.value);
                     return (
                       <button key={dt.value} onClick={() => {
@@ -193,7 +252,7 @@ export default function DonationForm() {
               {form.types.length > 0 && (
                 <div className={`mt-8 grid gap-6 ${form.types.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                   {form.types.map(type => {
-                     const dt = donationTypes.find(d => d.value === type);
+                     const dt = dynamicTypes.find(d => d.value === type);
                      if (!dt) return null;
                      return (
                        <div key={type} className="p-6 rounded-2xl border-2 border-primary-100 bg-primary-50/20 space-y-4 animate-fade-in">
@@ -203,7 +262,7 @@ export default function DonationForm() {
                            </div>
                            <h4 className={`font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{dt.label} Details</h4>
                          </div>
-                         {type === 'money' ? (
+                         {type === 'monetary' || type === 'money' ? (
                            <div className="space-y-4">
                              <div>
                                <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Amount (₹) (Required)</label>
@@ -358,8 +417,8 @@ export default function DonationForm() {
                 <h3 className={`font-semibold mb-4 ${dark ? 'text-white' : 'text-gray-900'}`}>Review Your Donation</h3>
                 <div className="space-y-3">
                   {[
-                    { label: 'Type(s)', value: form.types.length ? form.types.map(t => categoryMap[t]).join(', ') : '—' },
-                    { label: 'Quantities', value: form.types.length ? form.types.map(t => `${categoryMap[t]}: ${form.quantities[t] || '0'}`).join(' | ') : '—' },
+                    { label: 'Type(s)', value: form.types.length ? form.types.map(t => dynamicTypes.find(d => d.value === t)?.label || t).join(', ') : '—' },
+                    { label: 'Quantities', value: form.types.length ? form.types.map(t => `${dynamicTypes.find(d => d.value === t)?.label || t}: ${form.quantities[t] || '0'}`).join(' | ') : '—' },
                     { label: 'Address', value: form.address ? `${form.address}, ${form.city}, ${form.state} ${form.pincode}` : '—' },
                     { label: 'Pickup', value: form.date && form.time ? `${form.date} at ${form.time}` : '—' },
                     { label: 'Location', value: form.useCurrentLocation ? 'Current location' : 'Manual address' },

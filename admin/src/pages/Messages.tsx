@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Search, Info, Heart, X, Loader, Check, CheckCheck } from 'lucide-react';
+import { Send, Paperclip, Search, Info, Heart, X, Loader, Check, CheckCheck, Trash2 } from 'lucide-react';
 
 import { fetchAPI } from '../utils/api';
 import { useSearch } from '../context/SearchContext';
@@ -35,7 +35,7 @@ export default function Messages({ darkMode }: Props) {
           fetchAPI('/api/users/list/').catch(() => [])
         ]);
         
-        const rawMessages = msgsRes.results || msgsRes || [];
+        const rawMessages = (msgsRes.results || msgsRes || []).filter((m: any) => m.status !== 'Recycled');
         const allUsers = usersRes.results || usersRes || [];
         
         // Find my ID assuming I am the logged in admin
@@ -69,6 +69,7 @@ export default function Messages({ darkMode }: Props) {
             text: m.message_body,
             type: isSentByMe ? 'sent' : 'received',
             read: m.read ?? false,
+            status: m.status || 'Active',
             timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           });
           
@@ -92,11 +93,16 @@ export default function Messages({ darkMode }: Props) {
            }
         });
 
-        const formattedConvs = Object.values(conversationsMap);
+        const formattedConvs: any[] = Object.values(conversationsMap);
         setConvList(formattedConvs);
         
         if (formattedConvs.length > 0 && !activeId) {
-          setActiveId(formattedConvs[0].id);
+          const firstId = formattedConvs[0].id;
+          setActiveId(firstId);
+          // Mark the first one as read optimistically
+          setConvList(prev => prev.map(c => 
+            c.id === firstId ? { ...c, unread: 0, messages: c.messages.map((m: any) => ({ ...m, read: true })) } : c
+          ));
         }
       } catch (err) {
         console.error("Failed to load messages", err);
@@ -123,7 +129,16 @@ export default function Messages({ darkMode }: Props) {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeConv?.messages]);
+    
+    // Automatically clear unread for the active conversation
+    if (activeId) {
+      setConvList(prev => prev.map(c => 
+        String(c.id) === String(activeId) && c.unread > 0
+          ? { ...c, unread: 0, messages: c.messages.map((m: any) => ({ ...m, read: true })) }
+          : c
+      ));
+    }
+  }, [activeId, activeConv?.messages.length]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || !activeId) return;
@@ -155,32 +170,53 @@ export default function Messages({ darkMode }: Props) {
   };
 
   const selectConv = async (id: string) => {
-    setActiveId(id);
+    const stringId = String(id);
+    setActiveId(stringId);
     setMobileShowChat(true);
 
     // Find all unread received messages for this conversation
-    const conv = convList.find(c => c.id === id);
+    const conv = convList.find(c => String(c.id) === stringId);
     if (!conv) return;
 
     const unreadMsgs = conv.messages.filter((m: any) => m.type === 'received' && !m.read);
     
-    // Optimistically update local state immediately
+    // Clear unread count IMMEDIATELY in state
     setConvList(prev => prev.map(c =>
-      c.id === id
+      String(c.id) === stringId
         ? { ...c, unread: 0, messages: c.messages.map((m: any) => ({ ...m, read: true })) }
         : c
     ));
 
-    // Persist the read status to the backend for each unread message
+    // Persist the read status to the backend
     if (unreadMsgs.length > 0) {
-      await Promise.all(
-        unreadMsgs.map((m: any) =>
-          fetchAPI(`/api/chat/messages/${m.id}/`, {
-            method: 'PATCH',
-            body: JSON.stringify({ read: true })
-          }).catch(() => {}) // Silently ignore individual failures
-        )
-      );
+      try {
+        await Promise.all(
+          unreadMsgs.map((m: any) =>
+            fetchAPI(`/api/chat/messages/${m.id}/`, {
+              method: 'PATCH',
+              body: JSON.stringify({ read: true })
+            }).catch(() => {})
+          )
+        );
+      } catch (err) {
+        console.warn("Failed to persist read status:", err);
+      }
+    }
+  };
+
+  const deleteMessage = async (msgId: any) => {
+    if (!confirm("Move this message to Recycle Bin?")) return;
+    try {
+      await fetchAPI(`/api/chat/messages/${msgId}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'Recycled' })
+      });
+      setConvList(prev => prev.map(c => ({
+        ...c,
+        messages: c.messages.filter((m: any) => m.id !== msgId)
+      })));
+    } catch (err) {
+      console.error("Failed to move message to recycle bin", err);
     }
   };
 
@@ -221,29 +257,29 @@ export default function Messages({ darkMode }: Props) {
              <div className={`text-center py-10 px-4 text-sm ${textSub}`}>
                No conversations found. Users must be registered first.
              </div>
-          ) : filtered.map((conv, i) => (
-            <button key={conv.id} onClick={() => selectConv(conv.id)}
-              className={`w-full flex items-start gap-3 px-4 py-3.5 border transition-all text-left ${activeId === conv.id ? userItemActive : userItemInactive}`}>
-              <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarColors[i % avatarColors.length]} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                <span className="text-white text-xs font-bold">{conv.avatar}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-0.5">
-                  <p className={`text-sm font-semibold truncate ${textMain}`}>{conv.userName}</p>
-                  <span className={`text-xs flex-shrink-0 ml-2 ${textSub}`}>{conv.lastTime}</span>
+          ) : filtered.map((conv, i) => {
+            const isSelected = String(activeId) === String(conv.id);
+            
+            return (
+              <button key={conv.id} onClick={() => selectConv(conv.id)}
+                className={`w-full flex items-start gap-3 px-4 py-3.5 border transition-all text-left ${isSelected ? userItemActive : userItemInactive}`}>
+                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarColors[i % avatarColors.length]} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                  <span className="text-white text-xs font-bold">{conv.avatar}</span>
                 </div>
-                <p className={`text-xs truncate ${textSub}`}>{conv.lastMessage}</p>
-                {conv.donationRef && (
-                  <span className="text-xs text-green-500 font-mono">{conv.donationRef}</span>
-                )}
-              </div>
-              {conv.unread > 0 && (
-                <span className="w-5 h-5 bg-green-500 text-white text-xs rounded-full flex items-center justify-center font-bold flex-shrink-0 mt-0.5">
-                  {conv.unread}
-                </span>
-              )}
-            </button>
-          ))}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <p className={`text-sm font-semibold truncate ${textMain}`}>{conv.userName}</p>
+                    <span className={`text-xs flex-shrink-0 ml-2 ${textSub}`}>{conv.lastTime}</span>
+                  </div>
+                  <p className={`text-xs truncate ${textSub}`}>{conv.lastMessage}</p>
+                  {conv.donationRef && (
+                    <span className="text-xs text-green-500 font-mono">{conv.donationRef}</span>
+                  )}
+                </div>
+                {/* Unread badge removed as requested */}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -296,11 +332,19 @@ export default function Messages({ darkMode }: Props) {
                     <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.type === 'sent' ? `${sentBubble} rounded-br-md` : `${recvBubble} rounded-bl-md`}`}>
                       {msg.text}
                     </div>
-                    <div className={`flex items-center gap-1 mt-1 ${msg.type === 'sent' ? 'justify-end' : 'justify-start'}`}>
-                      <p className={`text-[10px] ${textSub}`}>{msg.timestamp}</p>
-                      {msg.type === 'sent' && (
-                        msg.read ? <CheckCheck size={12} className="text-blue-400" /> : <Check size={12} className={textSub} />
-                      )}
+                    <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className={`flex items-center gap-1 ${msg.type === 'sent' ? 'justify-end' : 'justify-start'}`}>
+                        <p className={`text-[10px] ${textSub}`}>{msg.timestamp}</p>
+                        {msg.type === 'sent' && (
+                          msg.read ? <CheckCheck size={12} className="text-blue-400" /> : <Check size={12} className={textSub} />
+                        )}
+                      </div>
+                      <button 
+                        onClick={() => deleteMessage(msg.id)}
+                        className={`p-1 rounded-md hover:bg-red-50 text-red-400 hover:text-red-500 transition-colors ${msg.type === 'sent' ? 'order-first' : 'order-last'}`}
+                      >
+                        <Trash2 size={10} />
+                      </button>
                     </div>
                   </div>
                 </div>

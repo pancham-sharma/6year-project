@@ -22,10 +22,31 @@ export default function Volunteers({ darkMode }: Props) {
         fetchAPI('/api/users/volunteer/admin/list/'),
         fetchAPI('/api/users/list/')
       ]);
-      setApplications(appsRes.results || appsRes || []);
+      const apps = (appsRes.results || appsRes || []).filter((a: any) => a.status !== 'Recycled');
+      const users = usersRes.results || usersRes || [];
       
-      const volunteers = (usersRes.results || usersRes || []).filter((u: any) => u.role === 'VOLUNTEER');
-      setActiveVolunteers(volunteers);
+      setApplications(apps);
+      
+      // Combine users with VOLUNTEER role and Approved applications
+      const roleVolunteers = users.filter((u: any) => u.role === 'VOLUNTEER');
+      const approvedApps = apps.filter((a: any) => a.status === 'Approved');
+      
+      // Deduplicate by email to avoid double-listing
+      const combined = [...roleVolunteers];
+      approvedApps.forEach((app: any) => {
+        if (!combined.some((v: any) => v.email?.toLowerCase() === app.email?.toLowerCase())) {
+          combined.push({
+            id: `app-${app.id}`,
+            username: app.name,
+            email: app.email,
+            city: app.city,
+            role: 'VOLUNTEER',
+            isFromApp: true
+          });
+        }
+      });
+      
+      setActiveVolunteers(combined);
     } catch (err) {
       console.error("Failed to fetch volunteer data", err);
     } finally {
@@ -67,6 +88,19 @@ export default function Volunteers({ darkMode }: Props) {
     }
   };
 
+
+  const deleteApp = async (id: number) => {
+    if (!window.confirm("Move this application to Recycle Bin?")) return;
+    try {
+      await fetchAPI(`/api/users/volunteer/admin/${id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'Recycled' })
+      });
+      setApplications(prev => prev.filter(a => a.id !== id));
+    } catch (err) {
+      console.error("Failed to move to recycle bin", err);
+    }
+  };
 
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
@@ -188,7 +222,11 @@ export default function Volunteers({ darkMode }: Props) {
                         <>
                           <button onClick={() => updateStatus(v, 'Approved')} className="p-2 rounded-lg bg-green-500 text-white hover:bg-green-600 shadow-sm"><UserCheck size={16} /></button>
                           <button onClick={() => updateStatus(v, 'Rejected')} className="p-2 rounded-lg bg-red-500 text-white hover:bg-red-600 shadow-sm"><UserX size={16} /></button>
+                          <button title="Move to Recycle Bin" onClick={() => deleteApp(v.id)} className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}><X size={16} /></button>
                         </>
+                      )}
+                      {v.status !== 'Pending' && (
+                         <button title="Move to Recycle Bin" onClick={() => deleteApp(v.id)} className={`p-2 rounded-lg ${darkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-600'}`}><X size={16} /></button>
                       )}
 
                     </div>
