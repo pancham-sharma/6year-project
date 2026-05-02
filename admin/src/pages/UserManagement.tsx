@@ -1,0 +1,255 @@
+import { useState, useEffect } from 'react';
+import { Search, Users, TrendingUp, Heart, UserCheck, Eye, X, Loader } from 'lucide-react';
+import { fetchAPI } from '../utils/api';
+import { useSearch } from '../context/SearchContext';
+
+interface Props { darkMode: boolean; }
+
+export default function UserManagement({ darkMode }: Props) {
+  const { searchQuery } = useSearch();
+  const [users, setUsers] = useState<any[]>([]);
+  const [donations, setDonations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [localSearch, setLocalSearch] = useState('');
+  const [viewUser, setViewUser] = useState<any | null>(null);
+
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [usersRes, donsRes] = await Promise.all([
+          fetchAPI('/api/users/list/').catch(() => []),
+          fetchAPI('/api/donations/').catch(() => [])
+        ]);
+        
+        // Map backend users to UI format
+        const fetchedUsers = (usersRes.results || usersRes || []).map((u: any) => ({
+          id: u.id,
+          name: u.username,
+          email: u.email,
+          phone: u.phone_number || 'N/A',
+          joinDate: new Date().toLocaleDateString(), // Mocking join date if missing in API
+          status: 'Active', // Mocking status
+          avatar: u.username.charAt(0).toUpperCase()
+        }));
+
+        setUsers(fetchedUsers);
+        setDonations(donsRes.results || donsRes || []);
+      } catch (err) {
+        console.error("Failed to load user data", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
+  const textMain = darkMode ? 'text-white' : 'text-gray-800';
+  const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';
+  const rowHover = darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50';
+  const divider = darkMode ? 'divide-gray-700' : 'divide-gray-100';
+  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
+  const theadBg = darkMode ? 'bg-gray-700/50' : 'bg-gray-50';
+  const modalBg = darkMode ? 'bg-gray-800' : 'bg-white';
+
+  const filtered = users.filter(u => {
+    const g = searchQuery.toLowerCase();
+    const l = localSearch.toLowerCase();
+    
+    const matchesGlobal = !g || 
+      u.name.toLowerCase().includes(g) || 
+      u.email.toLowerCase().includes(g) || 
+      u.id.toString().toLowerCase().includes(g);
+      
+    const matchesLocal = !l || 
+      u.name.toLowerCase().includes(l) || 
+      u.email.toLowerCase().includes(l) || 
+      u.phone.includes(l);
+      
+    return matchesGlobal && matchesLocal;
+  });
+
+
+  const activeCount = users.filter(u => u.status === 'Active').length;
+  const totalDonationCount = donations.length;
+
+  const getUserDonations = (userName: string) => donations.filter((d: any) => d.donor === userName);
+  const getUserDonationCount = (userName: string) => getUserDonations(userName).length;
+
+  const avatarColors = [
+    'from-green-400 to-emerald-500',
+    'from-blue-400 to-indigo-500',
+    'from-purple-400 to-violet-500',
+    'from-amber-400 to-orange-500',
+    'from-pink-400 to-rose-500',
+    'from-cyan-400 to-sky-500',
+  ];
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-[50vh]"><Loader className="animate-spin text-green-500 w-8 h-8" /></div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Users', value: users.length, icon: Users, color: 'from-green-400 to-emerald-500' },
+          { label: 'Active Users', value: activeCount, icon: UserCheck, color: 'from-blue-400 to-indigo-500' },
+          { label: 'Total Donations', value: totalDonationCount, icon: Heart, color: 'from-amber-400 to-orange-500' },
+          { label: 'Avg. per User', value: users.length > 0 ? (totalDonationCount / users.length).toFixed(1) : 0, icon: TrendingUp, color: 'from-violet-400 to-purple-500' },
+        ].map((s, i) => {
+          const Icon = s.icon;
+          return (
+            <div key={i} className={`rounded-2xl border p-4 shadow-sm ${card}`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center shadow`}>
+                  <Icon size={18} className="text-white" />
+                </div>
+                <div>
+                  <p className={`text-2xl font-bold ${textMain}`}>{s.value}</p>
+                  <p className={`text-xs ${textSub}`}>{s.label}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Search */}
+      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border shadow-sm ${card} ${inputBg}`}>
+        <Search size={15} className={textSub} />
+        <input className="bg-transparent outline-none text-sm flex-1" placeholder="Filter users on this page..." value={localSearch} onChange={e => setLocalSearch(e.target.value)} />
+        {localSearch && <button onClick={() => setLocalSearch('')}><X size={13} className={textSub} /></button>}
+      </div>
+
+
+      {/* Table */}
+      <div className={`rounded-2xl border shadow-sm overflow-hidden ${card}`}>
+        <div className={`px-5 py-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+          <div className="flex items-center justify-between">
+            <h2 className={`font-bold text-base ${textMain}`}>Registered Users</h2>
+            <span className={`text-xs ${textSub}`}>{filtered.length} of {users.length} users</span>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className={theadBg}>
+                {['User', 'Email', 'Phone', 'Join Date', 'Total Donations', 'Status', 'Actions'].map(h => (
+                  <th key={h} className={`px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider ${textSub} whitespace-nowrap`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className={`divide-y ${divider}`}>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className={`py-8 text-center ${textSub}`}>No users found in database.</td>
+                </tr>
+              ) : filtered.map((u, idx) => {
+                const userDons = getUserDonationCount(u.name);
+                return (
+                <tr key={u.id} className={`transition-colors ${rowHover}`}>
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarColors[idx % avatarColors.length]} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                        <span className="text-white text-xs font-bold">{u.avatar}</span>
+                      </div>
+                      <div>
+                        <p className={`font-semibold text-sm ${textMain}`}>{u.name}</p>
+                        <p className="text-xs text-green-500 font-mono">#{u.id}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className={`px-5 py-3.5 ${textSub}`}>{u.email}</td>
+                  <td className={`px-5 py-3.5 ${textSub} whitespace-nowrap`}>{u.phone}</td>
+                  <td className={`px-5 py-3.5 ${textSub} whitespace-nowrap`}>{u.joinDate}</td>
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-1.5 w-16 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                        <div className="h-1.5 rounded-full bg-green-400" style={{ width: `${Math.min((userDons / 5) * 100, 100)}%` }} />
+                      </div>
+                      <span className={`font-semibold ${textMain}`}>{userDons}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${u.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                      {u.status}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <button onClick={() => setViewUser(u)} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'hover:bg-blue-900/30 text-blue-400' : 'hover:bg-blue-50 text-blue-600'}`}>
+                      <Eye size={14} />
+                    </button>
+                  </td>
+                </tr>
+              )})}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* View User Modal */}
+      {viewUser && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setViewUser(null)}>
+          <div className={`rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col ${modalBg}`} onClick={e => e.stopPropagation()}>
+            <div className={`px-6 py-4 flex items-center justify-between border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+              <h3 className={`font-bold text-base ${textMain}`}>User Profile</h3>
+              <button onClick={() => setViewUser(null)} className={`p-2 rounded-xl ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><X size={16} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Avatar + Info */}
+              <div className={`flex items-center gap-4 p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-md">
+                  <span className="text-white text-lg font-bold">{viewUser.avatar}</span>
+                </div>
+                <div>
+                  <p className={`font-bold text-base ${textMain}`}>{viewUser.name}</p>
+                  <p className="text-xs text-green-500">#{viewUser.id}</p>
+                  <span className={`mt-1 inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${viewUser.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{viewUser.status}</span>
+                </div>
+              </div>
+
+              {/* Details */}
+              <div className="space-y-3">
+                {[
+                  { label: 'Email', value: viewUser.email },
+                  { label: 'Phone', value: viewUser.phone },
+                  { label: 'Join Date', value: viewUser.joinDate },
+                  { label: 'Total Donations', value: getUserDonationCount(viewUser.name).toString() },
+                ].map(item => (
+                  <div key={item.label} className={`flex justify-between py-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                    <span className={`text-sm ${textSub}`}>{item.label}</span>
+                    <span className={`text-sm font-semibold ${textMain}`}>{item.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Donation History */}
+              <div>
+                <h4 className={`font-bold text-sm mb-3 ${textMain}`}>Donation History</h4>
+                {getUserDonations(viewUser.name).length === 0 ? (
+                  <p className={`text-sm ${textSub}`}>No donations found in database.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {getUserDonations(viewUser.name).map((d: any) => (
+                      <div key={d.id} className={`flex items-center justify-between p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                        <div>
+                          <p className={`text-sm font-medium ${textMain}`}>{d.category} · {d.quantity_description}</p>
+                          <p className={`text-xs ${textSub}`}>{new Date(d.timestamp).toLocaleDateString()}</p>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${d.status === 'Completed' ? 'bg-green-100 text-green-700' : d.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>{d.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

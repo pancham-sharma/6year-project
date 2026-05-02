@@ -1,0 +1,272 @@
+@import "tailwindcss";
+
+/* Tailwind CSS v4 Theme Configuration (using :root for IDE compatibility) */
+@layer base {
+  :root {
+    /* Brand Palette */
+    --color-brand: #18E299;
+    --color-brand-light: #d4fae8;
+    --color-brand-deep: #0fa76e;
+    --color-heart-red: #ef4444;
+    
+    --color-near-black: #0d0d0d;
+    --color-pure-white: #ffffff;
+    
+    /* Semantic Colors (Light Mode) */
+    --color-bg: #ffffff;
+    --color-text: #0d0d0d;
+    --color-text-sub: #666666;
+    --color-card-bg: #ffffff;
+    --color-card-border: rgba(0,0,0,0.05);
+    --color-hero-bg: radial-gradient(circle at 50% -20%, var(--color-brand-light) 0%, var(--color-pure-white) 70%);
+
+    --color-gray-900: #0d0d0d;
+    --color-gray-700: #333333;
+    --color-gray-500: #666666;
+    --color-gray-400: #888888;
+    --color-gray-200: #e5e5e5;
+    --color-gray-100: #f5f5f5;
+    --color-gray-50: #fafafa;
+  
+    --color-warn-bg: #c37d0d;
+    --color-tag-bg: #3772cf;
+    --color-error-bg: #d45656;
+  
+    /* Primary Tokens */
+    --color-primary-50: var(--color-gray-50);
+    --color-primary-100: var(--color-gray-100);
+    --color-primary-500: var(--color-brand);
+    --color-primary-600: var(--color-brand-deep);
+    --color-primary-900: var(--color-near-black);
+  
+    --font-sans: 'Inter', 'Inter Fallback', system-ui, -apple-system, sans-serif;
+    --font-mono: 'Geist Mono', 'Geist Mono Fallback', ui-monospace, SFMono-Regular, monospace;
+    --font-serif: 'Playfair Display', Georgia, serif;
+  
+    --radius-xl: 16px;
+    --radius-2xl: 24px;
+  }
+
+  :root.dark {
+    --color-bg: #0f172b;
+    --color-text: #f8fafc;
+    --color-text-sub: #94a3b8;
+    --color-card-bg: #1e293b;
+    --color-card-border: rgba(255,255,255,0.08);
+    --color-hero-bg: radial-gradient(circle at 50% -20%, rgba(24, 226, 153, 0.1) 0%, #0f172b 70%);
+    --color-gray-100: #1e293b;
+    --color-gray-50: #0f172b;
+    --color-brand-light: rgba(24, 226, 153, 0.05);
+    --color-brand-deep: #18E299;
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-brand) transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Mintlify Typography Rules */
+.display-hero {
+  font-size: 64px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -1.28px;
+  color: var(--color-text);
+}
+
+.section-heading {
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.10;
+  letter-spacing: -0.8px;
+  color: var(--color-text);
+}
+
+.sub-heading {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.30;
+  letter-spacing: -0.24px;
+  color: var(--color-text);
+}
+
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* Components */
+.mint-card:hover {
+  border-color: rgba(0,0,0,0.08);
+}
+
+/* Modern Donation Cards (Request-specific) */
+.card-modern {
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-card-border);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: rgba(0,0,0,0.02) 0px 4px 12px;
+}
+
+.card-modern:hover {
+  transform: translateY(-8px);
+  box-shadow: rgba(0,0,0,0.08) 0px 20px 40px;
+}
+
+.card-img-grayscale {
+  filter: grayscale(0%);
+  transition: all 0.5s ease;
+  transform: scale(1);
+}
+
+.card-modern:hover .card-img-grayscale {
+  filter: grayscale(0%);
+  transform: scale(1.05);
+}
+
+.icon-soft-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-brand-light); /* brand-light */
+  color: var(--color-brand-deep); /* brand-deep */
+}
+
+.modern-badge {
+  display: inline-flex;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: var(--color-gray-100);
+  color: var(--color-gray-500);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.modern-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.modern-link:hover {
+  color: var(--color-brand);
+}
+
+.mint-card-featured {
+  border-radius: 24px;
+  padding: 32px;
+}
+
+.mint-button-primary {
+  background: var(--color-near-black);
+  color: var(--color-pure-white);
+  border-radius: 9999px;
+  padding: 8px 24px;
+  font-weight: 500;
+  font-size: 15px;
+  box-shadow: rgba(0,0,0,0.06) 0px 1px 2px;
+  transition: opacity 0.2s ease;
+}
+
+.mint-button-primary:hover {
+  opacity: 0.9;
+}
+
+.mint-button-secondary {
+  background: var(--color-pure-white);
+  color: var(--color-near-black);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 9999px;
+  padding: 8px 24px;
+  font-weight: 500;
+  font-size: 15px;
+  transition: opacity 0.2s ease;
+}
+
+.mint-button-secondary:hover {
+  opacity: 0.9;
+}
+
+.mint-button-accent {
+  background: var(--color-brand);
+  color: var(--color-near-black);
+  border-radius: 9999px;
+  padding: 8px 24px;
+  font-weight: 500;
+  font-size: 15px;
+}
+
+/* Atmospheric Hero Gradient */
+.hero-gradient-wash {
+  background: var(--color-hero-bg);
+  position: relative;
+}
+
+.hero-gradient-wash::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent, var(--color-bg));
+  pointer-events: none;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.7s ease-out forwards;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Global Button Hover Effects */
+button, .btn-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+button:hover:not(:disabled), .btn-hover:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+
+button:active:not(:disabled), .btn-hover:active:not(:disabled) {
+  transform: translateY(0);
+  scale: 0.96;
+}
