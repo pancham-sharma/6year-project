@@ -75,7 +75,7 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
     { id: 'p1', name: 'Food', description: 'Help feed families in need with nutritious meals', impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', image: "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=800", is_active: true, is_system: true },
     { id: 'p2', name: 'Clothes', description: 'Provide warmth and dignity through clothing', impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', image: "https://images.unsplash.com/photo-1532629345422-7515f3d16bb8?q=80&w=800", is_active: true, is_system: true },
     { id: 'p3', name: 'Books', description: 'Empower minds through education materials', impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=800", is_active: true, is_system: true },
-    { id: 'p4', name: 'Money', description: 'Your financial support drives all our programs', impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=800", is_active: true, is_system: true },
+    { id: 'p4', name: 'Money', description: 'Your financial support drives all our programs', impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=800", is_active: true, is_system: true },
     { id: 'p5', name: 'Trees', description: 'Plant hope for a greener tomorrow', impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', image: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=800", is_active: true, is_system: true },
   ];
 

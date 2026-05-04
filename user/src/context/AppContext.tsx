@@ -45,7 +45,7 @@ interface AppContextType {
   logout: () => void;
   user: { name: string; email: string; phone: string; city: string; role: string };
   setUser: (u: { name: string; email: string; phone: string; city: string; role: string }) => void;
-  notifications: { id: number; text: string; time: string; read: boolean; message?: string; timestamp?: string }[];
+  notifications: { id: number; title: string; text: string; time: string; read: boolean; message?: string; timestamp?: string }[];
   markRead: (id: number) => void;
   setNotifications: (n: any[]) => void;
 }
@@ -116,7 +116,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const data = await fetchAPI('/api/chat/notifications/');
         const notifs = (data.results || data).map((n: any) => ({
           id: n.id,
-          text: n.message || n.text || '',
+          title: n.title || '',
+          text: n.message || n.text || n.title || '',
           time: n.timestamp ? new Date(n.timestamp).toLocaleString() : '',
           read: n.read ?? false,
           message: n.message,

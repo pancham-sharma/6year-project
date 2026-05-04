@@ -37,25 +37,34 @@ export default function About() {
   ];
 
   const team = [
-    { name: 'Priya Sharma', role: 'Founder & CEO', emoji: '👩‍💼' },
-    { name: 'Rahul Verma', role: 'Operations Head', emoji: '👨‍💻' },
-    { name: 'Ananya Patel', role: 'Community Lead', emoji: '👩‍🎓' },
+    { name: 'Priya Rani', role: 'Founder & CEO', emoji: '👩‍💼' },
+    { name: 'Ramandeep Kaur', role: 'Operations Head', emoji: '👨‍💻' },
+    { name: 'Pancham', role: 'Community Lead', emoji: '👩‍🎓' },
     { name: 'Vikram Singh', role: 'Tech Lead', emoji: '👨‍🔬' },
   ];
 
   return (
-    <div className={`min-h-screen pt-24 pb-16 ${dark ? 'bg-slate-900' : 'bg-white'}`}>
+    <div className={`min-h-screen pt-24 pb-16 ${dark ? 'bg-[#0f172b]' : 'bg-white'}`}>
       {/* Hero Banner */}
-      <section className="max-w-6xl mx-auto px-4 mb-16">
-        <div className={`relative rounded-3xl overflow-hidden ${dark ? 'shadow-2xl shadow-slate-950/50' : 'shadow-2xl'}`}>
-          <img src="/images/about-team.jpg" alt="Our team" className="w-full h-72 sm:h-96 object-cover" />
-          <div className={`absolute inset-0 ${dark ? 'bg-gradient-to-t from-slate-900/95 via-slate-900/60 to-slate-900/20' : 'bg-gradient-to-t from-black/80 via-black/40 to-black/10'}`} />
-          <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-12">
-            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-4 bg-white/20 backdrop-blur-sm text-white`}>
+      <section className="max-w-7xl mx-auto px-4 mb-16">
+        <div className={`relative rounded-[32px] overflow-hidden shadow-2xl group border border-gray-100`}>
+          <img 
+            src="https://pancham-sharma-6year-project.vercel.app/images/about-team.jpg" 
+            alt="Our Team" 
+            className="w-full h-[250px] sm:h-[320px] md:h-[400px] lg:h-[450px] object-cover transition-transform duration-1000 group-hover:scale-105" 
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
+          
+          <div className="absolute inset-0 flex flex-col justify-end p-8 sm:p-12 md:p-16">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-6 bg-white/20 backdrop-blur-md text-white border border-white/10 w-fit">
               <Heart className="w-4 h-4" /> About Us
             </div>
-            <h1 className="text-4xl sm:text-5xl font-bold font-serif text-white">{t.about.title}</h1>
-            <p className="text-white/70 text-lg mt-3 max-w-2xl">Building bridges of compassion across India since 2019</p>
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold font-serif text-white mb-4 tracking-tight leading-tight">
+              About Seva Marg
+            </h1>
+            <p className="text-white/90 text-base sm:text-lg md:text-xl max-w-2xl leading-relaxed font-medium">
+              Building bridges of compassion across India since 2019
+            </p>
           </div>
         </div>
       </section>
@@ -63,23 +72,23 @@ export default function About() {
       {/* Mission & Vision */}
       <section className={`py-16 ${dark ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
         <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className={`rounded-3xl p-8 transition-all hover:-translate-y-1 hover:shadow-xl ${dark ? 'bg-slate-800' : 'bg-white shadow-lg'}`}>
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-6 shadow-xl ${
-              dark ? 'bg-white shadow-white/5' : 'bg-gradient-to-br from-brand to-brand-deep shadow-brand/20'
+          <div className={`rounded-[32px] p-10 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center ${dark ? 'bg-slate-800' : 'bg-white shadow-xl shadow-gray-200/50'}`}>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-8 shadow-xl rotate-3 ${
+              dark ? 'bg-white shadow-white/5' : 'bg-[#0f172b] shadow-slate-900/20'
             }`}>
-              <Target className={`w-7 h-7 ${dark ? 'text-brand' : 'text-slate-900'}`} />
+              <Target className={`w-8 h-8 ${dark ? 'text-brand' : 'text-white'}`} />
             </div>
-            <h2 className={`text-2xl font-bold font-serif mb-3 ${dark ? 'text-white' : 'text-gray-900'}`}>{t.about.mission}</h2>
-            <p className={`leading-relaxed ${dark ? 'text-gray-300' : 'text-gray-600'}`}>{t.about.missionText}</p>
+            <h2 className={`text-2xl font-bold font-serif mb-4 ${dark ? 'text-white' : 'text-gray-900'}`}>{t.about.mission}</h2>
+            <p className={`text-[15px] leading-relaxed font-medium ${dark ? 'text-gray-300' : 'text-gray-600'}`}>{t.about.missionText}</p>
           </div>
-          <div className={`rounded-3xl p-8 transition-all hover:-translate-y-1 hover:shadow-xl ${dark ? 'bg-slate-800' : 'bg-white shadow-lg'}`}>
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-6 shadow-xl ${
-              dark ? 'bg-white shadow-white/5' : 'bg-gradient-to-br from-blue-400 to-indigo-600 shadow-blue-500/20'
+          <div className={`rounded-[32px] p-10 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl flex flex-col items-center text-center ${dark ? 'bg-slate-800' : 'bg-white shadow-xl shadow-gray-200/50'}`}>
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-8 shadow-xl -rotate-3 ${
+              dark ? 'bg-white shadow-white/5' : 'bg-[#0f172b] shadow-slate-900/20'
             }`}>
-              <Eye className={`w-7 h-7 ${dark ? 'text-blue-500' : 'text-white'}`} />
+              <Eye className={`w-8 h-8 ${dark ? 'text-brand' : 'text-white'}`} />
             </div>
-            <h2 className={`text-2xl font-bold font-serif mb-3 ${dark ? 'text-white' : 'text-gray-900'}`}>{t.about.vision}</h2>
-            <p className={`leading-relaxed ${dark ? 'text-gray-300' : 'text-gray-600'}`}>{t.about.visionText}</p>
+            <h2 className={`text-2xl font-bold font-serif mb-4 ${dark ? 'text-white' : 'text-gray-900'}`}>{t.about.vision}</h2>
+            <p className={`text-[15px] leading-relaxed font-medium ${dark ? 'text-gray-300' : 'text-gray-600'}`}>{t.about.visionText}</p>
           </div>
         </div>
       </section>
@@ -87,20 +96,24 @@ export default function About() {
       {/* Story with Image */}
       <section className="max-w-6xl mx-auto px-4 py-16">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-          <div className="rounded-3xl overflow-hidden shadow-xl">
-            <img src="/images/stories-food.jpg" alt="Our story" className="w-full h-80 object-cover hover:scale-105 transition-transform duration-700" />
+          <div className="rounded-3xl overflow-hidden shadow-2xl">
+            <img 
+              src="https://pancham-sharma-6year-project.vercel.app/images/stories-food.jpg" 
+              alt="Our story" 
+              className="w-full h-[350px] sm:h-[450px] md:h-[500px] lg:h-[550px] object-cover hover:scale-105 transition-transform duration-700" 
+            />
           </div>
           <div>
             <h2 className={`text-3xl font-bold font-serif mb-6 ${dark ? 'text-white' : 'text-gray-900'}`}>{t.about.story}</h2>
             <p className={`text-lg leading-relaxed ${dark ? 'text-gray-300' : 'text-gray-600'}`}>{t.about.storyText}</p>
             <div className="mt-6 flex gap-4">
-              <div className={`rounded-xl p-4 flex-1 ${dark ? 'bg-primary-900/20' : 'bg-primary-50'}`}>
-                <div className={`text-2xl font-bold ${dark ? 'text-brand' : 'text-primary-600'}`}>6+</div>
-                <div className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Years of Service</div>
+              <div className={`rounded-xl p-6 flex-1 flex flex-col items-center text-center transition-all duration-300 hover:-translate-y-1 ${dark ? 'bg-white/5 border border-white/10' : 'bg-white shadow-lg shadow-primary-900/5 hover:shadow-xl'}`}>
+                <div className={`text-xl font-bold ${dark ? 'text-white' : 'text-primary-600'}`}>6+</div>
+                <div className={`text-sm ${dark ? 'text-slate-300' : 'text-gray-500'}`}>Years of Service</div>
               </div>
-              <div className={`rounded-xl p-4 flex-1 ${dark ? 'bg-accent-900/20' : 'bg-accent-50'}`}>
-                <div className={`text-2xl font-bold ${dark ? 'text-brand' : 'text-accent-600'}`}>50+</div>
-                <div className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Cities Covered</div>
+              <div className={`rounded-xl p-6 flex-1 flex flex-col items-center text-center transition-all duration-300 hover:-translate-y-1 ${dark ? 'bg-white/5 border border-white/10' : 'bg-white shadow-lg shadow-accent-900/5 hover:shadow-xl'}`}>
+                <div className={`text-xl font-bold ${dark ? 'text-white' : 'text-accent-600'}`}>50+</div>
+                <div className={`text-sm ${dark ? 'text-slate-300' : 'text-gray-500'}`}>Cities Covered</div>
               </div>
             </div>
           </div>
@@ -156,7 +169,7 @@ export default function About() {
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center mx-auto mb-3 shadow-lg`}>
                   <item.icon className="w-6 h-6 text-white" />
                 </div>
-                <div className={`text-3xl font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{item.count.toLocaleString()}+</div>
+                <div className={`text-xl font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{item.count.toLocaleString()}+</div>
                 <div className={`text-sm mt-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{item.label}</div>
               </div>
             ))}
@@ -169,7 +182,12 @@ export default function About() {
         <div className="max-w-6xl mx-auto px-4">
           <h2 className={`text-3xl font-bold font-serif text-center mb-12 ${dark ? 'text-white' : 'text-gray-900'}`}>Our Work in Pictures</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {['/images/hero.jpg', '/images/stories-food.jpg', '/images/stories-education.jpg', '/images/stories-trees.jpg'].map((img, i) => (
+            {[
+              'https://pancham-sharma-6year-project.vercel.app/images/hero.jpg',
+              'https://pancham-sharma-6year-project.vercel.app/images/stories-food.jpg',
+              'https://pancham-sharma-6year-project.vercel.app/images/stories-education.jpg',
+              'https://pancham-sharma-6year-project.vercel.app/images/stories-trees.jpg'
+            ].map((img, i) => (
               <div key={i} className="rounded-2xl overflow-hidden shadow-lg group cursor-pointer aspect-square">
                 <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
               </div>

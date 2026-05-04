@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Heart, Package, MapPin, Truck,
   Users, MessageSquare, Bell, BarChart3, Settings, ChevronLeft,
-  Utensils, Shirt, BookOpen, Coins, Leaf, X, Handshake, LayoutGrid
+  Utensils, Shirt, BookOpen, Coins, Leaf, X, Handshake, LayoutGrid, Trash2
 } from 'lucide-react';
 import { useSearch } from '../context/SearchContext';
 import { useState, useEffect } from 'react';
@@ -9,7 +9,7 @@ import { fetchAPI } from '../utils/api';
 
 export type NavSection =
   | 'dashboard' | 'donations' | 'inventory' | 'location' | 'pickups'
-  | 'users' | 'volunteers' | 'messages' | 'notifications' | 'reports' | 'settings' | 'category_mgmt'
+  | 'users' | 'volunteers' | 'messages' | 'notifications' | 'reports' | 'settings' | 'category_mgmt' | 'recycle'
   | 'food' | 'clothes' | 'books' | 'monetary' | 'environment';
 
 interface SidebarProps {
@@ -34,6 +34,7 @@ const mainNav = [
   { id: 'notifications' as NavSection, label: 'Notifications', icon: Bell },
   { id: 'reports' as NavSection, label: 'Reports & Analytics', icon: BarChart3 },
   { id: 'category_mgmt' as NavSection, label: 'Manage Categories', icon: LayoutGrid },
+  { id: 'recycle' as NavSection, label: 'Recycle Bin', icon: Trash2 },
   { id: 'settings' as NavSection, label: 'Settings', icon: Settings },
 ];
 

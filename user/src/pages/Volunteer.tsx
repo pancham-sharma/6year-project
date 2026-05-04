@@ -26,7 +26,8 @@ export default function Volunteer() {
       try {
         const data = await fetchAPI('/api/users/volunteer/');
         const apps = data.results || data || [];
-        setPastApplications(apps);
+        // Case-insensitive filter out 'Recycled' status
+        setPastApplications(apps.filter((app: any) => app.status.toLowerCase() !== 'recycled'));
 
         // Get previous statuses from localStorage
         const prevStatuses = JSON.parse(localStorage.getItem('vol_app_statuses') || '{}');
@@ -83,33 +84,42 @@ export default function Volunteer() {
   }
 
   return (
-    <div className={`min-h-screen pt-24 pb-16 ${dark ? 'bg-slate-900' : 'bg-gradient-to-b from-primary-50/30 to-white'}`}>
+    <div className={`min-h-screen pt-16 ${dark ? 'bg-[#0f172b]' : 'bg-slate-50'}`}>
       {/* Hero Banner */}
-      <div className="max-w-6xl mx-auto px-4 mb-12">
-        <div className={`relative rounded-3xl overflow-hidden ${dark ? 'shadow-2xl shadow-slate-950/50' : 'shadow-2xl'}`}>
-          <img src="/images/volunteer-hero.jpg" alt="Volunteers" className="w-full h-64 sm:h-80 object-cover" />
-          <div className={`absolute inset-0 ${dark ? 'bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-900/30' : 'bg-gradient-to-r from-black/70 via-black/50 to-black/20'}`} />
-          <div className="absolute inset-0 flex flex-col justify-center px-8 sm:px-12">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white text-xs font-medium mb-3 w-fit">
+      <div className="max-w-7xl mx-auto px-4 mb-12 pt-8">
+        <div className={`relative rounded-[32px] overflow-hidden shadow-2xl group`}>
+          <img 
+            src="https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=2000" 
+            alt="Join the Movement" 
+            className="w-full h-[300px] md:h-[450px] object-cover transition-transform duration-1000 group-hover:scale-105" 
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
+          
+          <div className="absolute inset-0 flex flex-col justify-end p-8 sm:p-12 md:p-16">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-6 bg-white/20 backdrop-blur-md text-white border border-white/10 w-fit">
               <Users className="w-3 h-3" /> Join the Movement
             </div>
-            <h1 className="text-3xl sm:text-5xl font-bold font-serif text-white mb-3">{t.volunteer.title}</h1>
-            <p className="text-white/80 text-sm sm:text-lg max-w-xl">{t.volunteer.sub}</p>
+            <h1 className="text-4xl md:text-6xl font-bold font-serif text-white mb-4 tracking-tight drop-shadow-lg leading-tight">
+              {t.volunteer.title}
+            </h1>
+            <p className="text-white/90 text-base sm:text-lg md:text-xl max-w-xl font-medium drop-shadow-md">
+              {t.volunteer.sub}
+            </p>
           </div>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-4">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
           {[
             { num: '2,500+', label: 'Active Volunteers' },
             { num: '50+', label: 'Cities' },
             { num: '100+', label: 'Events/Month' },
           ].map((s, i) => (
-            <div key={i} className={`text-center p-5 rounded-2xl transition-all hover:-translate-y-1 hover:shadow-lg ${dark ? 'bg-slate-800' : 'bg-white shadow-sm border border-gray-100'}`}>
-              <div className={`text-2xl font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{s.num}</div>
-              <div className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{s.label}</div>
+            <div key={i} className={`flex flex-col items-center justify-center text-center p-6 rounded-2xl transition-all hover:-translate-y-1 hover:shadow-xl ${dark ? 'bg-slate-800' : 'bg-white shadow-md border border-gray-100'}`}>
+              <div className={`text-xl font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{s.num}</div>
+              <div className={`text-[13px] font-medium mt-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -136,22 +146,7 @@ export default function Volunteer() {
               ))}
             </div>
 
-            {/* Testimonial */}
-            <div className={`mt-6 rounded-2xl p-5 ${dark ? 'bg-slate-800' : 'bg-primary-50'}`}>
-              <div className="flex items-center gap-3 mb-3">
-                <img src="/images/stories-education.jpg" alt="Volunteer" className="w-10 h-10 rounded-full object-cover" />
-                <div>
-                  <div className={`font-semibold text-sm ${dark ? 'text-white' : 'text-gray-900'}`}>Neha Gupta</div>
-                  <div className={`text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Teaching Volunteer, Delhi</div>
-                </div>
-              </div>
-              <p className={`text-sm italic leading-relaxed ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
-                "Volunteering with SevaSetu changed my perspective. The joy of teaching underprivileged children is beyond words."
-              </p>
-              <div className="flex gap-0.5 mt-2">
-                {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 fill-yellow-400 text-yellow-400" />)}
-              </div>
-            </div>
+            {/* Roles End */}
           </div>
 
           {/* Form */}
@@ -164,7 +159,7 @@ export default function Volunteer() {
 
             {pastApplications.length > 0 && (
               <div className={`mb-6 p-4 rounded-2xl border-2 ${dark ? 'border-slate-600 bg-slate-700/30' : 'border-primary-200 bg-primary-50/50'}`}>
-                <p className={`text-sm font-semibold mb-2 ${dark ? 'text-primary-400' : 'text-primary-700'}`}>Your Past Applications</p>
+                <p className={`text-sm font-bold mb-2 ${dark ? 'text-white' : 'text-primary-700'}`}>Your Past Applications</p>
                 {pastApplications.map((app: any) => (
                   <div key={app.id} className="flex justify-between text-xs mt-1">
                     <span className={dark ? 'text-gray-300' : 'text-gray-700'}>{app.volunteering_role} — {app.city}</span>

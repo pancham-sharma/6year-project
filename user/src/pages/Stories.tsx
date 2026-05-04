@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Quote, Star, BookOpen, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -13,9 +13,13 @@ const stories = [
 ];
 
 const inspQuotes = [
-  { text: 'The best time to plant a tree was 20 years ago. The second best time is now.', author: 'Chinese Proverb' },
-  { text: 'Alone we can do so little; together we can do so much.', author: 'Helen Keller' },
-  { text: 'Act as if what you do makes a difference. It does.', author: 'William James' },
+  { text: "Chhoti si madad, kisi ki badi muskaan ban jaati hai.", author: "SevaMarge" },
+  { text: "Daulat se nahi, niyat se ameer bano.", author: "SevaMarge" },
+  { text: "Jo diya hai tumne, wahi kal dua ban kar lautega.", author: "SevaMarge" },
+  { text: "Insaan woh nahi jo rakhta hai, woh hai jo baant deta hai.", author: "SevaMarge" },
+  { text: "Ek roti dene se pet hi nahi, rishta bhi bhar jaata hai.", author: "SevaMarge" },
+  { text: "Madad ka size chhota ho sakta hai, asar nahi.", author: "SevaMarge" },
+  { text: "Dene wala bada hota hai, paise se nahi dil se.", author: "SevaMarge" },
 ];
 
 export default function Stories() {
@@ -25,8 +29,16 @@ export default function Stories() {
   const filtered = selected ? stories.filter(s => s.category === selected) : stories;
   const cats = [...new Set(stories.map(s => s.category))];
 
+  // Auto-scroll quotes
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setQuoteIdx(prev => (prev + 1) % inspQuotes.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <div className={`min-h-screen pt-24 pb-16 ${dark ? 'bg-slate-900' : 'bg-white'}`}>
+    <div className={`min-h-screen pt-24 pb-16 transition-colors duration-500 ${dark ? 'bg-[#0f172b]' : 'bg-white'}`}>
       {/* Hero Banner with Image */}
       <section className="relative overflow-hidden mb-12">
         <div className="max-w-6xl mx-auto px-4">
@@ -46,17 +58,34 @@ export default function Stories() {
 
       <div className="max-w-6xl mx-auto px-4">
         {/* Inspirational Quote Carousel */}
-        <div className={`rounded-3xl p-8 sm:p-10 mb-12 relative overflow-hidden ${dark ? 'bg-gradient-to-br from-slate-800 to-slate-800/50' : 'bg-gradient-to-br from-primary-50 to-accent-50'}`}>
-          <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-primary-400/10 -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-accent-400/10 translate-y-1/2 -translate-x-1/2" />
-          <Quote className={`w-10 h-10 mb-4 ${dark ? 'text-primary-400/30' : 'text-primary-300'}`} />
-          <p className={`text-xl sm:text-2xl font-serif italic leading-relaxed relative z-10 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>
-            "{inspQuotes[quoteIdx].text}"
-          </p>
-          <p className={`mt-3 font-semibold text-sm relative z-10 ${dark ? 'text-primary-400' : 'text-primary-600'}`}>— {inspQuotes[quoteIdx].author}</p>
-          <div className="flex gap-2 mt-5 relative z-10">
+        <div className={`rounded-3xl p-8 sm:p-14 mb-12 relative overflow-hidden transition-all duration-700 ${dark ? 'bg-slate-800/50 border border-white/10 shadow-2xl shadow-slate-950/50' : 'bg-white shadow-2xl shadow-primary-900/10 border border-gray-100'}`}>
+          <div className="absolute top-0 right-0 w-60 h-60 rounded-full bg-primary-500/5 -translate-y-1/2 translate-x-1/2 blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-accent-500/5 translate-y-1/2 -translate-x-1/2 blur-3xl" />
+          
+          <Quote className={`w-14 h-14 mb-8 ${dark ? 'text-white/30' : 'text-primary-200'}`} />
+          
+          <div className="relative h-[180px] sm:h-[140px] overflow-hidden">
+            <div 
+              className="flex transition-transform duration-1000 ease-in-out h-full"
+              style={{ transform: `translateX(-${quoteIdx * 100}%)` }}
+            >
+              {inspQuotes.map((q, i) => (
+                <div key={i} className="min-w-full flex flex-col justify-center pr-4">
+                  <p className={`text-2xl sm:text-3xl font-serif italic leading-relaxed ${dark ? 'text-white' : 'text-slate-800'}`}>
+                    "{q.text}"
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-10 relative z-10">
             {inspQuotes.map((_, i) => (
-              <button key={i} onClick={() => setQuoteIdx(i)} className={`w-2.5 h-2.5 rounded-full transition-all ${i === quoteIdx ? 'bg-primary-500 w-8' : dark ? 'bg-slate-600' : 'bg-gray-300'}`} />
+              <button 
+                key={i} 
+                onClick={() => setQuoteIdx(i)} 
+                className={`h-1.5 rounded-full transition-all duration-700 ${i === quoteIdx ? (dark ? 'bg-white w-12' : 'bg-primary-500 w-12') : (dark ? 'bg-white/20 hover:bg-white/40 w-3' : 'bg-gray-200 hover:bg-gray-300 w-3')}`} 
+              />
             ))}
           </div>
         </div>

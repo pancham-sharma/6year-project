@@ -29,8 +29,8 @@ export default function Home() {
   const permanentCategories = [
     { id: 'p1', name: t.categories.food, description: t.categories.foodDesc, impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', image: "/Join the Movement_ Support Our Homeless Community!.jpeg" },
     { id: 'p2', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', image: "/Two individuals are sharing a box of donated clothes labeled 'DONATION' in a warm, communal setting_.jpeg" },
-    { id: 'p3', name: t.categories.books, description: t.categories.booksDesc, impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: '/images/stories-education.jpg' },
-    { id: 'p4', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "/download (9).jpeg" },
+    { id: 'p3', name: t.categories.books, description: t.categories.booksDesc, impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: 'http://127.0.0.1:8000/media/category_images/download_9_IOLG5uL.jpeg' },
+    { id: 'p4', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "http://127.0.0.1:8000/media/category_images/download_9.jpeg" },
     { id: 'p5', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', image: '/images/stories-trees.jpg' },
   ];
 
@@ -68,7 +68,9 @@ export default function Home() {
             return {
               ...p,
               ...dbVersion,
-              image: dbVersion.image ? getImageUrl(dbVersion.image) : p.image
+              image: (p.name === t.categories.books || p.name === t.categories.money)
+                ? p.image // Use hardcoded image for Books & Money
+                : (dbVersion.image ? getImageUrl(dbVersion.image) : p.image)
             };
           }
           return p;
@@ -125,15 +127,15 @@ export default function Home() {
       </section>
 
       {/* Featured Categories */}
-      <section className="py-32">
+      <section className="py-24 sm:py-32 bg-slate-50/50 dark:bg-white/[0.02]">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-20">
-            <p className="mono-label text-brand-deep mb-3 uppercase tracking-widest text-[10px]">What we do</p>
-            <h2 className={`section-heading mb-4 font-bold tracking-tight ${dark ? 'text-white' : 'text-slate-900'}`}>{t.categories.title}</h2>
-            <p className={`text-lg max-w-2xl mx-auto font-medium ${dark ? 'text-slate-400' : 'text-slate-600'}`}>{t.categories.sub}</p>
+          <div className="text-center mb-16 md:mb-24 px-4">
+            <p className="mono-label text-brand-deep mb-4 uppercase tracking-[0.2em] text-[11px] font-extrabold">{t.categories.title}</p>
+            <h2 className={`section-heading mb-6 font-bold tracking-tight ${dark ? 'text-white' : 'text-slate-900'}`}>{t.categories.title}</h2>
+            <p className={`text-base sm:text-lg max-w-2xl mx-auto font-medium leading-relaxed ${dark ? 'text-slate-400' : 'text-slate-600'}`}>{t.categories.sub}</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
             {categories.map((cat) => {
               const Icon = iconMap[cat.icon_name];
               return (
@@ -146,14 +148,14 @@ export default function Home() {
                       onError={(e) => (e.currentTarget.src = '/images/hero.jpg')}
                     />
                   </div>
-                  <div className="p-8">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="icon-soft-circle group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
+                  <div className="p-8 flex flex-col items-center text-center">
+                    <div className="flex flex-col items-center mb-4">
+                      <div className="icon-soft-circle mb-4 group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
                         {Icon ? <Icon className="w-5 h-5" /> : <span className="text-xl">{cat.icon_name || '📦'}</span>}
                       </div>
                       <h3 className={`text-xl font-bold tracking-tight ${dark ? 'text-white' : 'text-near-black'}`}>{cat.name}</h3>
                     </div>
-                    <p className={`text-[15px] leading-relaxed mb-6 h-10 overflow-hidden ${dark ? 'text-gray-400' : 'text-near-black/70 font-medium'}`}>
+                    <p className={`text-[15px] leading-relaxed mb-6 h-12 overflow-hidden ${dark ? 'text-gray-400' : 'text-near-black/70 font-medium'}`}>
                       {cat.description}
                     </p>
                     <div className="mb-8">
@@ -161,7 +163,7 @@ export default function Home() {
                         {cat.impact_badge}
                       </span>
                     </div>
-                    <Link to="/donate" className={`modern-link group/link ${dark ? 'text-brand hover:text-white' : 'text-[#0f172b] hover:text-brand-deep'} font-bold flex items-center gap-1.5 transition-colors`}>
+                    <Link to="/donate" className={`modern-link group/link justify-center ${dark ? 'text-brand hover:text-white' : 'text-[#0f172b] hover:text-brand-deep'} font-bold flex items-center gap-1.5 transition-colors w-full`}>
                       Donate Now <ArrowRight className="w-4 h-4 transition-transform group-hover/link:translate-x-1" />
                     </Link>
                   </div>
@@ -172,26 +174,26 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-32">
+      <section className="py-20 sm:py-28">
         <div className="max-w-5xl mx-auto px-4">
-          <div className={`rounded-[48px] p-10 sm:p-16 relative overflow-hidden text-center transition-all duration-500 shadow-2xl ${dark ? 'bg-white shadow-white/5' : 'bg-[#0f172b] shadow-slate-900/40'}`}>
+          <div className={`rounded-[40px] p-8 sm:p-16 relative overflow-hidden text-center transition-all duration-500 shadow-2xl ${dark ? 'bg-white shadow-white/5' : 'bg-[#0f172b] shadow-slate-900/40'}`}>
              <div className="absolute top-0 right-0 w-96 h-96 bg-brand opacity-10 blur-[100px] -mr-48 -mt-48 animate-pulse" />
              <div className="absolute bottom-0 left-0 w-96 h-96 bg-brand opacity-10 blur-[100px] -ml-48 -mb-48 animate-pulse" />
              
-             <div className="relative z-10 flex flex-col items-center justify-center text-center max-w-2xl mx-auto">
-                <h2 className={`text-3xl sm:text-4xl font-bold tracking-tight mb-4 ${dark ? 'text-slate-900' : 'bg-gradient-to-r from-white via-emerald-300 to-white bg-clip-text text-transparent'}`}>
+             <div className="relative z-10 flex flex-col items-center justify-center text-center max-w-3xl mx-auto">
+                <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold font-serif mb-6 tracking-tight`} style={{ color: '#95f0c9' }}>
                   Ready to Make a Difference?
                 </h2>
-                <p className={`text-[15px] sm:text-lg mb-8 font-medium leading-relaxed ${dark ? 'text-slate-600' : 'text-slate-300'}`}>
+                <p className={`text-base sm:text-lg mb-8 font-medium leading-relaxed px-4 ${dark ? 'text-slate-600' : 'text-slate-200'}`}>
                   Every donation, no matter how small, creates ripples of positive change. Start your journey of giving today.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
-                  <Link to="/donate" className={`px-8 py-2.5 rounded-full text-[15px] font-bold transition-all duration-300 active:scale-95 shadow-xl ${
+                  <Link to="/donate" className={`px-8 py-3 rounded-full text-[15px] font-bold transition-all duration-300 active:scale-95 shadow-xl ${
                     dark ? 'bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/20' : 'bg-white text-slate-900 shadow-white/10 hover:bg-brand hover:text-slate-900'
                   }`}>
                     Start Donating
                   </Link>
-                  <Link to="/about" className={`px-8 py-2.5 rounded-full text-[15px] font-bold border-2 transition-all active:scale-95 ${
+                  <Link to="/about" className={`px-8 py-3 rounded-full text-[15px] font-bold border-2 transition-all active:scale-95 ${
                     dark ? 'border-slate-200 text-slate-900 hover:bg-slate-50' : 'border-white/10 text-white hover:bg-white/5'
                   }`}>
                     Learn More

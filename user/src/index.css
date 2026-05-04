@@ -80,26 +80,27 @@ body {
 
 /* Mintlify Typography Rules */
 .display-hero {
-  font-size: 64px;
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -1.28px;
+  font-size: clamp(24px, 9vw, 64px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
   color: var(--color-text);
+  margin-bottom: 0.5rem;
 }
 
 .section-heading {
-  font-size: 40px;
-  font-weight: 600;
-  line-height: 1.10;
-  letter-spacing: -0.8px;
+  font-size: clamp(28px, 6vw, 48px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   color: var(--color-text);
 }
 
 .sub-heading {
-  font-size: 24px;
+  font-size: clamp(18px, 4vw, 24px);
   font-weight: 500;
-  line-height: 1.30;
-  letter-spacing: -0.24px;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
   color: var(--color-text);
 }
 
@@ -259,14 +260,17 @@ body {
 /* Global Button Hover Effects */
 button, .btn-hover {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 button:hover:not(:disabled), .btn-hover:hover:not(:disabled) {
   transform: translateY(-2px);
   filter: brightness(1.05);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
 }
 
 button:active:not(:disabled), .btn-hover:active:not(:disabled) {
   transform: translateY(0);
   scale: 0.96;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
