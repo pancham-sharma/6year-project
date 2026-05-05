@@ -5,6 +5,17 @@ from .serializers import UserSerializer, RegisterSerializer, VolunteerApplicatio
 from .models import VolunteerApplication
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+try:
+    import pyotp
+    import qrcode
+    import qrcode.image.svg
+except ImportError:
+    pyotp = None
+    qrcode = None
+from io import BytesIO
+import base64
 
 User = get_user_model()
 
@@ -107,3 +118,92 @@ class ChangePasswordView(APIView):
         user.set_password(new_password)
         user.save()
         return Response({"message": "Password updated successfully."})
+
+# --- 2FA VIEWS ---
+
+class TwoFactorSetupView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.two_factor_enabled:
+            return Response({"error": "2FA is already enabled"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Generate secret if not exists
+        if not user.otp_secret:
+            user.otp_secret = pyotp.random_base32()
+            user.save()
+        
+        totp = pyotp.TOTP(user.otp_secret)
+        otp_url = totp.provisioning_uri(name=user.email, issuer_name="SevaMarg")
+        
+        # Generate QR Code
+        img = qrcode.make(otp_url, image_factory=qrcode.image.svg.SvgImage)
+        buffer = BytesIO()
+        img.save(buffer)
+        qr_svg = base64.b64encode(buffer.getvalue()).decode()
+        
+        return Response({
+            "secret": user.otp_secret,
+            "qr_code": f"data:image/svg+xml;base64,{qr_svg}"
+        })
+
+class TwoFactorVerifyView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        otp = request.data.get('otp')
+        if not otp:
+            return Response({"error": "OTP is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        totp = pyotp.TOTP(user.otp_secret)
+        if totp.verify(otp):
+            user.two_factor_enabled = True
+            user.save()
+            return Response({"message": "2FA enabled successfully"})
+        return Response({"error": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
+
+class TwoFactorDisableView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        user.two_factor_enabled = False
+        user.otp_secret = None
+        user.save()
+        return Response({"message": "2FA disabled successfully"})
+
+class GetAdminIdView(APIView):
+    permission_classes = [permissions.AllowAny] # So users can find it to start chat
+
+    def get(self, request):
+        admin = User.objects.filter(role='ADMIN').first() or User.objects.filter(is_superuser=True).first()
+        if admin:
+            return Response({"id": admin.id, "username": admin.username})
+        return Response({"error": "Admin not found"}, status=404)
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        # First, standard login
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        user = User.objects.get(username=request.data.get('username'))
+        
+        if user.two_factor_enabled:
+            otp = request.data.get('otp')
+            if not otp:
+                return Response({
+                    "two_factor_required": True,
+                    "message": "OTP required"
+                }, status=status.HTTP_200_OK) # Return 200 so frontend knows to show OTP input
+            
+            totp = pyotp.TOTP(user.otp_secret)
+            if not totp.verify(otp):
+                return Response({"error": "Invalid OTP"}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)

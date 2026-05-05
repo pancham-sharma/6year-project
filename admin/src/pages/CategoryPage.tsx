@@ -5,7 +5,7 @@ import {
 import { TrendingUp, Package, ArrowDownCircle, Archive, Loader } from 'lucide-react';
 import { fetchAPI } from '../utils/api';
 
-export type DonationCategory = 'Food' | 'Clothes' | 'Books' | 'Monetary' | 'Environment';
+export type DonationCategory = string;
 
 interface Props { darkMode: boolean; category: DonationCategory; }
 
@@ -17,6 +17,8 @@ const categoryConfig: Record<DonationCategory, { icon: string; color: string; gr
 
   Environment: { icon: '🌱', color: 'text-green-500', gradient: 'from-green-400 to-teal-500', unit: 'saplings', barColor: '#22c55e' },
 };
+
+const defaultCfg = { icon: '📦', color: 'text-green-500', gradient: 'from-green-400 to-emerald-500', unit: 'units', barColor: '#10b981' };
 
 export default function CategoryPage({ darkMode, category }: Props) {
   const [donations, setDonations] = useState<any[]>([]);
@@ -41,7 +43,7 @@ export default function CategoryPage({ darkMode, category }: Props) {
     fetchData();
   }, [category]); // Re-fetch or re-calculate if category prop somehow changes
 
-  const cfg = categoryConfig[category];
+  const cfg = (categoryConfig as any)[category] || defaultCfg;
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
   const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';

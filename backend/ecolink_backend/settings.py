@@ -16,6 +16,7 @@ DEBUG = env('DEBUG', default=True)
 ALLOWED_HOSTS = ['*'] # Change in production
 
 INSTALLED_APPS = [
+    # 'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -37,6 +38,7 @@ INSTALLED_APPS = [
     'donations',
     'inventory',
     'chat',
+    # 'channels',
 ]
 
 MIDDLEWARE = [
@@ -69,6 +71,15 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'ecolink_backend.wsgi.application'
+# ASGI_APPLICATION = 'ecolink_backend.asgi.application'
+
+# Channel layers for WebSockets
+# Note: In production, use RedisChannelLayer
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    },
+}
 
 DATABASES = {
     'default': env.db('DATABASE_URL', default='postgres://admin:admin123@localhost:5432/donation_db')

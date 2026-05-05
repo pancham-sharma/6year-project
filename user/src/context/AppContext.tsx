@@ -43,8 +43,8 @@ interface AppContextType {
   isLoggedIn: boolean;
   setIsLoggedIn: (v: boolean) => void;
   logout: () => void;
-  user: { name: string; email: string; phone: string; city: string; role: string };
-  setUser: (u: { name: string; email: string; phone: string; city: string; role: string }) => void;
+  user: { id: any; name: string; email: string; phone: string; city: string; role: string };
+  setUser: (u: { id: any; name: string; email: string; phone: string; city: string; role: string }) => void;
   notifications: { id: number; title: string; text: string; time: string; read: boolean; message?: string; timestamp?: string }[];
   markRead: (id: number) => void;
   setNotifications: (n: any[]) => void;
@@ -57,7 +57,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>('en');
   // Initialize from localStorage so page refreshes preserve auth state
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('access_token'));
-  const [user, setUser] = useState({ name: '', email: '', phone: '', city: '', role: '' });
+  const [user, setUser] = useState({ id: null as any, name: '', email: '', phone: '', city: '', role: '' });
   const [notifications, setNotifications] = useState<any[]>([]);
 
   const toggleDark = () => setDark(p => !p);
@@ -79,7 +79,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('refresh_token');
     setIsLoggedIn(false);
     setNotifications([]);
-    setUser({ name: '', email: '', phone: '', city: '', role: '' });
+    setUser({ id: null, name: '', email: '', phone: '', city: '', role: '' });
   };
 
   // Fetch real user profile from DB on mount (and whenever login state changes)
@@ -88,6 +88,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetchAPI('/api/users/profile/')
       .then((profile: any) => {
         setUser({
+          id: profile.id,
           name: profile.first_name
             ? `${profile.first_name} ${profile.last_name || ''}`.trim()
             : profile.username || '',

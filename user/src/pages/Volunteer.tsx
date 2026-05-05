@@ -75,7 +75,11 @@ export default function Volunteer() {
           <p className={`mb-6 ${dark ? 'text-gray-300' : 'text-gray-600'}`}>Your volunteer application has been saved. Our team will reach out to you shortly!</p>
           <p className={`text-sm mb-6 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Application saved to database ✓</p>
           <button onClick={() => { setSubmitted(false); setForm({ name: '', email: '', phone: '', city: '', role: '', message: '' }); }}
-            className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all">
+            className={`px-8 py-3 rounded-xl font-bold transition-all active:scale-95 ${
+              dark 
+                ? 'bg-white text-[#0f172b] shadow-xl shadow-white/10' 
+                : 'bg-[#0f172b] text-white shadow-2xl shadow-slate-900/40'
+            }`}>
             Back to Form
           </button>
         </div>

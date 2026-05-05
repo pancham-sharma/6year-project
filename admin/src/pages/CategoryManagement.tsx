@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { 
-  Plus, Edit2, Trash2, Save, X, Image as ImageIcon, 
+  Plus, Edit2, Trash2, Save, X, Image as ImageIcon, Eye, EyeOff,
   Utensils, BookOpen, Shirt, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins, Loader, CheckCircle2, AlertCircle, Search
 } from 'lucide-react';
 import { fetchAPI } from '../utils/api';
@@ -133,6 +133,11 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
     setSaving(true);
     setMessage(null);
     try {
+      if (!formData.name.trim() || !formData.icon_name.trim()) {
+        setMessage({ text: "Name and Icon are required", type: 'error' });
+        setSaving(false);
+        return;
+      }
       const data = new FormData();
       data.append('name', formData.name);
       data.append('description', formData.description);
@@ -163,6 +168,8 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
       setMessage({ text: `Category ${editingId === 'new' ? 'created' : 'updated'} successfully!`, type: 'success' });
       setEditingId(null);
       fetchCategories();
+      // Dispatch event to update sidebar immediately
+      window.dispatchEvent(new CustomEvent('categoriesUpdated'));
     } catch (err) {
       setMessage({ text: "Error saving category. Please try again.", type: 'error' });
     } finally {
@@ -177,6 +184,8 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
       await fetchAPI(`/api/donations/categories/${id}/`, { method: 'DELETE' });
       setCategories(prev => prev.filter(c => c.id !== id));
       setMessage({ text: "Category deleted successfully", type: 'success' });
+      // Dispatch event to update sidebar immediately
+      window.dispatchEvent(new CustomEvent('categoriesUpdated'));
     } catch (err) {
       setMessage({ text: "Failed to delete category", type: 'error' });
     }
@@ -191,27 +200,41 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
     
     const matchesGlobal = !g || 
       c.name.toLowerCase().includes(g) || 
-      c.description.toLowerCase().includes(g);
+      (c.description || '').toLowerCase().includes(g);
       
     const matchesLocal = !l || 
       c.name.toLowerCase().includes(l) || 
-      c.description.toLowerCase().includes(l);
+      (c.description || '').toLowerCase().includes(l);
       
     return matchesGlobal && matchesLocal;
   });
+
+  const handleToggle = async (cat: Category) => {
+    if (cat.is_system) return;
+    try {
+      const updated = await fetchAPI(`/api/donations/categories/${cat.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: !cat.is_active })
+      });
+      setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, ...updated } : c));
+      window.dispatchEvent(new CustomEvent('categoriesUpdated'));
+    } catch (err) {
+      setMessage({ text: "Failed to update category status", type: 'error' });
+    }
+  };
 
   if (loading) return <div className="flex justify-center items-center h-64"><Loader className="animate-spin text-green-500" /></div>;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Donation Categories</h2>
-          <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Manage the causes displayed on the user landing page</p>
+          <p className={darkMode ? 'text-gray-400' : 'text-gray-500 text-sm'}>Manage the causes displayed on the user landing page</p>
         </div>
         <button 
           onClick={handleAddNew}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition-colors shadow-lg shadow-green-900/20"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold transition-colors shadow-lg shadow-green-900/20"
         >
           <Plus size={18} /> Add Category
         </button>
@@ -219,9 +242,9 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
       
       {/* Search Bar */}
       <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border shadow-sm ${cardClass} ${darkMode ? 'bg-gray-700/30' : 'bg-white'} mb-6`}>
-        <Search size={15} className={darkMode ? 'text-gray-400' : 'text-gray-500'} />
+        <Search size={15} className={darkMode ? 'text-gray-300' : 'text-gray-500'} />
         <input 
-          className="bg-transparent outline-none text-sm flex-1" 
+          className={`bg-transparent outline-none text-sm flex-1 ${darkMode ? 'text-white placeholder-gray-300' : 'text-gray-700 placeholder-gray-400'}`} 
           placeholder="Filter categories on this page..." 
           value={localSearch} 
           onChange={e => setLocalSearch(e.target.value)} 
@@ -358,7 +381,7 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filtered.map((cat) => {
-          const Icon = iconList.find(i => i.name === cat.icon_name)?.icon || LayoutGrid;
+          const Icon = iconList.find(i => i.name.toLowerCase() === (cat.icon_name || '').toLowerCase())?.icon || LayoutGrid;
           return (
             <div key={cat.id} className={`group rounded-2xl border overflow-hidden shadow-sm transition-all hover:shadow-md ${cardClass}`}>
               <div className="h-40 relative overflow-hidden bg-gray-100 dark:bg-gray-900">
@@ -403,20 +426,27 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
                   </div>
                 )}
               </div>
-              <div className="p-5">
+              <div className="p-5 flex flex-col h-full">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 flex items-center justify-center">
                     <Icon size={16} />
                   </div>
-                  <h4 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{cat.name}</h4>
+                  <h4 className={`font-bold truncate ${darkMode ? 'text-white' : 'text-gray-800'}`}>{cat.name}</h4>
                 </div>
-                <p className={`text-xs leading-relaxed mb-4 line-clamp-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <p className={`text-xs leading-relaxed mb-4 line-clamp-2 flex-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   {cat.description}
                 </p>
-                <div className="flex items-center justify-between mt-auto">
-                   <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[10px] font-bold rounded-lg uppercase">
+                <div className="flex items-center justify-between mt-auto gap-2">
+                   <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[10px] font-bold rounded-lg uppercase truncate max-w-[100px]">
                      {cat.impact_badge}
                    </span>
+                   <button 
+                      onClick={() => handleToggle(cat)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${cat.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400 dark:bg-gray-700/50'}`}
+                    >
+                      {cat.is_active ? <Eye size={12}/> : <EyeOff size={12}/>}
+                      {cat.is_active ? 'Live' : 'Off'}
+                    </button>
                 </div>
               </div>
             </div>

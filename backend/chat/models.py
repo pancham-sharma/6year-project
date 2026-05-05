@@ -61,3 +61,44 @@ def create_message_notification(sender, instance, created, **kwargs):
                 title="New message from Admin",
                 message=instance.message_body[:100] + ("..." if len(instance.message_body) > 100 else "")
             )
+@receiver(post_save, sender=Notification)
+def broadcast_notification(sender, instance, created, **kwargs):
+    if created:
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            channel_layer = get_channel_layer()
+            if not channel_layer: return
+
+            # Broadcast to user's private notify group
+            async_to_sync(channel_layer.group_send)(
+                f"notify_{instance.user.id}",
+                {
+                    "type": "notify_update",
+                    "data": {
+                        "id": instance.id,
+                        "title": instance.title,
+                        "message": instance.message,
+                        "timestamp": instance.timestamp.isoformat(),
+                        "read": instance.read
+                    }
+                }
+            )
+
+            # If user is admin, also broadcast to shared admin group
+            if instance.user.role == 'ADMIN' or instance.user.is_staff:
+                async_to_sync(channel_layer.group_send)(
+                    "admin_notifications",
+                    {
+                        "type": "notify_update",
+                        "data": {
+                            "id": instance.id,
+                            "title": instance.title,
+                            "message": instance.message,
+                            "timestamp": instance.timestamp.isoformat(),
+                            "read": instance.read
+                        }
+                    }
+                )
+        except Exception as e:
+            print(f"WS Broadcast error: {e}")

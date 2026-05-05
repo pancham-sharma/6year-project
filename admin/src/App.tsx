@@ -16,11 +16,11 @@ import Notifications from './pages/Notifications';
 import Volunteers from './pages/Volunteers';
 import CategoryManagement from "./pages/CategoryManagement.tsx";
 import RecycleBin from './pages/RecycleBin';
-import { DonationCategory } from './data/mockData';
 import { SearchProvider } from './context/SearchContext';
+import { ToastProvider } from './context/ToastContext';
+import { fetchAPI } from './utils/api';
 
-
-const pageTitles: Record<NavSection, string> = {
+const initialPageTitles: Record<string, string> = {
   dashboard: 'Dashboard',
   donations: 'Donation Management',
   inventory: 'Inventory Management',
@@ -37,16 +37,16 @@ const pageTitles: Record<NavSection, string> = {
   food: 'Food Donations',
   clothes: 'Clothes Donations',
   books: 'Books Donations',
-  monetary: 'Monetary Donations',
-  environment: 'Environment Donations',
+  money: 'Money Donations',
+  trees: 'Trees Donations',
 };
 
-const categoryMap: Partial<Record<NavSection, DonationCategory>> = {
+const initialCategoryMap: Record<string, string> = {
   food: 'Food',
   clothes: 'Clothes',
   books: 'Books',
-  monetary: 'Monetary',
-  environment: 'Environment',
+  money: 'Money',
+  trees: 'Trees',
 };
 
 export default function App() {
@@ -55,20 +55,55 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pageTitles, setPageTitles] = useState(initialPageTitles);
+  const [categoryMap, setCategoryMap] = useState(initialCategoryMap);
 
   useEffect(() => {
-    // Check if token exists on mount
     if (localStorage.getItem('access_token')) {
       setIsAuthenticated(true);
     }
+
+    const fetchCategories = async () => {
+      try {
+        const res = await fetchAPI('/api/donations/categories/');
+        const categoriesData = Array.isArray(res) ? res : (res.results || []);
+        
+        const newTitles = { ...initialPageTitles };
+        const newMap = { ...initialCategoryMap };
+        
+        categoriesData.forEach((cat: any) => {
+          const key = cat.name.toLowerCase();
+          if (!newTitles[key]) {
+            newTitles[key] = `${cat.name} Donations`;
+            newMap[key] = cat.name;
+          }
+        });
+        
+        setPageTitles(newTitles);
+        setCategoryMap(newMap);
+      } catch (err) {
+        console.error("Failed to fetch categories for App", err);
+      }
+    };
+
+    if (isAuthenticated) {
+      fetchCategories();
+    }
+
+    const handleCategoriesUpdate = () => {
+      if (isAuthenticated) fetchCategories();
+    };
+    window.addEventListener('categoriesUpdated', handleCategoriesUpdate);
 
     const handleNavigate = (e: any) => {
       setActiveSection(e.detail);
     };
     window.addEventListener('navigate', handleNavigate);
-    return () => window.removeEventListener('navigate', handleNavigate);
-  }, []);
-
+    return () => {
+      window.removeEventListener('navigate', handleNavigate);
+      window.removeEventListener('categoriesUpdated', handleCategoriesUpdate);
+    };
+  }, [isAuthenticated]);
 
   const bg = darkMode ? 'bg-gray-950' : 'bg-slate-50';
 
@@ -102,41 +137,46 @@ export default function App() {
   };
 
   if (!isAuthenticated) {
-    return <Auth darkMode={darkMode} onLoginSuccess={() => setIsAuthenticated(true)} />;
+    return (
+      <ToastProvider>
+        <Auth darkMode={darkMode} onLoginSuccess={() => setIsAuthenticated(true)} />
+      </ToastProvider>
+    );
   }
 
   return (
-    <SearchProvider>
-      <div className={`flex h-screen overflow-hidden ${bg} transition-colors duration-300`}>
-        <Sidebar
-          active={activeSection}
-          onNavigate={setActiveSection}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(c => !c)}
-          darkMode={darkMode}
-          mobileOpen={mobileMenuOpen}
-          onMobileClose={() => setMobileMenuOpen(false)}
-        />
-
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <Topbar
+    <ToastProvider>
+      <SearchProvider>
+        <div className={`flex h-screen overflow-hidden ${bg} transition-colors duration-300`}>
+          <Sidebar
+            active={activeSection}
+            onNavigate={setActiveSection}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(c => !c)}
             darkMode={darkMode}
-            onToggleDark={() => setDarkMode(d => !d)}
-            onMobileMenuOpen={() => setMobileMenuOpen(true)}
-            pageTitle={pageTitles[activeSection]}
-            onLogout={handleLogout}
+            mobileOpen={mobileMenuOpen}
+            onMobileClose={() => setMobileMenuOpen(false)}
           />
 
-          <main className="flex-1 overflow-y-auto">
-            <div className={`p-4 lg:p-6 ${activeSection === 'messages' ? 'h-full flex flex-col' : ''}`}>
-              <div className={`fade-in ${activeSection === 'messages' ? 'flex-1 flex flex-col min-h-0' : ''}`} key={activeSection}>
-                {renderPage()}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <Topbar
+              darkMode={darkMode}
+              onToggleDark={() => setDarkMode(d => !d)}
+              onMobileMenuOpen={() => setMobileMenuOpen(true)}
+              pageTitle={pageTitles[activeSection]}
+              onLogout={handleLogout}
+            />
+
+            <main className="flex-1 overflow-y-auto">
+              <div className={`p-4 lg:p-6 ${activeSection === 'messages' ? 'h-full flex flex-col' : ''}`}>
+                <div className={`fade-in ${activeSection === 'messages' ? 'flex-1 flex flex-col min-h-0' : ''}`} key={activeSection}>
+                  {renderPage()}
+                </div>
               </div>
-            </div>
-          </main>
+            </main>
+          </div>
         </div>
-      </div>
-    </SearchProvider>
+      </SearchProvider>
+    </ToastProvider>
   );
 }
-

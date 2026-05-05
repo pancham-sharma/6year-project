@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Settings2, Plus, Trash2, Save, Bell, Shield, Palette, Database, Loader, CheckCircle2, AlertCircle } from 'lucide-react';
+import { 
+  Settings2, Plus, Trash2, Save, Bell, Shield, Palette, Database, Loader, CheckCircle2, AlertCircle, RefreshCcw, Download,
+  Utensils, BookOpen, Shirt, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins
+} from 'lucide-react';
 import { fetchAPI } from '../utils/api';
+import { useToast } from '../context/ToastContext';
+import { Setup2FAModal } from '../components/Setup2FAModal';
 
 import RecycleBin from './RecycleBin';
 
@@ -24,30 +29,84 @@ const settingsSections = [
   { id: 'recycle', label: 'Recycle Bin', icon: Trash2 },
 ];
 
+const iconMap: Record<string, any> = {
+  utensils: Utensils,
+  bookopen: BookOpen,
+  shirt: Shirt,
+  banknote: Banknote,
+  sprout: Sprout,
+  heart: Heart,
+  layoutgrid: LayoutGrid,
+  handheart: HandHeart,
+  users: Users,
+  treepine: TreePine,
+  gift: Gift,
+  shoppingbag: ShoppingBag,
+  graduationcap: GraduationCap,
+  coins: Coins
+};
+
 export default function Settings({ darkMode, onToggleDark }: Props) {
+  const { showToast } = useToast();
   const [activeSection, setActiveSection] = useState('categories');
+  const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+
+  const setBtnLoading = (id: string, isLoading: boolean) => {
+    setActionLoading(prev => ({ ...prev, [id]: isLoading }));
+  };
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [newCatName, setNewCatName] = useState('');
-  const [newCatIcon, setNewCatIcon] = useState('📦');
+  const [newCatIcon, setNewCatIcon] = useState('layoutgrid');
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+  const [passwords, setPasswords] = useState({ current: '', new: '' });
+  const [passLoading, setPassLoading] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
 
   const [notifSettings, setNotifSettings] = useState({
     newDonation: true, newMessage: true, pickupUpdates: true,
     lowStock: true, weeklyReport: false, emailDigest: true,
   });
 
-  const [passwords, setPasswords] = useState({ current: '', new: '' });
-  const [passLoading, setPassLoading] = useState(false);
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const profile = await fetchAPI('/api/users/profile/');
+        setIs2FAEnabled(profile.two_factor_enabled);
+      } catch (err) {
+        console.error("Failed to fetch profile for 2FA status", err);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  useEffect(() => {
+    const lower = newCatName.toLowerCase().trim();
+    if (!lower) {
+      setNewCatIcon('layoutgrid');
+      return;
+    }
+    if (lower.includes('food') || lower.includes('meal')) setNewCatIcon('utensils');
+    else if (lower.includes('cloth') || lower.includes('shirt')) setNewCatIcon('shirt');
+    else if (lower.includes('book') || lower.includes('study')) setNewCatIcon('bookopen');
+    else if (lower.includes('money') || lower.includes('cash')) setNewCatIcon('banknote');
+    else if (lower.includes('tree') || lower.includes('plant')) setNewCatIcon('sprout');
+    else if (lower.includes('medicine') || lower.includes('health')) setNewCatIcon('heart');
+    else if (lower.includes('education') || lower.includes('school')) setNewCatIcon('graduationcap');
+    else if (lower.includes('animal') || lower.includes('pet')) setNewCatIcon('handheart');
+    else if (lower.includes('gift')) setNewCatIcon('gift');
+    else if (lower.includes('shop')) setNewCatIcon('shoppingbag');
+  }, [newCatName]);
 
   const permanentCategories: Category[] = [
-    { id: 'p1', name: 'Food', icon_name: '🍱', is_active: true, description: '', is_system: true },
-    { id: 'p2', name: 'Clothes', icon_name: '👗', is_active: true, description: '', is_system: true },
-    { id: 'p3', name: 'Books', icon_name: '📚', is_active: true, description: '', is_system: true },
-    { id: 'p4', name: 'Money', icon_name: '💰', is_active: true, description: '', is_system: true },
-    { id: 'p5', name: 'Trees', icon_name: '🌱', is_active: true, description: '', is_system: true },
+    { id: 'p1', name: 'Food', icon_name: 'utensils', is_active: true, description: '', is_system: true },
+    { id: 'p2', name: 'Clothes', icon_name: 'shirt', is_active: true, description: '', is_system: true },
+    { id: 'p3', name: 'Books', icon_name: 'bookopen', is_active: true, description: '', is_system: true },
+    { id: 'p4', name: 'Money', icon_name: 'banknote', is_active: true, description: '', is_system: true },
+    { id: 'p5', name: 'Trees', icon_name: 'sprout', is_active: true, description: '', is_system: true },
   ];
 
   useEffect(() => {
@@ -61,8 +120,6 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
     try {
       const data = await fetchAPI('/api/donations/categories/');
       const res = Array.isArray(data) ? data : (data.results || []);
-      
-      // Merge with permanent ones, filtering out DB duplicates if any
       const dbCategories = res.filter((cat: any) => 
         !permanentCategories.some(p => p.name.toLowerCase() === cat.name.toLowerCase())
       );
@@ -75,40 +132,52 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
     }
   };
 
+  const handle2FAToggle = async () => {
+    if (is2FAEnabled) {
+      if (confirm("Are you sure you want to disable 2FA? This will reduce your account security.")) {
+        try {
+          await fetchAPI('/api/users/2fa/disable/', { method: 'POST' });
+          setIs2FAEnabled(false);
+          showToast("Two-Factor Authentication disabled", "info");
+        } catch (err: any) {
+          showToast(err.message || "Failed to disable 2FA", "error");
+        }
+      }
+    } else {
+      setIs2FAModalOpen(true);
+    }
+  };
+
   const handleExportJSON = async () => {
+    setBtnLoading('export_json', true);
     try {
-      const [donations, users, notifications] = await Promise.all([
-        fetchAPI('/api/donations/'),
-        fetchAPI('/api/users/list/'),
-        fetchAPI('/api/chat/notifications/')
-      ]);
-      const exportData = {
-        exportedAt: new Date().toISOString(),
-        donations: donations.results || donations,
-        users: users.results || users,
-        notifications: notifications.results || notifications
-      };
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const data = await fetchAPI('/api/donations/data/export_all/');
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `sevamarge_export_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `sevamarg_export_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setSavedMsg(true);
-      setTimeout(() => setSavedMsg(false), 3000);
-    } catch (err) {
+      showToast("JSON export downloaded", "success");
+    } catch (err: any) {
       console.error("Export failed", err);
-      setErrorMsg("Failed to export data");
+      showToast(err.message || "Export failed", "error");
+    } finally {
+      setBtnLoading('export_json', false);
     }
   };
 
   const handleExportCSV = async () => {
+    setBtnLoading('export_csv', true);
     try {
       const donations = await fetchAPI('/api/donations/');
       const data = donations.results || donations;
-      if (!data.length) return alert("No data to export");
+      if (!data.length) {
+        showToast("No data to export", "warning");
+        return;
+      }
 
       const headers = ['ID', 'Donor', 'Category', 'Quantity', 'Status', 'Date'];
       const rows = data.map((d: any) => [
@@ -129,22 +198,25 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setSavedMsg(true);
-      setTimeout(() => setSavedMsg(false), 3000);
-    } catch (err) {
+      showToast("CSV export downloaded", "success");
+    } catch (err: any) {
       console.error("CSV Export failed", err);
-      setErrorMsg("Failed to generate CSV");
+      showToast("Failed to generate CSV", "error");
+    } finally {
+      setBtnLoading('export_csv', false);
     }
   };
 
-  const handleBackup = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setSavedMsg(true);
-      setTimeout(() => setSavedMsg(false), 3000);
-      alert("Database backup created successfully!");
-    }, 1500);
+  const handleBackup = async () => {
+    setBtnLoading('backup', true);
+    try {
+      await fetchAPI('/api/donations/data/backup/', { method: 'POST' });
+      showToast("Database backup created successfully!", "success");
+    } catch (err: any) {
+      showToast(err.message || "Backup failed", "error");
+    } finally {
+      setBtnLoading('backup', false);
+    }
   };
 
   const handleClearCache = () => {
@@ -155,7 +227,10 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
   };
 
   const handleUpdatePassword = async () => {
-    if (!passwords.current || !passwords.new) return alert("Please fill both fields");
+    if (!passwords.current || !passwords.new) {
+      showToast("Please fill both password fields", "warning");
+      return;
+    }
     setPassLoading(true);
     try {
       await fetchAPI('/api/users/change-password/', {
@@ -165,12 +240,10 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
           new_password: passwords.new
         })
       });
-      setSavedMsg(true);
       setPasswords({ current: '', new: '' });
-      setTimeout(() => setSavedMsg(false), 3000);
-      alert("Password updated successfully!");
+      showToast("Password updated successfully!", "success");
     } catch (err: any) {
-      alert(err.message || "Failed to update password");
+      showToast(err.message || "Failed to update password", "error");
     } finally {
       setPassLoading(false);
     }
@@ -179,7 +252,7 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
   const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';
-  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
+  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
   const sideActive = darkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-50 text-green-700';
   const sideInactive = darkMode ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-200' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800';
   const divider = darkMode ? 'border-gray-700' : 'border-gray-100';
@@ -188,14 +261,15 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
 
   const addCategory = async () => {
     if (!newCatName.trim()) return;
+    if (!newCatIcon.trim()) {
+      setErrorMsg("Please provide an icon or emoji for this category.");
+      return;
+    }
     setErrorMsg(null);
-
-    // Check for duplicates in local state first
     if (categories.some(c => c.name.toLowerCase() === newCatName.trim().toLowerCase())) {
       setErrorMsg(`Category "${newCatName}" already exists.`);
       return;
     }
-
     try {
       const newCat = await fetchAPI('/api/donations/categories/', {
         method: 'POST',
@@ -210,9 +284,10 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
       setNewCatName('');
       setSavedMsg(true);
       setTimeout(() => setSavedMsg(false), 2000);
+      window.dispatchEvent(new CustomEvent('categoriesUpdated'));
     } catch (err: any) {
       console.error("Failed to add category", err);
-      setErrorMsg(err.message || "Error adding category. It might already exist in the database.");
+      setErrorMsg(err.message || "Error adding category.");
     }
   };
 
@@ -225,6 +300,7 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
       setCategories(prev => prev.filter(c => c.id !== id));
       setSavedMsg(true);
       setTimeout(() => setSavedMsg(false), 2000);
+      window.dispatchEvent(new CustomEvent('categoriesUpdated'));
     } catch (err: any) {
       console.error("Failed to delete category", err);
       setErrorMsg(err.message || "Failed to delete category.");
@@ -240,8 +316,8 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
         method: 'PATCH',
         body: JSON.stringify({ is_active: !cat.is_active })
       });
-      // Ensure we keep local UI flags if any
       setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, ...updated } : c));
+      window.dispatchEvent(new CustomEvent('categoriesUpdated'));
     } catch (err: any) {
       console.error("Failed to toggle category", err);
       setErrorMsg(err.message || "Failed to update category status.");
@@ -260,24 +336,22 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
   );
 
   return (
-    <div className={`rounded-2xl border shadow-sm overflow-hidden flex min-h-[600px] ${card}`}>
-      {/* Sidebar */}
-      <div className={`w-56 border-r ${divider} flex-shrink-0 p-3 space-y-1`}>
-        <p className={`text-xs font-semibold uppercase tracking-wider px-3 py-2 ${textSub}`}>Configuration</p>
+    <div className={`rounded-2xl border shadow-sm overflow-hidden flex flex-col lg:flex-row min-h-[600px] ${card}`}>
+      <div className={`w-full lg:w-56 border-b lg:border-b-0 lg:border-r ${divider} flex-shrink-0 p-3 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible no-scrollbar`}>
+        <p className={`hidden lg:block text-xs font-semibold uppercase tracking-wider px-3 py-2 ${textSub}`}>Configuration</p>
         {settingsSections.map(s => {
           const Icon = s.icon;
           return (
             <button key={s.id} onClick={() => setActiveSection(s.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${activeSection === s.id ? sideActive : sideInactive}`}>
+              className={`flex-shrink-0 lg:w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${activeSection === s.id ? sideActive : sideInactive}`}>
               <Icon size={15} />
-              {s.label}
+              <span className="whitespace-nowrap">{s.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex-1 p-4 lg:p-6 overflow-y-auto">
         {activeSection === 'categories' && (
           <div className="space-y-5 max-w-xl">
             <div>
@@ -289,31 +363,47 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
               <div className="flex justify-center py-10"><Loader className="animate-spin text-green-500" /></div>
             ) : (
               <div className="space-y-2">
-                {categories.map(cat => (
-                  <div key={cat.id} className={`flex items-center gap-3 p-3.5 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-700/40' : 'border-gray-100 bg-gray-50'}`}>
-                    <span className="text-xl">{cat.icon_name}</span>
+                {categories.map(cat => {
+                  const iconKey = (cat.icon_name || '').toLowerCase();
+                  const LucideIcon = iconMap[iconKey];
+                  return (
+                    <div key={cat.id} className={`flex items-center gap-3 p-3.5 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-700/40' : 'border-gray-100 bg-gray-50'}`}>
+                      <span className="w-8 h-8 flex items-center justify-center">
+                        {LucideIcon ? <LucideIcon size={18} className="text-green-500" /> : <span className="text-xl">{cat.icon_name}</span>}
+                      </span>
                     <span className={`flex-1 font-medium text-sm ${textMain}`}>
                       {cat.name}
                       {cat.is_system && <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-600 text-[10px] font-bold rounded uppercase">Core</span>}
                     </span>
-                    <Toggle checked={cat.is_active} onChange={() => toggleCategory(cat)} disabled={cat.is_system} />
+                    <div className="flex items-center gap-3">
+                      <span className={`text-[10px] font-bold uppercase hidden sm:inline-block ${cat.is_active ? 'text-green-500' : 'text-gray-400'}`}>
+                        {cat.is_active ? 'Live' : 'Off'}
+                      </span>
+                      <Toggle checked={cat.is_active} onChange={() => toggleCategory(cat)} disabled={cat.is_system} />
+                    </div>
                     {!cat.is_system && (
                       <button onClick={() => removeCategory(cat.id)} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-500'}`}>
                         <Trash2 size={13} />
                       </button>
                     )}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
-            {/* Add New Category */}
             <div className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-700/30' : 'border-gray-100 bg-gray-50'}`}>
               <p className={`text-sm font-semibold ${textMain} mb-3`}>Add New Category</p>
-              <div className="flex gap-2 mb-3">
-                <input className={`w-16 px-2 py-2 rounded-xl border text-center text-lg ${inputBg}`} value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)} placeholder="📦" />
-                <input className={`flex-1 px-3 py-2 rounded-xl border text-sm ${inputBg}`} value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Category name..." onKeyDown={e => e.key === 'Enter' && addCategory()} />
-                <button onClick={addCategory} className="px-4 py-2 rounded-xl bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-colors flex items-center gap-1.5">
+              <div className="flex flex-wrap gap-2 mb-3 items-center">
+                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                  {(() => {
+                    const Icon = iconMap[newCatIcon.toLowerCase()];
+                    return Icon ? <Icon size={20} className="text-green-500" /> : <span className="text-xl">{newCatIcon}</span>;
+                  })()}
+                </div>
+                <input className={`w-28 lg:w-32 px-3 py-2 rounded-xl border text-sm ${inputBg}`} value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)} placeholder="Icon..." title="Type a Lucide icon name (e.g. utensils, heart) or an emoji" />
+                <input className={`flex-1 min-w-[150px] px-3 py-2 rounded-xl border text-sm ${inputBg}`} value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Category name..." onKeyDown={e => e.key === 'Enter' && addCategory()} />
+                <button onClick={addCategory} className="w-full sm:w-auto px-4 py-2 rounded-xl bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-1.5">
                   <Plus size={13} /> Add
                 </button>
               </div>
@@ -335,7 +425,6 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
           </div>
         )}
         
-        {/* Rest of the sections remain same... */}
         {activeSection === 'notifications' && (
           <div className="space-y-5 max-w-xl">
             <div>
@@ -370,7 +459,6 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
           </div>
         )}
 
-        {/* Appearance */}
         {activeSection === 'appearance' && (
           <div className="space-y-5 max-w-xl">
             <div>
@@ -387,7 +475,6 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
           </div>
         )}
         
-        {/* Security */}
         {activeSection === 'security' && (
           <div className="space-y-5 max-w-xl">
             <div>
@@ -399,7 +486,7 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
               <div className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-700/30' : 'border-gray-100 bg-gray-50'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <p className={`font-medium text-sm ${textMain}`}>Two-Factor Authentication</p>
-                  <Toggle checked={true} onChange={() => {}} />
+                  <Toggle checked={is2FAEnabled} onChange={handle2FAToggle} />
                 </div>
                 <p className={`text-xs ${textSub}`}>Add an extra layer of security to your account.</p>
               </div>
@@ -424,8 +511,9 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
                   <button 
                     onClick={handleUpdatePassword}
                     disabled={passLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                    className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
+                    {passLoading && <Loader size={14} className="animate-spin" />}
                     {passLoading ? 'Updating...' : 'Update Password'}
                   </button>
                 </div>
@@ -434,7 +522,6 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
           </div>
         )}
 
-        {/* Data Management */}
         {activeSection === 'data' && (
           <div className="space-y-5 max-w-xl">
             <div>
@@ -444,42 +531,61 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
 
             <div className="space-y-4">
               <div className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-700/30' : 'border-gray-100 bg-gray-50'}`}>
-                <p className={`font-medium text-sm ${textMain} mb-2`}>Export Data</p>
-                <p className={`text-xs ${textSub} mb-3`}>Download a complete export of your donations and users.</p>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-amber-500/10 rounded-lg">
+                    <Download className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className={`font-medium text-sm ${textMain}`}>Export Data</p>
+                    <p className={`text-xs ${textSub}`}>Download a complete export of your donations and users.</p>
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <button 
                     onClick={handleExportJSON}
-                    className="flex-1 px-3 py-2 bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 text-xs font-bold rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/30 transition-colors"
+                    disabled={actionLoading['export_json']}
+                    className={`flex-1 px-3 py-2 bg-green-100 ${darkMode ? 'text-green-400' : 'text-green-800'} dark:bg-green-900/20 text-xs font-bold rounded-lg hover:bg-green-200 dark:hover:bg-green-900/30 transition-colors flex items-center justify-center gap-2`}
                   >
+                    {actionLoading['export_json'] && <Loader size={12} className="animate-spin" />}
                     JSON
                   </button>
                   <button 
                     onClick={handleExportCSV}
-                    className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 text-xs font-bold rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/30 transition-colors"
+                    disabled={actionLoading['export_csv']}
+                    className={`flex-1 px-3 py-2 bg-blue-100 ${darkMode ? 'text-white' : 'text-blue-800'} dark:bg-blue-900/20 text-xs font-bold rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/30 transition-colors flex items-center justify-center gap-2`}
                   >
+                    {actionLoading['export_csv'] && <Loader size={12} className="animate-spin" />}
                     CSV/Excel
                   </button>
                 </div>
               </div>
 
               <div className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-700/30' : 'border-gray-100 bg-gray-50'}`}>
-                <p className={`font-medium text-sm ${textMain} mb-2`}>Database Backup</p>
-                <p className={`text-xs ${textSub} mb-3`}>Last backup: Today at {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-500/10 rounded-lg">
+                    <Database className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className={`font-medium text-sm ${textMain}`}>Database Backup</p>
+                    <p className={`text-xs ${textSub}`}>Create a full snapshot of the database.</p>
+                  </div>
+                </div>
                 <button 
                   onClick={handleBackup}
-                  disabled={loading}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  disabled={actionLoading['backup']}
+                  className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <Database size={14} /> {loading ? 'Creating...' : 'Create New Backup'}
+                  {actionLoading['backup'] ? <Loader size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
+                  Create New Backup
                 </button>
               </div>
 
-              <div className={`p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30`}>
-                <p className="text-sm font-bold text-red-600 dark:text-red-400 mb-1">Danger Zone</p>
-                <p className="text-xs text-red-500 mb-3">Irreversible actions on your database.</p>
+              <div className={`p-4 rounded-xl border ${darkMode ? 'border-red-900/20 bg-red-900/5' : 'border-red-100 bg-red-50/30'}`}>
+                <p className="text-sm font-bold text-red-500 mb-1">Danger Zone</p>
+                <p className="text-xs text-red-400 mb-3">Irreversible actions that affect your system.</p>
                 <button 
                   onClick={handleClearCache}
-                  className="w-full px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="px-4 py-2 bg-white dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 text-red-500 rounded-lg text-xs font-bold hover:bg-red-50 dark:hover:bg-red-900/40 transition-colors"
                 >
                   Clear Application Cache
                 </button>
@@ -488,7 +594,13 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
           </div>
         )}
 
-        {/* Recycle Bin */}
+        <Setup2FAModal 
+          isOpen={is2FAModalOpen} 
+          onClose={() => setIs2FAModalOpen(false)} 
+          onSuccess={() => setIs2FAEnabled(true)}
+          darkMode={darkMode}
+        />
+
         {activeSection === 'recycle' && (
           <div className="animate-fade-in">
             <RecycleBin darkMode={darkMode} />

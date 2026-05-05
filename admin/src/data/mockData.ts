@@ -1,5 +1,5 @@
 export type DonationStatus = 'Pending' | 'Scheduled' | 'Completed' | 'Cancelled';
-export type DonationCategory = 'Food' | 'Clothes' | 'Books' | 'Monetary' | 'Environment';
+export type DonationCategory = string;
 
 export interface Donation {
   id: string;

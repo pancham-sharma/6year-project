@@ -144,33 +144,62 @@ export default function DonationForm() {
     setErrorMsg('');
     try {
       // Create a separate donation record for each type selected
-      const promises = form.types.map(type => {
+      const promises = form.types.map(async type => {
         const dt = dynamicTypes.find(d => d.value === type);
         const categoryLabel = dt ? dt.label : type;
 
-        const payload = {
-          category: categoryLabel,
-          quantity: parseInt(form.quantities[type] || '1', 10),
-          quantity_description: type === 'monetary' || type === 'money'
-            ? `₹${form.quantities[type] || '0'} (Txn: ${form.transactionId})`
-            : `${form.quantities[type] || 'N/A'} - ${form.descriptions[type] || ''}`,
+        const formData = new FormData();
+        formData.append('category', categoryLabel);
+        formData.append('quantity', (form.quantities[type] || '1').toString());
+        
+        const description = type === 'monetary' || type === 'money'
+          ? `₹${form.quantities[type] || '0'} (Txn: ${form.transactionId})`
+          : `${form.quantities[type] || 'N/A'} - ${form.descriptions[type] || ''}`;
+        formData.append('quantity_description', description);
 
-          pickup_details: {
-            full_address: form.address || '',
-            city: form.city || '',
-            state: form.state || '',
-            pincode: form.pincode || '',
-            landmark: form.landmark || '',
-            // Split into separate date and time fields as the model expects
-            scheduled_date: form.date || null,
-            scheduled_time: form.time || null,
-          }
+        // Add pickup details as nested JSON string (DRF can handle this if configured, 
+        // but here we might need to send them as separate fields or handle in serializer)
+        // However, the current serializer expects a nested object. 
+        // For FormData, we often send nested objects as dot notation or JSON strings.
+        // Let's stick to JSON if no image, otherwise use a hybrid or just fix the serializer.
+        
+        const pickupDetails = {
+          full_address: form.address || '',
+          city: form.city || '',
+          state: form.state || '',
+          pincode: form.pincode || '',
+          landmark: form.landmark || '',
+          scheduled_date: form.date || null,
+          scheduled_time: form.time || null,
         };
 
-        return fetchAPI('/api/donations/', {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
+        // If there's an image, we MUST use FormData
+        if (form.images[type]) {
+          formData.append('pickup_details', JSON.stringify(pickupDetails));
+          
+          // Convert base64 to Blob
+          const res = await fetch(form.images[type] as string);
+          const blob = await res.blob();
+          formData.append('image', blob, `${type}.jpg`);
+
+          return fetchAPI('/api/donations/', {
+            method: 'POST',
+            body: formData
+          });
+        } else {
+          // No image? Standard JSON is fine and easier for nested objects
+          const payload = {
+            category: categoryLabel,
+            quantity: parseInt(form.quantities[type] || '1', 10),
+            quantity_description: description,
+            pickup_details: pickupDetails
+          };
+
+          return fetchAPI('/api/donations/', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+        }
       });
 
       await Promise.all(promises);

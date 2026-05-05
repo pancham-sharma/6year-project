@@ -24,7 +24,8 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
     const fetchNotifications = async () => {
       try {
         const res = await fetchAPI('/api/chat/notifications/');
-        setNotifications(res.results || res || []);
+        const data = res.results || res || [];
+        setNotifications(data.filter((n: any) => n.status !== 'Recycled'));
       } catch (err) {
         console.error("Failed to load notifications", err);
       }
@@ -46,8 +47,36 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
     };
     fetchSearchData();
     
-    // Optional: Poll for notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
+    // WebSocket for Real-Time Notifications
+    const setupWS = () => {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const host = window.location.host === 'localhost:5173' ? 'localhost:8000' : window.location.host;
+      const wsUrl = `${protocol}://${host}/ws/notifications/?token=${token}`;
+      
+      const ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.type === 'notification') {
+          const n = data.data;
+          setNotifications((prev: any[]) => {
+            // Avoid duplicates
+            if (prev.some((x: any) => x.id === n.id)) return prev;
+            return [n, ...prev].filter((x: any) => x.status !== 'Recycled');
+          });
+        }
+      };
+
+      ws.onclose = () => {
+        setTimeout(setupWS, 5000);
+      };
+    };
+
+    setupWS();
+    const interval = setInterval(fetchNotifications, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -79,7 +108,7 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
   const bg = darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
   const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';
-  const inputBg = darkMode ? 'bg-gray-800 border-gray-700 text-gray-200 placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-700 placeholder-gray-400';
+  const inputBg = darkMode ? 'bg-gray-800/80 border-gray-700 text-white placeholder-gray-300' : 'bg-gray-50 border-gray-200 text-gray-700 placeholder-gray-400';
   const btnHover = darkMode ? 'hover:bg-gray-800 text-gray-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700';
   const notifBg = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
   const notifHover = darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50';
@@ -129,6 +158,16 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
     else if (content.includes('volunteer')) target = 'volunteers';
     else if (content.includes('message') || n.type === 'message') target = 'messages';
     
+    // Extract context for navigation
+    if (target === 'messages') {
+      const match = n.message.match(/Message from ([^:]+):/i);
+      const username = match ? match[1].trim() : null;
+      (window as any)._navState = { selectUser: username };
+    } else if (target === 'donations') {
+      const donorEmail = n.message.split(' ')[0];
+      (window as any)._navState = { selectDonor: donorEmail };
+    }
+    
     window.dispatchEvent(new CustomEvent('navigate', { detail: target }));
     setShowNotif(false);
   };
@@ -149,7 +188,7 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
         {/* Search */}
         <div className="relative">
           <div className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${inputBg} w-56 focus-within:w-80 transition-all duration-300`}>
-            <Search size={14} className={textSub} />
+            <Search size={14} className={darkMode ? 'text-gray-300' : textSub} />
             <input 
               className="bg-transparent outline-none w-full" 
               placeholder="Search anything..." 

@@ -50,7 +50,7 @@ export default function UserManagement({ darkMode }: Props) {
   const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';
   const rowHover = darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50';
   const divider = darkMode ? 'divide-gray-700' : 'divide-gray-100';
-  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
+  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-300' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
   const theadBg = darkMode ? 'bg-gray-700/50' : 'bg-gray-50';
   const modalBg = darkMode ? 'bg-gray-800' : 'bg-white';
 

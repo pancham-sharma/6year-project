@@ -26,7 +26,7 @@ export default function PickupManagement({ darkMode }: Props) {
   const selectBg = darkMode ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700';
   const tabActive = darkMode ? 'bg-green-900/30 text-green-400 border-green-700' : 'bg-green-50 text-green-700 border-green-300';
   const tabInactive = darkMode ? 'text-gray-400 border-transparent hover:bg-gray-700' : 'text-gray-500 border-transparent hover:bg-gray-50';
-  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
+  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-300' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
 
   useEffect(() => {
     const fetchPickups = async () => {

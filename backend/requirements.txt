@@ -10,3 +10,8 @@ django-cloudinary-storage
 Pillow
 reportlab
 django-filter
+pyotp
+qrcode[pill]
+channels
+channels-redis
+daphne

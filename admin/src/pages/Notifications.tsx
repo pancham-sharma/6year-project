@@ -28,6 +28,8 @@ export default function Notifications({ darkMode }: Props) {
 
   useEffect(() => {
     fetchNotifications();
+    const interval = setInterval(fetchNotifications, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const markAsRead = async (id: number) => {
@@ -72,6 +74,30 @@ export default function Notifications({ darkMode }: Props) {
     }
   };
 
+  const handleNotificationClick = async (n: any) => {
+    // Mark as read if not already
+    if (!n.read) {
+      await markAsRead(n.id);
+    }
+
+    const title = n.title.toLowerCase();
+    if (title.includes('message')) {
+      const match = n.message.match(/Message from ([^:]+):/i);
+      const username = match ? match[1].trim() : null;
+      (window as any)._navState = { selectUser: username };
+      window.dispatchEvent(new CustomEvent('navigate', { detail: 'messages' }));
+    } else if (title.includes('donation')) {
+      // Try to extract donor email if present: "priya@gmail.com donated..."
+      const donorEmail = n.message.split(' ')[0];
+      (window as any)._navState = { selectDonor: donorEmail };
+      window.dispatchEvent(new CustomEvent('navigate', { detail: 'donations' }));
+    } else if (title.includes('volunteer')) {
+      window.dispatchEvent(new CustomEvent('navigate', { detail: 'volunteers' }));
+    } else if (title.includes('pickup')) {
+      window.dispatchEvent(new CustomEvent('navigate', { detail: 'donations' }));
+    }
+  };
+
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
   const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';
@@ -79,11 +105,15 @@ export default function Notifications({ darkMode }: Props) {
   const itemHover = darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50';
   const unreadBg = darkMode ? 'bg-green-900/10' : 'bg-green-50/50';
 
-  const combinedSearch = (searchQuery + ' ' + localSearch).trim().toLowerCase();
   const filtered = notifications.filter(n => {
     const matchesFilter = filter === 'all' || !n.read;
-    const matchesSearch = !combinedSearch || n.title.toLowerCase().includes(combinedSearch) || n.message.toLowerCase().includes(combinedSearch);
-    return matchesFilter && matchesSearch;
+    const g = searchQuery.toLowerCase();
+    const l = localSearch.toLowerCase();
+    
+    const matchesGlobal = !g || n.title.toLowerCase().includes(g) || n.message.toLowerCase().includes(g);
+    const matchesLocal = !l || n.title.toLowerCase().includes(l) || n.message.toLowerCase().includes(l);
+    
+    return matchesFilter && matchesGlobal && matchesLocal;
   });
 
 
@@ -146,7 +176,8 @@ export default function Notifications({ darkMode }: Props) {
             filtered.map(n => (
               <div 
                 key={n.id} 
-                className={`flex items-start gap-4 p-4 rounded-2xl border transition-all ${itemHover} ${!n.read ? `${unreadBg} border-green-500/20` : (darkMode ? 'border-gray-700' : 'border-gray-100')}`}
+                onClick={() => handleNotificationClick(n)}
+                className={`flex items-start gap-4 p-4 rounded-2xl border transition-all cursor-pointer ${itemHover} ${!n.read ? `${unreadBg} border-green-500/20` : (darkMode ? 'border-gray-700' : 'border-gray-100')}`}
               >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${!n.read ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' : (darkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500')}`}>
                   {n.title.toLowerCase().includes('message') ? '💬' : 
@@ -163,20 +194,20 @@ export default function Notifications({ darkMode }: Props) {
                     <span className={`text-[10px] font-medium uppercase tracking-wider ${textSub}`}>{new Date(n.timestamp).toLocaleString()}</span>
                   </div>
                   <p className={`text-sm mt-1 ${textSub} leading-relaxed`}>{n.message}</p>
-                  <div className="flex items-center gap-3 mt-3">
+                  <div className="flex items-center gap-4 mt-4">
                     {!n.read && (
                       <button 
-                        onClick={() => markAsRead(n.id)}
-                        className="text-xs font-bold text-green-500 hover:text-green-600 flex items-center gap-1 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); markAsRead(n.id); }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold text-green-500 hover:bg-green-500/10 flex items-center gap-1.5 transition-all`}
                       >
-                        <CheckCircle size={12} /> Mark as read
+                        <CheckCircle size={14} /> Mark as read
                       </button>
                     )}
                     <button 
-                      onClick={() => deleteNotification(n.id)}
-                      className="text-xs font-bold text-red-500 hover:text-red-600 flex items-center gap-1 transition-colors"
+                      onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 hover:bg-red-500/10 flex items-center gap-1.5 transition-all`}
                     >
-                      <Trash2 size={12} /> Delete
+                      <Trash2 size={14} /> Delete
                     </button>
                   </div>
                 </div>

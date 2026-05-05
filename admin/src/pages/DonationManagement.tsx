@@ -30,6 +30,15 @@ export default function DonationManagement({ darkMode }: Props) {
   const { searchQuery } = useSearch();
   const [localSearch, setLocalSearch] = useState('');
 
+  useEffect(() => {
+    const navState = (window as any)._navState;
+    if (navState?.selectDonor) {
+      setLocalSearch(navState.selectDonor);
+      // Clear state after use
+      (window as any)._navState = null;
+    }
+  }, []);
+
   const [filterCat, setFilterCat] = useState<string>('All');
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [filterCity, setFilterCity] = useState<string>('All');
@@ -47,15 +56,16 @@ export default function DonationManagement({ darkMode }: Props) {
         const formatted = (data.results || data).map((d: any) => ({
           id: d.id.toString(),
           donorName: d.donor,
-          contact: 'N/A',
+          contact: d.donor_phone || 'N/A',
           address: d.pickup_details ? d.pickup_details.full_address : 'N/A',
           city: d.pickup_details ? d.pickup_details.city : 'N/A',
           category: d.category,
           quantity: d.quantity_description,
           date: new Date(d.timestamp).toLocaleDateString(),
           status: d.status,
-          pickupTime: d.pickup_details ? d.pickup_details.scheduled_time : '',
-          assignedTo: d.pickup_details ? d.pickup_details.volunteer : null,
+          scheduled_time: d.pickup_details ? d.pickup_details.scheduled_time : '',
+          scheduled_date: d.pickup_details ? d.pickup_details.scheduled_date : '',
+          assigned_team: d.pickup_details ? d.pickup_details.assigned_team : '',
           notes: ''
         })).filter((d: any) => d.status !== 'Recycled');
         setLocalDonations(formatted);
@@ -71,7 +81,7 @@ export default function DonationManagement({ darkMode }: Props) {
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
   const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';
-  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
+  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-300' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
   const rowHover = darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50';
   const divider = darkMode ? 'divide-gray-700' : 'divide-gray-100';
   const theadBg = darkMode ? 'bg-gray-700/50' : 'bg-gray-50';
@@ -130,6 +140,52 @@ export default function DonationManagement({ darkMode }: Props) {
     }
   };
 
+
+  const [editForm, setEditForm] = useState<any>({ status: '', assigned_team: '', scheduled_date: '', scheduled_time: '' });
+
+  useEffect(() => {
+    if (editItem) {
+      setEditForm({
+        status: editItem.status,
+        assigned_team: editItem.assigned_team || '',
+        scheduled_date: editItem.scheduled_date || '',
+        scheduled_time: editItem.scheduled_time || '',
+        notes: editItem.notes || ''
+      });
+    }
+  }, [editItem]);
+
+  const handleSaveEdit = async () => {
+    if (!editItem) return;
+    try {
+      const payload: any = {
+        status: editForm.status,
+        pickup_details: {
+          assigned_team: editForm.assigned_team,
+          scheduled_date: editForm.scheduled_date || null,
+          scheduled_time: editForm.scheduled_time || null,
+        }
+      };
+
+      await fetchAPI(`/api/donations/${editItem.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+
+      setLocalDonations(prev => prev.map(d => d.id === editItem.id ? { 
+        ...d, 
+        status: editForm.status,
+        assigned_team: editForm.assigned_team,
+        scheduled_date: editForm.scheduled_date,
+        scheduled_time: editForm.scheduled_time
+      } : d));
+      
+      setEditItem(null);
+    } catch (err) {
+      console.error("Failed to update donation", err);
+      alert("Failed to save changes. Please check your inputs.");
+    }
+  };
 
   const deleteDon = async (id: string) => {
     if (!window.confirm("Move this donation to Recycle Bin?")) return;
@@ -253,9 +309,11 @@ export default function DonationManagement({ darkMode }: Props) {
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-1.5">
                       <button title="View" onClick={() => setViewItem(d)} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'hover:bg-blue-900/30 text-blue-400' : 'hover:bg-blue-50 text-blue-600'}`}><Eye size={14} /></button>
-                      <button title="Edit" onClick={() => setEditItem(d)} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'hover:bg-amber-900/30 text-amber-400' : 'hover:bg-amber-50 text-amber-600'}`}><Edit3 size={14} /></button>
                       {d.status !== 'Completed' && (
-                        <button title="Mark Complete" onClick={() => markComplete(d.id)} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'hover:bg-green-900/30 text-green-400' : 'hover:bg-green-50 text-green-600'}`}><CheckCircle size={14} /></button>
+                        <>
+                          <button title="Edit" onClick={() => setEditItem(d)} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'hover:bg-amber-900/30 text-amber-400' : 'hover:bg-amber-50 text-amber-600'}`}><Edit3 size={14} /></button>
+                          <button title="Mark Complete" onClick={() => markComplete(d.id)} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'hover:bg-green-900/30 text-green-400' : 'hover:bg-green-50 text-green-600'}`}><CheckCircle size={14} /></button>
+                        </>
                       )}
                       <button title="Delete" onClick={() => deleteDon(d.id)} className={`p-1.5 rounded-lg transition-colors ${darkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-50 text-red-600'}`}><Trash2 size={14} /></button>
                     </div>
@@ -274,25 +332,26 @@ export default function DonationManagement({ darkMode }: Props) {
             <div className={`px-6 py-4 flex items-center justify-between border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
               <div>
                 <h3 className={`font-bold text-base ${textMain}`}>Donation Details</h3>
-                <p className="text-xs text-green-500 font-mono font-semibold">{viewItem.id}</p>
+                <p className="text-xs text-green-500 font-mono font-semibold">DON-{viewItem.id}</p>
               </div>
               <button onClick={() => setViewItem(null)} className={`p-2 rounded-xl transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><X size={16} /></button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
               {[
                 { label: 'Donor Name', value: viewItem.donorName },
                 { label: 'Contact', value: viewItem.contact },
-                { label: 'Address', value: `${viewItem.address}, ${viewItem.city}` },
+                { label: 'Full Address', value: `${viewItem.address}, ${viewItem.city}` },
                 { label: 'Category', value: viewItem.category },
-                { label: 'Quantity', value: viewItem.quantity },
-                { label: 'Date', value: viewItem.date },
-                { label: 'Status', value: viewItem.status },
-                { label: 'Pickup Time', value: viewItem.pickupTime || 'Not scheduled' },
-                { label: 'Assigned To', value: viewItem.assignedTo || 'Unassigned' },
-                { label: 'Notes', value: viewItem.notes || 'None' },
+                { label: 'Quantity Description', value: viewItem.quantity },
+                { label: 'Submission Date', value: viewItem.date },
+                { label: 'Current Status', value: viewItem.status },
+                { label: 'Scheduled Pickup Date', value: viewItem.scheduled_date || 'Not scheduled' },
+                { label: 'Scheduled Pickup Time', value: viewItem.scheduled_time || 'Not scheduled' },
+                { label: 'Assigned Team/Volunteer', value: viewItem.assigned_team || 'Unassigned' },
+                { label: 'Admin Notes', value: viewItem.notes || 'No notes added' },
               ].map(item => (
                 <div key={item.label} className={`flex justify-between items-start gap-4 py-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-50'}`}>
-                  <span className={`text-sm font-semibold ${textSub}`}>{item.label}</span>
+                  <span className={`text-sm font-semibold ${textSub} min-w-[140px]`}>{item.label}</span>
                   <span className={`text-sm text-right ${textMain}`}>{item.value}</span>
                 </div>
               ))}
@@ -300,7 +359,7 @@ export default function DonationManagement({ darkMode }: Props) {
             <div className={`px-6 py-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} flex justify-end gap-3`}>
               <button onClick={() => setViewItem(null)} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Close</button>
               {viewItem.status !== 'Completed' && (
-                <button onClick={() => { markComplete(viewItem.id); setViewItem(null); }} className="px-4 py-2 rounded-xl text-sm font-medium bg-green-500 text-white hover:bg-green-600 transition-colors">Mark Completed</button>
+                <button onClick={() => { markComplete(viewItem.id); setViewItem(null); }} className="px-4 py-2 rounded-xl text-sm font-medium bg-green-500 text-white hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20">Mark Completed</button>
               )}
             </div>
           </div>
@@ -312,27 +371,65 @@ export default function DonationManagement({ darkMode }: Props) {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setEditItem(null)}>
           <div className={`rounded-2xl shadow-2xl w-full max-w-md overflow-hidden ${modalBg}`} onClick={e => e.stopPropagation()}>
             <div className={`px-6 py-4 flex items-center justify-between border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-              <h3 className={`font-bold text-base ${textMain}`}>Edit Donation</h3>
+              <h3 className={`font-bold text-base ${textMain}`}>Edit Donation & Pickup</h3>
               <button onClick={() => setEditItem(null)} className={`p-2 rounded-xl transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><X size={16} /></button>
             </div>
-            <div className="p-6 space-y-4">
-              {['Status', 'Assigned To', 'Pickup Time', 'Notes'].map(field => (
-                <div key={field}>
-                  <label className={`text-xs font-semibold ${textSub} mb-1 block`}>{field}</label>
-                  {field === 'Status' ? (
-                    <select className={`w-full px-3 py-2.5 rounded-xl border text-sm outline-none ${selectBg}`} defaultValue={editItem.status}>
-                      {STATUSES.map(s => <option key={s}>{s}</option>)}
-                    </select>
-                  ) : (
-                    <input className={`w-full px-3 py-2.5 rounded-xl border text-sm outline-none ${inputBg}`}
-                      defaultValue={field === 'Assigned To' ? editItem.assignedTo : field === 'Pickup Time' ? editItem.pickupTime : editItem.notes} />
-                  )}
+            <div className="p-6 space-y-5">
+              <div>
+                <label className={`text-xs font-semibold ${textSub} mb-1.5 block`}>Update Status</label>
+                <select 
+                  className={`w-full px-3 py-3 rounded-xl border text-sm outline-none transition-all ${selectBg} focus:border-green-500`} 
+                  value={editForm.status}
+                  onChange={e => setEditForm({ ...editForm, status: e.target.value })}
+                >
+                  {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className={`text-xs font-semibold ${textSub} mb-1.5 block`}>Assign Team/Volunteer</label>
+                <input 
+                  className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${inputBg} focus:border-green-500`}
+                  placeholder="Enter team name or volunteer..."
+                  value={editForm.assigned_team}
+                  onChange={e => setEditForm({ ...editForm, assigned_team: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={`text-xs font-semibold ${textSub} mb-1.5 block`}>Pickup Date</label>
+                  <input 
+                    type="date"
+                    className={`w-full px-3 py-3 rounded-xl border text-sm outline-none transition-all ${inputBg} focus:border-green-500`}
+                    value={editForm.scheduled_date}
+                    onChange={e => setEditForm({ ...editForm, scheduled_date: e.target.value })}
+                  />
                 </div>
-              ))}
+                <div>
+                  <label className={`text-xs font-semibold ${textSub} mb-1.5 block`}>Pickup Time</label>
+                  <input 
+                    type="time"
+                    className={`w-full px-3 py-3 rounded-xl border text-sm outline-none transition-all ${inputBg} focus:border-green-500`}
+                    value={editForm.scheduled_time}
+                    onChange={e => setEditForm({ ...editForm, scheduled_time: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={`text-xs font-semibold ${textSub} mb-1.5 block`}>Admin Notes (Internal)</label>
+                <textarea 
+                  className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all min-h-[80px] ${inputBg} focus:border-green-500`}
+                  placeholder="Add internal notes about this donation..."
+                  value={editForm.notes}
+                  onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
+                />
+              </div>
             </div>
             <div className={`px-6 py-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} flex justify-end gap-3`}>
-              <button onClick={() => setEditItem(null)} className={`px-4 py-2 rounded-xl text-sm font-medium ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Cancel</button>
-              <button onClick={() => setEditItem(null)} className="px-4 py-2 rounded-xl text-sm font-medium bg-green-500 text-white border border-white/20 hover:bg-green-600 transition-all shadow-md">Save Changes</button>
+              <button onClick={() => setEditItem(null)} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Cancel</button>
+              <button onClick={handleSaveEdit} className="px-6 py-2 rounded-xl text-sm font-bold bg-green-500 text-white hover:bg-green-600 transition-all shadow-lg shadow-green-500/20 active:scale-95">Save Changes</button>
             </div>
           </div>
         </div>

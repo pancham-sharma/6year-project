@@ -5,8 +5,13 @@ from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
 from django.http import FileResponse
-from .models import Donation, PickupDetails, Category
-from .serializers import DonationSerializer, PickupDetailsSerializer, CategorySerializer
+from .models import Donation, PickupDetails, Category, DatabaseBackup
+from .serializers import DonationSerializer, PickupDetailsSerializer, CategorySerializer, DatabaseBackupSerializer
+from django.core.management import call_command
+from django.conf import settings
+import os
+import json
+import datetime
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib import colors
@@ -22,9 +27,13 @@ class IsAdminOrReadOnly(permissions.BasePermission):
         return request.user and request.user.is_authenticated and request.user.is_admin()
 
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.filter(is_active=True)
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrReadOnly]
+
+    def get_queryset(self):
+        if self.request.user and (self.request.user.is_staff or self.request.user.is_admin()):
+            return Category.objects.all()
+        return Category.objects.filter(is_active=True)
 
 class DonationViewSet(viewsets.ModelViewSet):
     serializer_class = DonationSerializer
@@ -157,3 +166,53 @@ class DonationViewSet(viewsets.ModelViewSet):
             return Response({'status': 'Volunteer assigned'})
         except PickupDetails.DoesNotExist:
             return Response({'error': 'No pickup details found for this donation'}, status=status.HTTP_400_BAD_REQUEST)
+
+class DataManagementViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAdminUser]
+
+    @action(detail=False, methods=['post'])
+    def backup(self, request):
+        try:
+            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"backup_{timestamp}.json"
+            backup_dir = os.path.join(settings.MEDIA_ROOT, 'backups')
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+            
+            filepath = os.path.join(backup_dir, filename)
+            
+            with open(filepath, 'w') as f:
+                call_command('dumpdata', indent=2, stdout=f)
+            
+            size_bytes = os.path.getsize(filepath)
+            size_str = f"{size_bytes / 1024:.2f} KB" if size_bytes < 1024 * 1024 else f"{size_bytes / (1024 * 1024):.2f} MB"
+            
+            backup = DatabaseBackup.objects.create(
+                file=f"backups/{filename}",
+                size=size_str,
+                backup_type='json'
+            )
+            
+            return Response(DatabaseBackupSerializer(backup).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def list_backups(self, request):
+        backups = DatabaseBackup.objects.all().order_by('-created_at')
+        return Response(DatabaseBackupSerializer(backups, many=True).data)
+
+    @action(detail=False, methods=['get'])
+    def export_all(self, request):
+        # Professional export including all main tables
+        User = get_user_model()
+        from inventory.models import InventoryItem
+        
+        data = {
+            "exported_at": datetime.datetime.now().isoformat(),
+            "donations": DonationSerializer(Donation.objects.all(), many=True).data,
+            "users": User.objects.count(), # Basic count or list
+            "inventory": list(InventoryItem.objects.all().values()),
+            "categories": CategorySerializer(Category.objects.all(), many=True).data
+        }
+        return Response(data)

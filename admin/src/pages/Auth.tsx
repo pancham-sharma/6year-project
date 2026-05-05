@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, Mail, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Lock, Mail, ChevronRight, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { fetchAPI } from '../utils/api';
 
 interface AuthProps {
@@ -12,6 +12,8 @@ export default function Auth({ onLoginSuccess, darkMode }: AuthProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [show2FA, setShow2FA] = useState(false);
+  const [otp, setOtp] = useState('');
 
   const bg = darkMode ? 'bg-gray-950' : 'bg-slate-50';
   const cardBg = darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100';
@@ -27,21 +29,28 @@ export default function Auth({ onLoginSuccess, darkMode }: AuthProps) {
     try {
       const data = await fetchAPI('/api/users/login/', {
         method: 'POST',
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ 
+          username, 
+          password,
+          otp: show2FA ? otp : undefined
+        })
       });
       
-      // Temporarily store token to fetch profile
+      if (data.two_factor_required) {
+        setShow2FA(true);
+        setLoading(false);
+        return;
+      }
+      
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
       
-      // Verify Admin privileges
       try {
         const profile = await fetchAPI('/api/users/profile/');
         if (profile.role !== 'ADMIN' && profile.role !== 'VOLUNTEER' && !profile.is_staff && !profile.is_superuser) {
            throw new Error("You do not have administrative privileges to access this portal.");
         }
       } catch (profileErr: any) {
-        // Remove token and reject
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         throw new Error(profileErr.message || "You do not have administrative privileges.");
@@ -60,10 +69,14 @@ export default function Auth({ onLoginSuccess, darkMode }: AuthProps) {
       <div className={`w-full max-w-md p-8 rounded-3xl border shadow-xl ${cardBg}`}>
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/20">
-            <Lock className="text-white w-8 h-8" />
+            {show2FA ? <ShieldCheck className="text-white w-8 h-8" /> : <Lock className="text-white w-8 h-8" />}
           </div>
-          <h1 className={`text-2xl font-bold ${textMain}`}>Admin Portal</h1>
-          <p className={`mt-2 text-sm ${textSub}`}>Enter your credentials to access the dashboard</p>
+          <h1 className={`text-2xl font-bold ${textMain}`}>
+            {show2FA ? 'Verification' : 'Admin Portal'}
+          </h1>
+          <p className={`mt-2 text-sm ${textSub}`}>
+            {show2FA ? 'Enter the code from your authenticator app' : 'Enter your credentials to access the dashboard'}
+          </p>
         </div>
 
         {error && (
@@ -73,41 +86,66 @@ export default function Auth({ onLoginSuccess, darkMode }: AuthProps) {
         )}
 
         <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <label className={`block text-xs font-semibold mb-1.5 uppercase tracking-wider ${textSub}`}>Username</label>
-            <div className="relative">
+          {!show2FA ? (
+            <>
+              <div>
+                <label className={`block text-xs font-semibold mb-1.5 uppercase tracking-wider ${textSub}`}>Username</label>
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className={`w-full pl-10 pr-4 py-3 rounded-xl border outline-none transition-all text-sm ${inputBg}`} 
+                    placeholder="admin"
+                  />
+                  <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+              <div>
+                <label className={`block text-xs font-semibold mb-1.5 uppercase tracking-wider ${textSub}`}>Password</label>
+                <div className="relative">
+                  <input 
+                    type="password" 
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`w-full pl-10 pr-4 py-3 rounded-xl border outline-none transition-all text-sm ${inputBg}`} 
+                    placeholder="••••••••"
+                  />
+                  <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className={`block text-xs font-semibold mb-1.5 uppercase tracking-wider ${textSub}`}>6-Digit Code</label>
               <input 
                 type="text" 
                 required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className={`w-full pl-10 pr-4 py-3 rounded-xl border outline-none transition-all text-sm ${inputBg}`} 
-                placeholder="admin"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                className={`w-full px-4 py-3 rounded-xl border outline-none transition-all text-center text-2xl font-mono tracking-widest ${inputBg}`} 
+                placeholder="000000"
+                autoFocus
               />
-              <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
+              <button 
+                type="button"
+                onClick={() => setShow2FA(false)}
+                className={`mt-4 w-full text-xs font-bold ${textSub} flex items-center justify-center gap-1 hover:opacity-80 transition-opacity`}
+              >
+                <ArrowLeft size={12} /> Back to Login
+              </button>
             </div>
-          </div>
-          <div>
-            <label className={`block text-xs font-semibold mb-1.5 uppercase tracking-wider ${textSub}`}>Password</label>
-            <div className="relative">
-              <input 
-                type="password" 
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`w-full pl-10 pr-4 py-3 rounded-xl border outline-none transition-all text-sm ${inputBg}`} 
-                placeholder="••••••••"
-              />
-              <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
-            </div>
-          </div>
+          )}
           
           <button 
             type="submit" 
             disabled={loading}
             className={`w-full py-3.5 rounded-xl bg-green-500 hover:bg-green-600 text-white font-semibold transition-all flex items-center justify-center gap-2 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            {loading ? 'Authenticating...' : 'Sign In'}
+            {loading ? 'Authenticating...' : (show2FA ? 'Verify Code' : 'Sign In')}
             {!loading && <ChevronRight className="w-4 h-4" />}
           </button>
         </form>

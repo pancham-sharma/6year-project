@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Search, Info, Heart, X, Loader, Check, CheckCheck, Trash2 } from 'lucide-react';
+import { Send, Paperclip, Search, Info, Heart, X, Loader, Check, CheckCheck, Trash2, Edit2 } from 'lucide-react';
 
 import { fetchAPI } from '../utils/api';
 import { useSearch } from '../context/SearchContext';
@@ -19,43 +19,73 @@ export default function Messages({ darkMode }: Props) {
   const [convList, setConvList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [myId, setMyId] = useState<string | null>(null);
   
   const [input, setInput] = useState('');
   const [localSearch, setLocalSearch] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
 
   const [mobileShowChat, setMobileShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // Group messages into conversations
   useEffect(() => {
     const fetchChat = async () => {
       try {
-        const [msgsRes, usersRes] = await Promise.all([
+        const [msgsRes, usersRes, meRes] = await Promise.all([
           fetchAPI('/api/chat/messages/').catch(() => []),
-          fetchAPI('/api/users/list/').catch(() => [])
+          fetchAPI('/api/users/list/').catch(() => []),
+          fetchAPI('/api/users/profile/').catch(() => null)
         ]);
         
         const rawMessages = (msgsRes.results || msgsRes || []).filter((m: any) => m.status !== 'Recycled');
         const allUsers = usersRes.results || usersRes || [];
         
-        // Find my ID assuming I am the logged in admin
-        // Since we don't have a direct /me/ endpoint right now, we infer based on sender/receiver patterns
-        // We'll group conversations by the "other" user
-        const adminName = 'admin'; // Fallback
+        const myIdVal = meRes?.id ? String(meRes.id) : null;
+        setMyId(myIdVal);
+        const myName = meRes?.username || 'admin';
         
+        if (myName) { /* used in the loop below */ }
+        
+        const adminIds = new Set(allUsers.filter((u: any) => u.role === 'ADMIN' || u.is_staff || u.is_superuser).map((u: any) => String(u.id)));
+        if (myId) adminIds.add(String(myId));
+
         const conversationsMap: any = {};
-        
         rawMessages.forEach((m: any) => {
-          // If I am sender, other is receiver. If I am receiver, other is sender.
-          // Since we don't strictly know our own ID, we'll assume the admin is receiving or sending
-          const isSentByMe = m.sender === adminName || m.sender_username === adminName; // Adjust based on serializer
-          const otherUser = isSentByMe ? m.receiver : m.sender;
-          const otherUserName = m.receiver_username || m.sender_username || `User ${otherUser}`;
+          const senderIsAdmin = adminIds.has(String(m.sender));
+          const receiverIsAdmin = adminIds.has(String(m.receiver));
+          
+          let otherUser, otherUserName, otherUserEmail, isSentByMe;
+
+          if (senderIsAdmin && !receiverIsAdmin) {
+            // Admin sending to user
+            otherUser = m.receiver;
+            otherUserName = m.receiver_full_name || m.receiver_username;
+            otherUserEmail = m.receiver_email;
+            isSentByMe = String(m.sender) === myIdVal || m.sender_username === myName || m.sender_username?.toLowerCase().includes('admin');
+          } else if (!senderIsAdmin && receiverIsAdmin) {
+            // User sending to admin
+            otherUser = m.sender;
+            otherUserName = m.sender_full_name || m.sender_username;
+            otherUserEmail = m.sender_email;
+            isSentByMe = false;
+          } else {
+            // Both admins or both users
+            isSentByMe = String(m.sender) === String(myId) || m.sender_username === myName;
+            otherUser = isSentByMe ? m.receiver : m.sender;
+            otherUserName = isSentByMe ? (m.receiver_full_name || m.receiver_username) : (m.sender_full_name || m.sender_username);
+            otherUserEmail = isSentByMe ? m.receiver_email : m.sender_email;
+          }
+
+          otherUserName = otherUserName || otherUserEmail || `User ${otherUser}`;
 
           if (!conversationsMap[otherUser]) {
             conversationsMap[otherUser] = {
               id: otherUser.toString(),
               userName: otherUserName,
+              userEmail: otherUserEmail,
               avatar: otherUserName.charAt(0).toUpperCase(),
               messages: [],
               unread: 0,
@@ -75,34 +105,63 @@ export default function Messages({ darkMode }: Props) {
           
           conversationsMap[otherUser].lastMessage = m.message_body;
           conversationsMap[otherUser].lastTime = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          conversationsMap[otherUser].lastTimestamp = new Date(m.timestamp).getTime();
           if (!m.read && !isSentByMe) conversationsMap[otherUser].unread += 1;
         });
 
         // Add empty states for all registered users so admin can initiate chats
         allUsers.forEach((u: any) => {
-           if (!conversationsMap[u.id] && u.username !== adminName) {
+           if (!conversationsMap[u.id] && String(u.id) !== String(myId)) {
              conversationsMap[u.id] = {
                id: u.id.toString(),
-               userName: u.username,
-               avatar: u.username.charAt(0).toUpperCase(),
+               userName: u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : u.username,
+               userEmail: u.email,
+               avatar: (u.first_name || u.username).charAt(0).toUpperCase(),
                messages: [],
                unread: 0,
                lastMessage: 'Start a conversation...',
                lastTime: '',
+               lastTimestamp: 0,
              };
            }
         });
 
+        // Sort formattedConvs by lastTimestamp (newest first)
         const formattedConvs: any[] = Object.values(conversationsMap);
-        setConvList(formattedConvs);
         
-        if (formattedConvs.length > 0 && !activeId) {
+        setConvList(prev => {
+           const updated = formattedConvs.map(newC => {
+              const oldC = prev.find(oc => String(oc.id) === String(newC.id));
+              if (!oldC) return newC;
+              
+              // Keep temp messages that aren't yet confirmed by the server
+              const tempMsgs = oldC.messages.filter((om: any) => 
+                String(om.id).startsWith('temp-') && 
+                !newC.messages.some((nm: any) => nm.text === om.text && nm.type === om.type)
+              );
+
+              return {
+                ...newC,
+                messages: [...newC.messages, ...tempMsgs]
+              };
+           });
+           return [...updated].sort((a: any, b: any) => b.lastTimestamp - a.lastTimestamp);
+        });
+        
+        // Handle selection from notification state
+        const navState = (window as any)._navState;
+        const selectUser = navState?.selectUser;
+        if (selectUser) {
+          const target = formattedConvs.find(c => c.userName === selectUser || c.userEmail === selectUser || c.id === String(selectUser));
+          if (target) {
+            setActiveId(target.id);
+            setMobileShowChat(true);
+          }
+          // Clear state after use
+          (window as any)._navState = null;
+        } else if (formattedConvs.length > 0 && !activeId) {
           const firstId = formattedConvs[0].id;
           setActiveId(firstId);
-          // Mark the first one as read optimistically
-          setConvList(prev => prev.map(c => 
-            c.id === firstId ? { ...c, unread: 0, messages: c.messages.map((m: any) => ({ ...m, read: true })) } : c
-          ));
         }
       } catch (err) {
         console.error("Failed to load messages", err);
@@ -111,6 +170,64 @@ export default function Messages({ darkMode }: Props) {
       }
     };
     fetchChat();
+    const interval = setInterval(fetchChat, 2000);
+    return () => clearInterval(interval);
+  }, [activeId]);
+
+  // WebSocket Connection
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const host = window.location.host === 'localhost:5173' ? 'localhost:8000' : window.location.host;
+    const wsUrl = `${protocol}://${host}/ws/chat/?token=${token}`;
+    
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'new_message') {
+        const m = data.message;
+        setConvList(prev => {
+          const senderId = String(m.sender);
+          const receiverId = String(m.receiver);
+          // For admin, we want to find the non-admin side to group by
+          // But our existing logic already handles this in the initial map.
+          // Let's just trigger a re-fetch or manually update.
+          // Refetching is safer for now to keep logic consistent.
+          // fetchChat(); // No, let's update manually for "true" WS feel.
+          
+          return prev.map(c => {
+             const isThisConv = c.id === senderId || c.id === receiverId;
+             if (!isThisConv) return c;
+             
+             const isSentByMe = String(m.sender) === myId;
+             
+             const newMsg = {
+               id: m.id,
+               text: m.message_body,
+               type: isSentByMe ? 'sent' : 'received',
+               read: m.read ?? false,
+               status: m.status || 'Active',
+               timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+             };
+
+             return {
+               ...c,
+               messages: [...c.messages, newMsg],
+               lastMessage: m.message_body,
+               lastTime: newMsg.timestamp,
+               lastTimestamp: new Date(m.timestamp).getTime(),
+               unread: (!m.read && !isSentByMe) ? c.unread + 1 : c.unread
+             };
+          }).sort((a: any, b: any) => b.lastTimestamp - a.lastTimestamp);
+        });
+      }
+    };
+
+    return () => ws.close();
   }, []);
 
   const activeConv = convList.find(c => c.id === activeId);
@@ -121,7 +238,7 @@ export default function Messages({ darkMode }: Props) {
   const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-700 placeholder-gray-400';
   const sidebarBg = darkMode ? 'bg-gray-800' : 'bg-white';
   const chatBg = darkMode ? 'bg-gray-900' : 'bg-slate-50';
-  const userItemActive = darkMode ? 'bg-green-900/30 border-green-700/50' : 'bg-green-50 border-green-100';
+  const userItemActive = darkMode ? 'bg-green-900/30 border-green-700/50' : 'bg-emerald-50 border-emerald-200 shadow-sm z-10';
   const userItemInactive = darkMode ? 'hover:bg-gray-700/50 border-transparent' : 'hover:bg-gray-50 border-transparent';
   const sentBubble = 'bg-gradient-to-br from-green-400 to-emerald-500 text-white';
   const recvBubble = darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-800 shadow-sm';
@@ -142,30 +259,59 @@ export default function Messages({ darkMode }: Props) {
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || !activeId) return;
-    try {
-      const res = await fetchAPI('/api/chat/messages/', {
-        method: 'POST',
-        body: JSON.stringify({
-          receiver: activeId,
-          message_body: text.trim()
-        })
-      });
-      
+    
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: 'send_message',
+        receiver_id: activeId,
+        message: text.trim()
+      }));
+      setInput('');
+    } else {
+      // Optimistic Update
+      const tempId = `temp-${Date.now()}`;
       const newMsg = {
-        id: res.id || `m${Date.now()}`,
+        id: tempId,
         text: text.trim(),
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         type: 'sent',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        read: false
       };
-      
-      setConvList(prev => prev.map(c =>
-        c.id === activeId
-          ? { ...c, messages: [...c.messages, newMsg], lastMessage: text.trim(), lastTime: 'Just now', unread: 0 }
-          : c
+      setConvList(prev => prev.map((c: any) => 
+        String(c.id) === String(activeId) ? { ...c, messages: [...c.messages, newMsg], lastMessage: text.trim(), lastTime: 'Just now' } : c
       ));
       setInput('');
+
+      try {
+        await fetchAPI('/api/chat/messages/', {
+          method: 'POST',
+          body: JSON.stringify({
+            receiver: activeId,
+            message_body: text.trim()
+          })
+        });
+      } catch (err) {
+        setConvList(prev => prev.map((c: any) => 
+          String(c.id) === String(activeId) ? { ...c, messages: c.messages.filter((m: any) => m.id !== tempId) } : c
+        ));
+        console.error("Failed to send message", err);
+      }
+    }
+  };
+
+  const editMessage = async (msgId: any, newText: string) => {
+    if (!newText.trim()) return;
+    try {
+      await fetchAPI(`/api/chat/messages/${msgId}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ message_body: newText.trim() })
+      });
+      setConvList((prev: any[]) => prev.map((c: any) => ({
+        ...c,
+        messages: c.messages.map((m: any) => m.id === msgId ? { ...m, text: newText.trim() } : m)
+      })));
     } catch (err) {
-      console.error("Failed to send message", err);
+      console.error("Failed to edit message", err);
     }
   };
 
@@ -181,7 +327,7 @@ export default function Messages({ darkMode }: Props) {
     const unreadMsgs = conv.messages.filter((m: any) => m.type === 'received' && !m.read);
     
     // Clear unread count IMMEDIATELY in state
-    setConvList(prev => prev.map(c =>
+    setConvList((prev: any[]) => prev.map((c: any) =>
       String(c.id) === stringId
         ? { ...c, unread: 0, messages: c.messages.map((m: any) => ({ ...m, read: true })) }
         : c
@@ -271,6 +417,7 @@ export default function Messages({ darkMode }: Props) {
                     <p className={`text-sm font-semibold truncate ${textMain}`}>{conv.userName}</p>
                     <span className={`text-xs flex-shrink-0 ml-2 ${textSub}`}>{conv.lastTime}</span>
                   </div>
+                  {conv.userEmail && <p className={`text-[10px] truncate ${textSub} mb-1 opacity-80`}>{conv.userEmail}</p>}
                   <p className={`text-xs truncate ${textSub}`}>{conv.lastMessage}</p>
                   {conv.donationRef && (
                     <span className="text-xs text-green-500 font-mono">{conv.donationRef}</span>
@@ -297,6 +444,7 @@ export default function Messages({ darkMode }: Props) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className={`font-bold text-sm ${textMain}`}>{activeConv?.userName}</p>
+                <p className={`text-xs ${textSub} truncate`}>{activeConv?.userEmail}</p>
                 {activeConv?.donationRef && (
                   <p className="text-xs text-green-500 font-mono">Ref: {activeConv.donationRef}</p>
                 )}
@@ -329,8 +477,24 @@ export default function Messages({ darkMode }: Props) {
                     </div>
                   )}
                   <div className={`max-w-[70%] group`}>
+                    {msg.type === 'received' && (
+                      <p className={`text-[10px] mb-1 ml-1 font-medium ${textSub}`}>{activeConv.userEmail}</p>
+                    )}
                     <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.type === 'sent' ? `${sentBubble} rounded-br-md` : `${recvBubble} rounded-bl-md`}`}>
-                      {msg.text}
+                      {editingId === msg.id ? (
+                        <div className="flex flex-col gap-2 min-w-[150px]">
+                          <textarea 
+                            className="bg-transparent border-b border-white/30 outline-none w-full resize-none text-white placeholder-white/50" 
+                            autoFocus
+                            value={editText} 
+                            onChange={e => setEditText(e.target.value)} 
+                          />
+                          <div className="flex justify-end gap-3 mt-1">
+                            <button onClick={() => setEditingId(null)} className="text-[10px] text-white/70 hover:text-white">Cancel</button>
+                            <button onClick={() => { editMessage(msg.id, editText); setEditingId(null); }} className="text-[10px] font-bold text-white bg-white/20 px-2 py-0.5 rounded">Save</button>
+                          </div>
+                        </div>
+                      ) : msg.text}
                     </div>
                     <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className={`flex items-center gap-1 ${msg.type === 'sent' ? 'justify-end' : 'justify-start'}`}>
@@ -339,12 +503,23 @@ export default function Messages({ darkMode }: Props) {
                           msg.read ? <CheckCheck size={12} className="text-blue-400" /> : <Check size={12} className={textSub} />
                         )}
                       </div>
-                      <button 
-                        onClick={() => deleteMessage(msg.id)}
-                        className={`p-1 rounded-md hover:bg-red-50 text-red-400 hover:text-red-500 transition-colors ${msg.type === 'sent' ? 'order-first' : 'order-last'}`}
-                      >
-                        <Trash2 size={10} />
-                      </button>
+                      
+                      <div className={`flex gap-1 ${msg.type === 'sent' ? 'order-first' : 'order-last'}`}>
+                        {msg.type === 'sent' && (
+                          <button 
+                            onClick={() => { setEditingId(msg.id); setEditText(msg.text); }}
+                            className={`p-1 rounded-md hover:bg-emerald-50 text-emerald-400 hover:text-emerald-500 transition-colors`}
+                          >
+                            <Edit2 size={10} />
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => deleteMessage(msg.id)}
+                          className={`p-1 rounded-md hover:bg-red-50 text-red-400 hover:text-red-500 transition-colors`}
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -384,7 +559,7 @@ export default function Messages({ darkMode }: Props) {
                 <button
                   onClick={() => sendMessage(input)}
                   disabled={!input.trim()}
-                  className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-500 text-white rounded-xl flex items-center justify-center shadow-md hover:shadow-lg transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-md transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${darkMode ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white' : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-200'}`}
                 >
                   <Send size={15} />
                 </button>

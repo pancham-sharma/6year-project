@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from .models import Donation, PickupDetails, Category
+from .models import Donation, PickupDetails, Category, DatabaseBackup
+import json
+
+class DatabaseBackupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DatabaseBackup
+        fields = '__all__'
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -21,12 +27,24 @@ class PickupDetailsSerializer(serializers.ModelSerializer):
 class DonationSerializer(serializers.ModelSerializer):
     pickup_details = PickupDetailsSerializer(required=False)
     donor = serializers.ReadOnlyField(source='donor.username')
+    donor_phone = serializers.ReadOnlyField(source='donor.phone_number')
 
     class Meta:
         model = Donation
-        fields = ['id', 'donor', 'category', 'quantity_description', 'quantity', 'image', 'status', 'timestamp', 'pickup_details']
-        read_only_fields = ['timestamp']
+        fields = ['id', 'donor', 'donor_phone', 'category', 'quantity_description', 'quantity', 'image', 'status', 'timestamp', 'pickup_details']
+        read_only_fields = ['timestamp', 'donor', 'donor_phone']
 
+    def to_internal_value(self, data):
+        # Handle FormData sending pickup_details as a JSON string
+        if 'pickup_details' in data and isinstance(data.get('pickup_details'), str):
+            try:
+                # Create a mutable copy if it's a QueryDict
+                if hasattr(data, 'copy'):
+                    data = data.copy()
+                data['pickup_details'] = json.loads(data.get('pickup_details'))
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return super().to_internal_value(data)
 
     def create(self, validated_data):
         pickup_data = validated_data.pop('pickup_details', None)

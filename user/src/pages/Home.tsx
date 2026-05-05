@@ -13,7 +13,20 @@ const getImageUrl = (path: string) => {
 };
 
 const iconMap: Record<string, any> = {
-  Utensils, BookOpen, Shirt, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins
+  utensils: Utensils,
+  bookopen: BookOpen,
+  shirt: Shirt,
+  banknote: Banknote,
+  sprout: Sprout,
+  heart: Heart,
+  layoutgrid: LayoutGrid,
+  handheart: HandHeart,
+  users: Users,
+  treepine: TreePine,
+  gift: Gift,
+  shoppingbag: ShoppingBag,
+  graduationcap: GraduationCap,
+  coins: Coins
 };
 
 export default function Home() {
@@ -137,7 +150,8 @@ export default function Home() {
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
             {categories.map((cat) => {
-              const Icon = iconMap[cat.icon_name];
+              const iconKey = (cat.icon_name || 'Heart').toLowerCase();
+              const Icon = iconMap[iconKey] || Heart;
               return (
                 <div key={cat.id} className={`card-modern group w-full ${dark ? 'bg-white/5 border-white/10' : 'bg-white shadow-xl shadow-gray-200/40 border-gray-100'}`}>
                   <div className="h-60 overflow-hidden relative">
@@ -151,7 +165,7 @@ export default function Home() {
                   <div className="p-8 flex flex-col items-center text-center">
                     <div className="flex flex-col items-center mb-4">
                       <div className="icon-soft-circle mb-4 group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
-                        {Icon ? <Icon className="w-5 h-5" /> : <span className="text-xl">{cat.icon_name || '📦'}</span>}
+                        <Icon className="w-5 h-5" />
                       </div>
                       <h3 className={`text-xl font-bold tracking-tight ${dark ? 'text-white' : 'text-near-black'}`}>{cat.name}</h3>
                     </div>

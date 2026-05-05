@@ -9,6 +9,12 @@ class MessageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        if user.is_staff or getattr(user, 'role', None) == 'ADMIN':
+            # Admins can see all messages involving any admin or staff member
+            return Message.objects.filter(
+                Q(sender__is_staff=True) | Q(receiver__is_staff=True) |
+                Q(sender__role='ADMIN') | Q(receiver__role='ADMIN')
+            ).distinct()
         return Message.objects.filter(Q(sender=user) | Q(receiver=user))
 
     def perform_create(self, serializer):

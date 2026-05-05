@@ -87,7 +87,6 @@ export default function RecycleBin({ darkMode }: Props) {
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
   const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';
-  const inputBg = darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200';
   const rowHover = darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50';
 
   const filteredDonations = donations.filter(d => d.donor?.toLowerCase().includes(searchTerm.toLowerCase()) || d.id.toString().includes(searchTerm));
@@ -105,10 +104,10 @@ export default function RecycleBin({ darkMode }: Props) {
           </div>
         </div>
 
-        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border ${inputBg} mb-6`}>
-          <Search size={16} className={textSub} />
+        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'} mb-6`}>
+          <Search size={16} className={darkMode ? 'text-gray-300' : textSub} />
           <input 
-            className="bg-transparent outline-none w-full text-sm" 
+            className={`bg-transparent outline-none w-full text-sm ${darkMode ? 'text-white placeholder-gray-300' : 'text-gray-700 placeholder-gray-400'}`} 
             placeholder="Search recycled items..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}

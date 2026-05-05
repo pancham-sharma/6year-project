@@ -33,12 +33,7 @@ export default function Inventory({ darkMode }: Props) {
         const data = (invRes.results || invRes || []).map((item: any) => {
           // Try to find a matching impact metric to use as 'distributed'
           // e.g. "Meals Served" for Food
-          const impact = impactData.find((m: any) => 
-            (item.category === 'Food' && m.name.toLowerCase().includes('meal')) ||
-            (item.category === 'Clothes' && m.name.toLowerCase().includes('cloth')) ||
-            (item.category === 'Books' && m.name.toLowerCase().includes('book')) ||
-            (item.category === 'Environment' && m.name.toLowerCase().includes('tree'))
-          );
+
 
           return {
             id: item.id,
@@ -68,7 +63,7 @@ export default function Inventory({ darkMode }: Props) {
   const theadBg = darkMode ? 'bg-gray-700/50' : 'bg-gray-50';
   const rowHover = darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50';
   const divider = darkMode ? 'divide-gray-700' : 'divide-gray-100';
-  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
+  const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-300' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
   const editInputBg = darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'bg-gray-50 border-gray-300 text-gray-800';
 
   const combinedSearch = (searchQuery + ' ' + (editValues.search || '')).trim().toLowerCase();

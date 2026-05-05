@@ -29,7 +29,7 @@ class Donation(models.Model):
     )
 
     donor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='donations')
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    category = models.CharField(max_length=20) 
     quantity_description = models.TextField()
     quantity = models.PositiveIntegerField(default=1)
     image = models.ImageField(upload_to='donations/', blank=True, null=True)
@@ -132,3 +132,12 @@ def create_pickup_notification(sender, instance, created, **kwargs):
                 title="Pickup Assigned! 🚚",
                 message=f"Good news! Team {instance.assigned_team} has been assigned to pick up your donation #{instance.donation.id}. They will arrive as per your scheduled slot."
             )
+
+class DatabaseBackup(models.Model):
+    file = models.FileField(upload_to='backups/')
+    created_at = models.DateTimeField(auto_now_add=True)
+    size = models.CharField(max_length=50, blank=True)
+    backup_type = models.CharField(max_length=10, default='json') # json or sql
+
+    def __str__(self):
+        return f"Backup {self.created_at} ({self.backup_type})"

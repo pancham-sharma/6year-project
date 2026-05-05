@@ -13,7 +13,20 @@ const getImageUrl = (path: string) => {
 };
 
 const iconMap: Record<string, any> = {
-  Utensils, BookOpen, Shirt, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins
+  utensils: Utensils,
+  bookopen: BookOpen,
+  shirt: Shirt,
+  banknote: Banknote,
+  sprout: Sprout,
+  heart: Heart,
+  layoutgrid: LayoutGrid,
+  handheart: HandHeart,
+  users: Users,
+  treepine: TreePine,
+  gift: Gift,
+  shoppingbag: ShoppingBag,
+  graduationcap: GraduationCap,
+  coins: Coins
 };
 
 export default function Categories() {
@@ -71,7 +84,8 @@ export default function Categories() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
           {allCategories.map((cat) => {
-            const Icon = iconMap[cat.icon_name];
+            const iconKey = (cat.icon_name || 'Heart').toLowerCase();
+            const Icon = iconMap[iconKey] || Heart;
             return (
               <div key={cat.id} className={`card-modern group ${dark ? 'bg-near-black/60 border-white/10' : 'bg-white shadow-2xl shadow-black/5'}`}>
                 <div className="h-52 overflow-hidden relative">
@@ -85,7 +99,7 @@ export default function Categories() {
                 <div className="p-8 flex flex-col items-center text-center">
                   <div className="flex flex-col items-center mb-4">
                     <div className="icon-soft-circle mb-4 group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
-                      {Icon ? <Icon className="w-5 h-5" /> : <span className="text-xl">{cat.icon_name || '📦'}</span>}
+                      <Icon className="w-5 h-5" />
                     </div>
                     <h3 className={`text-xl font-bold tracking-tight ${dark ? 'text-white' : 'text-near-black'}`}>{cat.name}</h3>
                   </div>

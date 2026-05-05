@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLocation } from 'react-router-dom';
 import { User, MapPin, Clock, Download, HandHeart, TreePine, Utensils, TrendingUp, CheckCircle, Package, Loader, Mail, Send, Truck, Calendar, LogOut } from 'lucide-react';
@@ -20,6 +20,8 @@ export default function Dashboard() {
   const [messages, setMessages] = useState<any[]>([]);
   const [replyText, setReplyText] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
+  const [adminId, setAdminId] = useState<number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Show success toast if coming from donation form
@@ -77,6 +79,7 @@ export default function Dashboard() {
           });
           // Sync global user context so the display name at top is always real DB data
           setAppUser({
+            id: profRes.id,
             name: profRes.first_name
               ? `${profRes.first_name} ${profRes.last_name || ''}`.trim()
               : profRes.username || '',
@@ -93,6 +96,14 @@ export default function Dashboard() {
       }
     };
     loadDashboardData();
+    
+    // Fetch admin ID for chat initiation
+    fetchAPI('/api/users/admin-id/').then(res => {
+      if (res.id) setAdminId(res.id);
+    }).catch(err => console.warn("Admin ID fetch failed", err));
+
+    const interval = setInterval(loadDashboardData, 3000); // Faster poll for real-time feel
+    return () => clearInterval(interval);
   }, []);
 
   const handleProfileSave = async () => {
@@ -106,6 +117,7 @@ export default function Dashboard() {
       });
       setProfileSuccess('Profile updated successfully!');
       setAppUser({
+        id: res.id,
         name: res.first_name
           ? `${res.first_name} ${res.last_name || ''}`.trim()
           : res.username || '',
@@ -126,18 +138,17 @@ export default function Dashboard() {
     if (!replyText.trim()) return;
     setSendingMsg(true);
     try {
-      // Find the admin user ID from received messages, or default to 1
-      const adminMsg = messages.find(m => m.sender_username === 'admin');
-      const adminId = adminMsg ? adminMsg.sender : 1;
+      // Use fetched adminId or fallback to 1
+      const targetId = adminId || 1;
 
       const newMsg = await fetchAPI('/api/chat/messages/', {
         method: 'POST',
         body: JSON.stringify({
-          receiver: adminId,
+          receiver: targetId,
           message_body: replyText
         })
       });
-      setMessages([...messages, newMsg]);
+      setMessages(prev => [...prev, newMsg]);
       setReplyText('');
     } catch (err) {
       console.error("Failed to send message", err);
@@ -145,6 +156,13 @@ export default function Dashboard() {
       setSendingMsg(false);
     }
   };
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    if (activeTab === 'messages') {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages.length, activeTab]);
 
   const handleDownloadReceipt = async (donationId: number) => {
     try {
@@ -174,9 +192,10 @@ export default function Dashboard() {
   ];
 
   // Derived Stats
-  const totalDonations = donations.length;
-  const foodMeals = donations.filter(d => d.category === 'Food').length * 10;
-  const treesPlanted = donations.filter(d => d.category === 'Environment').length * 5;
+  const activeDonations = donations.filter(d => ['Pending', 'Scheduled', 'Completed'].includes(d.status));
+  const totalDonations = activeDonations.length;
+  const foodMeals = activeDonations.filter(d => d.category === 'Food').length * 10;
+  const treesPlanted = activeDonations.filter(d => d.category === 'Environment').length * 5;
   const familiesHelped = Math.floor(totalDonations * 2.5);
 
   // Extract unique addresses from pickup_details
@@ -263,7 +282,7 @@ export default function Dashboard() {
                       <div className="text-center py-10">
                         <p className={`text-lg mb-2 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>No donations found in database.</p>
                       </div>
-                    ) : donations.map(d => (
+                    ) : donations.filter(d => d.status !== 'Recycled').map(d => (
                       <div key={d.id} className={`flex items-center gap-4 p-4 rounded-2xl transition-colors ${dark ? 'bg-slate-700/50 hover:bg-slate-700' : 'bg-gray-50 hover:bg-gray-100'}`}>
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                           d.category === 'Food' ? 'bg-orange-100 text-orange-600' :
@@ -282,7 +301,7 @@ export default function Dashboard() {
                               d.status === 'Scheduled' ? (dark ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-blue-100 text-blue-700') : 
                               (dark ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-amber-100 text-amber-700')
                             }`}>
-                              <CheckCircle className="w-3 h-3 inline mr-0.5" />{d.status}
+                              <CheckCircle className="w-3 h-3 inline mr-0.5" />{d.status === 'Scheduled' ? 'Approved' : d.status}
                             </span>
                           </div>
                           <p className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'} mt-1`}>#DON-{d.id} • {new Date(d.timestamp).toLocaleDateString()} • {d.quantity_description}</p>
@@ -310,9 +329,9 @@ export default function Dashboard() {
                 <div className="animate-fade-in">
                   <h3 className={`text-lg font-bold mb-6 ${dark ? 'text-white' : 'text-gray-900'}`}>Track Your Pickups</h3>
                   <div className="space-y-4">
-                    {donations.filter(d => d.status !== 'Completed' && d.status !== 'Cancelled').length === 0 ? (
+                    {donations.filter(d => ['Pending', 'Scheduled', 'Completed'].includes(d.status)).length === 0 ? (
                       <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>No active pickups at the moment.</p>
-                    ) : donations.filter(d => d.status !== 'Completed' && d.status !== 'Cancelled').map(d => (
+                    ) : donations.filter(d => ['Pending', 'Scheduled', 'Completed'].includes(d.status)).map(d => (
                       <div key={d.id} className={`p-6 rounded-3xl border-2 transition-all ${d.status === 'Scheduled' ? 'border-blue-500 bg-blue-50/10' : dark ? 'border-slate-700 bg-slate-800/40' : 'border-gray-100 bg-gray-50/50'}`}>
                          <div className="flex justify-between items-start mb-4">
                            <div>
@@ -320,9 +339,11 @@ export default function Dashboard() {
                              <p className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>#{d.id} · {d.quantity_description}</p>
                            </div>
                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                             d.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                             d.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : 
+                             d.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                             'bg-amber-100 text-amber-700'
                            }`}>
-                             {d.status}
+                             {d.status === 'Scheduled' ? 'Approved' : d.status}
                            </span>
                          </div>
                          
@@ -473,7 +494,7 @@ export default function Dashboard() {
                         <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>No messages yet. Send a message to start the conversation.</p>
                       </div>
                     ) : messages.map(m => {
-                      const isMe = m.sender_username !== 'admin';
+                      const isMe = String(m.sender) === String(appUser.id);
                       return (
                         <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[80%] p-4 rounded-2xl ${
@@ -481,13 +502,19 @@ export default function Dashboard() {
                               ? `bg-primary-500 ${dark ? 'text-white' : 'text-slate-900'} rounded-tr-none shadow-md shadow-primary-500/20` 
                               : dark ? 'bg-slate-700 text-gray-200 rounded-tl-none border border-slate-600' : 'bg-slate-50 text-slate-900 border border-slate-200 rounded-tl-none shadow-sm'
                           }`}>
-                            {!isMe && <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dark ? 'text-white/60' : 'text-slate-500'}`}>Administrator</p>}
+                            {!isMe && (
+                              <div className="mb-1">
+                                <p className={`text-[10px] font-bold uppercase tracking-wider ${dark ? 'text-white/60' : 'text-slate-500'}`}>Administrator</p>
+                                <p className={`text-[9px] opacity-60`}>{m.sender_email}</p>
+                              </div>
+                            )}
                             <p className="text-sm leading-relaxed">{m.message_body}</p>
                             <p className={`text-[9px] mt-1 text-right opacity-60`}>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                           </div>
                         </div>
                       );
                     })}
+                    <div ref={messagesEndRef} />
                   </div>
 
                   {/* Send Input */}

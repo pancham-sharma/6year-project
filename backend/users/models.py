@@ -11,6 +11,10 @@ class User(AbstractUser):
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)
     profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)
+    
+    # 2FA Fields
+    two_factor_enabled = models.BooleanField(default=False)
+    otp_secret = models.CharField(max_length=32, blank=True, null=True)
 
     def is_admin(self):
         return self.role == 'ADMIN'
