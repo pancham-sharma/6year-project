@@ -2,14 +2,18 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { ArrowRight, Utensils, BookOpen, Shirt, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins } from 'lucide-react';
-import { fetchAPI } from '../utils/api';
+import { fetchAPI, API_BASE_URL } from '../utils/api';
 
 const getImageUrl = (path: string) => {
   if (!path) return '/images/hero.jpg';
   if (path.startsWith('http') || path.startsWith('https')) return path;
-  if (path.startsWith('/media/')) return `http://127.0.0.1:8000${path}`;
+  
+  // Use production backend URL if in production
+  const base = API_BASE_URL || 'http://127.0.0.1:8000';
+  
+  if (path.startsWith('/media/')) return `${base}${path}`;
   if (path.startsWith('/') || path.startsWith('images/')) return path; // Frontend asset
-  return `http://127.0.0.1:8000/media/${path}`;
+  return `${base}/media/${path}`;
 };
 
 const iconMap: Record<string, any> = {
@@ -35,10 +39,11 @@ export default function Categories() {
   const permanentCategories = [
     { id: 'p1', name: t.categories.food, description: t.categories.foodDesc, impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', image: "/Join the Movement_ Support Our Homeless Community!.jpeg" },
     { id: 'p2', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', image: "/Two individuals are sharing a box of donated clothes labeled 'DONATION' in a warm, communal setting_.jpeg" },
-    { id: 'p3', name: t.categories.books, description: t.categories.booksDesc, impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: 'http://127.0.0.1:8000/media/category_images/download_9_IOLG5uL.jpeg' },
-    { id: 'p4', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "http://127.0.0.1:8000/media/category_images/download_9.jpeg" },
+    { id: 'p3', name: t.categories.books, description: t.categories.booksDesc, impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: 'category_images/download_9_IOLG5uL.jpeg' },
+    { id: 'p4', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "category_images/download_9.jpeg" },
     { id: 'p5', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', image: '/images/stories-trees.jpg' },
   ];
+
 
   const [dynamicCategories, setDynamicCategories] = useState<any[]>([]);
 
