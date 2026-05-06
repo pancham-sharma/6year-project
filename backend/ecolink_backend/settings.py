@@ -13,10 +13,11 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-default-key-for-dev')
 DEBUG = env('DEBUG', default=True)
 
-ALLOWED_HOSTS = ['donation-admin-panel.onrender.com', 'sewa-marg.vercel.app', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['donation-admin-panel.onrender.com', 'sewa-marg.vercel.app', 'admin-panel-blush-ten.vercel.app', 'localhost', '127.0.0.1']
 
 CORS_ALLOWED_ORIGINS = [
     "https://sewa-marg.vercel.app",
+    "https://admin-panel-blush-ten.vercel.app",
     "https://pancham-sharma-6year-project.vercel.app",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
