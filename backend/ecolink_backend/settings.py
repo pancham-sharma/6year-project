@@ -18,10 +18,12 @@ ALLOWED_HOSTS = ['donation-admin-panel.onrender.com', 'sewa-marg.vercel.app', 'a
 CORS_ALLOWED_ORIGINS = [
     "https://sewa-marg.vercel.app",
     "https://admin-panel-blush-ten.vercel.app",
+    "https://admin-panel-blush-ten.vercel.app/",
     "https://pancham-sharma-6year-project.vercel.app",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
 
 INSTALLED_APPS = [
     'daphne',

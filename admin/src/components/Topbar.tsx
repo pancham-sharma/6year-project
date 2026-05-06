@@ -53,8 +53,11 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
       if (!token) return;
 
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const host = window.location.host === 'localhost:5173' ? 'localhost:8000' : window.location.host;
+      const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `${window.location.hostname}:8000` 
+        : 'donation-admin-panel.onrender.com';
       const wsUrl = `${protocol}://${host}/ws/notifications/?token=${token}`;
+
       
       const ws = new WebSocket(wsUrl);
 
