@@ -31,7 +31,10 @@ export default function DonationForm() {
   const [errorMsg, setErrorMsg] = useState('');
   const [dynamicTypes, setDynamicTypes] = useState<any[]>([]);
   const [form, setForm] = useState({
-    types: [] as string[], quantities: {} as Record<string, string>, descriptions: {} as Record<string, string>, images: {} as Record<string, string | null>,
+    types: [] as string[], 
+    quantities: {} as Record<string, string>, 
+    descriptions: {} as Record<string, string>, 
+    images: {} as Record<string, File | string | null>,
     address: '', city: '', state: '', pincode: '', landmark: '', phone: '', date: '', time: '',
     useCurrentLocation: false, consent: false, transactionId: '',
   });
@@ -185,17 +188,17 @@ export default function DonationForm() {
           scheduled_time: form.time || null,
         };
 
-        // If there's an image, we MUST use FormData
-        if (form.images[type]) {
+        const imageFile = form.images[type];
+        if (imageFile instanceof File) {
           formData.append('pickup_details', JSON.stringify(pickupDetails));
-          formData.append('image', form.images[type] as File);
+          formData.append('image', imageFile);
 
           return fetchAPI('/api/donations/', {
             method: 'POST',
             body: formData
           });
         } else {
-          // No image? Standard JSON is fine and easier for nested objects
+          // No image? Standard JSON is fine
           const payload = {
             category: categoryLabel,
             quantity: parseInt(form.quantities[type] || '1', 10),
@@ -336,7 +339,11 @@ export default function DonationForm() {
                                 <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Upload Image (Optional)</label>
                                 <label className={`flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${dark ? 'border-slate-600 hover:border-slate-500' : 'border-gray-300 hover:border-primary-400'} ${form.images[type] ? 'border-primary-500' : ''}`}>
                                   {form.images[type] ? (
-                                    <img src={URL.createObjectURL(form.images[type] as File)} alt="Preview" className="h-full w-full object-cover rounded-xl" />
+                                    <img 
+                                      src={form.images[type] instanceof File ? URL.createObjectURL(form.images[type] as File) : (form.images[type] as string)} 
+                                      alt="Preview" 
+                                      className="h-full w-full object-cover rounded-xl" 
+                                    />
                                   ) : (
                                     <div className="flex flex-col items-center p-2 text-center">
                                       <Upload className={`w-6 h-6 mb-2 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />

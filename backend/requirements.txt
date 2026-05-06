@@ -15,3 +15,5 @@ qrcode[pill]
 channels
 channels-redis
 daphne
+gunicorn
+uvicorn

@@ -102,17 +102,24 @@ export default function Dashboard({ darkMode }: Props) {
   }));
 
   // Monthly trends (Mapped to show real counts on right side of chart)
-  const monthlyTrends = [
-    { month: 'Jan', Food: 0, Clothes: 0, Books: 0, Environment: 0 },
-    { month: 'Feb', Food: 0, Clothes: 0, Books: 0, Environment: 0 },
-    { month: 'Mar', Food: 0, Clothes: 0, Books: 0, Environment: 0 },
-    { month: 'Apr', Food: 0, Clothes: 0, Books: 0, Environment: 0 }
-  ];
+  // Monthly trends dynamically generated from the last 4 months
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const now = new Date();
+  const monthlyTrends = Array.from({ length: 4 }).map((_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (3 - i), 1);
+    return { 
+      month: months[d.getMonth()], 
+      monthIdx: d.getMonth(), 
+      year: d.getFullYear(),
+      Food: 0, Clothes: 0, Books: 0, Environment: 0, Monetary: 0 
+    };
+  });
   
   donations.forEach((d: any) => {
-    const cat = d.category;
-    if (monthlyTrends[3][cat as keyof typeof monthlyTrends[0]] !== undefined) {
-      (monthlyTrends[3] as any)[cat]++;
+    const date = new Date(d.timestamp);
+    const trend = monthlyTrends.find(t => t.monthIdx === date.getMonth() && t.year === date.getFullYear());
+    if (trend && trend[d.category as keyof typeof trend] !== undefined) {
+      (trend as any)[d.category]++;
     }
   });
 
