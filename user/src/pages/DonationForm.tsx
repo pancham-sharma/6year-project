@@ -128,18 +128,20 @@ export default function DonationForm() {
   const handleImageChange = (type: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setForm(p => ({ ...p, images: { ...p.images, [type]: reader.result as string } }));
-      };
-      reader.readAsDataURL(file);
+      setForm(p => ({ ...p, images: { ...p.images, [type]: file } }));
     }
   };
 
   const validateStep = (s: number) => {
     if (s === 1) {
       if (form.types.length === 0) return false;
-      return form.types.every(type => form.quantities[type]?.trim() && form.descriptions[type]?.trim());
+      return form.types.every(type => {
+        const hasQuantity = form.quantities[type]?.toString().trim();
+        if (type === 'monetary' || type === 'money') {
+          return hasQuantity && form.transactionId?.trim();
+        }
+        return hasQuantity && form.descriptions[type]?.trim();
+      });
     }
     if (s === 2) {
       return (
@@ -173,12 +175,6 @@ export default function DonationForm() {
           : `${form.quantities[type] || 'N/A'} - ${form.descriptions[type] || ''}`;
         formData.append('quantity_description', description);
 
-        // Add pickup details as nested JSON string (DRF can handle this if configured, 
-        // but here we might need to send them as separate fields or handle in serializer)
-        // However, the current serializer expects a nested object. 
-        // For FormData, we often send nested objects as dot notation or JSON strings.
-        // Let's stick to JSON if no image, otherwise use a hybrid or just fix the serializer.
-        
         const pickupDetails = {
           full_address: form.address || '',
           city: form.city || '',
@@ -192,11 +188,7 @@ export default function DonationForm() {
         // If there's an image, we MUST use FormData
         if (form.images[type]) {
           formData.append('pickup_details', JSON.stringify(pickupDetails));
-          
-          // Convert base64 to Blob
-          const res = await fetch(form.images[type] as string);
-          const blob = await res.blob();
-          formData.append('image', blob, `${type}.jpg`);
+          formData.append('image', form.images[type] as File);
 
           return fetchAPI('/api/donations/', {
             method: 'POST',
@@ -344,7 +336,7 @@ export default function DonationForm() {
                                 <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Upload Image (Optional)</label>
                                 <label className={`flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${dark ? 'border-slate-600 hover:border-slate-500' : 'border-gray-300 hover:border-primary-400'} ${form.images[type] ? 'border-primary-500' : ''}`}>
                                   {form.images[type] ? (
-                                    <img src={form.images[type] as string} alt="Preview" className="h-full w-full object-cover rounded-xl" />
+                                    <img src={URL.createObjectURL(form.images[type] as File)} alt="Preview" className="h-full w-full object-cover rounded-xl" />
                                   ) : (
                                     <div className="flex flex-col items-center p-2 text-center">
                                       <Upload className={`w-6 h-6 mb-2 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />

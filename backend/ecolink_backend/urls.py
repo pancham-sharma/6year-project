@@ -13,6 +13,8 @@ urlpatterns = [
     path('api/donations/', include('donations.urls')),
     path('api/inventory/', include('inventory.urls')),
     path('api/chat/', include('chat.urls')),
+    # Favicon
+    path('favicon.ico', RedirectView.as_view(url='/static/favicon.ico')),
     
     # Swagger docs
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

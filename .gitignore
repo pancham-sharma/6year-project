@@ -68,5 +68,8 @@ desktop.ini
 run_all.bat
 sync_assets.bat
 PUSH_TO_GITHUB.bat
+image.png
+backend/category_images/
+*.bat
 tmp/
 temp/

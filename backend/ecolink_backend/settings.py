@@ -82,7 +82,14 @@ CHANNEL_LAYERS = {
 }
 
 DATABASES = {
-    'default': env.db('DATABASE_URL', default='postgres://admin:admin123@localhost:5432/donation_db')
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres.rudaqhxsaaowiqvrmzix',
+        'PASSWORD': 'Panchamsharma6',
+        'HOST': 'aws-1-ap-northeast-2.pooler.supabase.com',
+        'PORT': '6543',
+    }
 }
 
 AUTH_USER_MODEL = 'users.User'

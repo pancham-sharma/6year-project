@@ -126,10 +126,11 @@ export default function Dashboard() {
   useEffect(() => {
     loadDashboardData();
     const interval = setInterval(() => {
-      if (activeTab === 'messages' || activeTab === 'history') {
+      // Reduce polling frequency for non-realtime tabs
+      if (activeTab === 'history' || activeTab === 'pickups') {
          loadDashboardData();
       }
-    }, 3000);
+    }, 10000); 
     return () => clearInterval(interval);
   }, [activeTab, loadDashboardData]);
 
@@ -150,7 +151,11 @@ export default function Dashboard() {
     if (!token) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = window.location.host === 'localhost:5173' ? 'localhost:8000' : window.location.host;
+    // Dynamic host detection for local and production environments
+    const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? `${window.location.hostname}:8000` 
+      : window.location.host;
+    
     const wsUrl = `${protocol}://${host}/ws/chat/?token=${token}`;
     
     console.log("User connecting to WebSocket:", wsUrl);
