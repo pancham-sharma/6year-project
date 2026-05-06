@@ -16,7 +16,7 @@ DEBUG = env('DEBUG', default=True)
 ALLOWED_HOSTS = ['*'] # Change in production
 
 INSTALLED_APPS = [
-    # 'daphne',
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     'donations',
     'inventory',
     'chat',
-    # 'channels',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -71,7 +71,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'ecolink_backend.wsgi.application'
-# ASGI_APPLICATION = 'ecolink_backend.asgi.application'
+ASGI_APPLICATION = 'ecolink_backend.asgi.application'
 
 # Channel layers for WebSockets
 # Note: In production, use RedisChannelLayer

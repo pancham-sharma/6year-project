@@ -133,21 +133,37 @@ export default function Volunteer() {
           <div>
             <h3 className={`text-xl font-bold mb-6 ${dark ? 'text-white' : 'text-gray-900'}`}>{t.volunteer.roles}</h3>
             <div className="space-y-4">
-              {roles.map(role => (
-                <button key={role.value} onClick={() => update('role', role.value)}
-                  className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all hover:shadow-md ${form.role === role.value ? 'border-primary-500 shadow-md shadow-primary-500/10' : dark ? 'border-slate-600 hover:border-slate-500' : 'border-gray-200 hover:border-gray-300'}`}>
-                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${role.color} flex items-center justify-center flex-shrink-0 shadow-lg`}>
-                    <role.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className={`font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{lang === 'hi' ? role.labelHi : role.label}</h4>
-                    <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{role.desc}</p>
-                  </div>
-                  {form.role === role.value && (
-                    <CheckCircle className={`w-5 h-5 ml-auto flex-shrink-0 ${dark ? 'text-white' : 'text-primary-500'}`} />
-                  )}
-                </button>
-              ))}
+              {roles.map(role => {
+                const existingApp = pastApplications.find(a => a.volunteering_role === role.value);
+                const isApproved = existingApp?.status === 'Approved';
+                const isPending = existingApp?.status === 'Pending';
+                const isDisabled = isApproved || isPending;
+
+                return (
+                  <button key={role.value} onClick={() => !isDisabled && update('role', role.value)}
+                    disabled={isDisabled}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 text-left transition-all ${
+                      isDisabled ? 'opacity-60 cursor-not-allowed bg-slate-100/50' : 
+                      form.role === role.value ? 'border-primary-500 shadow-md shadow-primary-500/10' : 
+                      dark ? 'border-slate-600 hover:border-slate-500' : 'border-gray-200 hover:border-gray-300'
+                    }`}>
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${role.color} flex items-center justify-center flex-shrink-0 shadow-lg ${isDisabled ? 'grayscale opacity-50' : ''}`}>
+                      <role.icon className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className={`font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>{lang === 'hi' ? role.labelHi : role.label}</h4>
+                        {isApproved && <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-500 text-white uppercase tracking-wider">✓ Active</span>}
+                        {isPending && <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white uppercase tracking-wider">⏳ Reviewing</span>}
+                      </div>
+                      <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{role.desc}</p>
+                    </div>
+                    {form.role === role.value && !isDisabled && (
+                      <CheckCircle className={`w-5 h-5 ml-auto flex-shrink-0 ${dark ? 'text-white' : 'text-primary-500'}`} />
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Roles End */}
@@ -161,24 +177,20 @@ export default function Volunteer() {
               <div className="mb-4 p-3 bg-red-100 text-red-700 text-sm font-medium rounded-xl">{errorMsg}</div>
             )}
 
-            {pastApplications.length > 0 && (
-              <div className={`mb-6 p-4 rounded-2xl border-2 ${dark ? 'border-slate-600 bg-slate-700/30' : 'border-primary-200 bg-primary-50/50'}`}>
-                <p className={`text-sm font-bold mb-2 ${dark ? 'text-white' : 'text-primary-700'}`}>Your Past Applications</p>
-                {pastApplications.map((app: any) => (
-                  <div key={app.id} className="flex justify-between text-xs mt-1">
-                    <span className={dark ? 'text-gray-300' : 'text-gray-700'}>{app.volunteering_role} — {app.city}</span>
-                    <span className={`px-2 py-0.5 rounded-full font-medium ${
-                      app.status === 'Approved' ? (dark ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700') : 
-                      app.status === 'Rejected' ? (dark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-700') : 
-                      (dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700')
-                    }`}>{app.status}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Status moved to Dashboard */}
+
 
             <form onSubmit={async (e) => {
               e.preventDefault();
+              const existingApp = pastApplications.find(a => a.volunteering_role === form.role);
+              if (existingApp?.status === 'Pending') {
+                setErrorMsg('You already have a pending application for this role.');
+                return;
+              }
+              if (existingApp?.status === 'Approved') {
+                setErrorMsg('You are already an approved volunteer for this role!');
+                return;
+              }
               if (!form.role) { setErrorMsg('Please select a volunteering role.'); return; }
               setLoading(true);
               setErrorMsg('');
@@ -208,10 +220,13 @@ export default function Volunteer() {
                 
                 // Update local status cache so the monitor doesn't trigger on new submission
                 const latestApps = await fetchAPI('/api/users/volunteer/').catch(() => []);
-                const apps = latestApps.results || latestApps || [];
+                const appsData = latestApps.results || latestApps || [];
                 const currentStatuses = JSON.parse(localStorage.getItem('vol_app_statuses') || '{}');
-                apps.forEach((app: any) => { currentStatuses[app.id] = app.status; });
+                appsData.forEach((app: any) => { currentStatuses[app.id] = app.status; });
                 localStorage.setItem('vol_app_statuses', JSON.stringify(currentStatuses));
+                
+                // Update past applications list locally to disable the role immediately
+                setPastApplications(appsData);
               } catch (err: any) {
                 setErrorMsg(err.message || 'Submission Failed. Please Login First');
               } finally {

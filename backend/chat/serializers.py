@@ -11,8 +11,8 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['id', 'sender', 'sender_username', 'sender_full_name', 'sender_email', 'receiver', 'receiver_username', 'receiver_full_name', 'receiver_email', 'message_body', 'attachment_url', 'timestamp', 'read', 'status']
-        read_only_fields = ['sender', 'timestamp', 'read']
+        fields = ['id', 'sender', 'sender_username', 'sender_full_name', 'sender_email', 'receiver', 'receiver_username', 'receiver_full_name', 'receiver_email', 'message_body', 'attachment_url', 'timestamp', 'updated_at', 'is_edited', 'read', 'status']
+        read_only_fields = ['sender', 'timestamp', 'updated_at', 'is_edited', 'read']
 
     def get_sender_full_name(self, obj):
         name = obj.sender.get_full_name()

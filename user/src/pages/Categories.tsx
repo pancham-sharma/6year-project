@@ -64,8 +64,8 @@ export default function Categories() {
     <div className={`min-h-screen pt-16 ${dark ? 'bg-[#0f172b]' : 'bg-white'}`}>
       {/* Clean Hero Header */}
       <div className={`max-w-7xl mx-auto px-4 pt-16 pb-8 text-center`}>
-        <div className={`inline-flex items-center gap-2 px-4 py-1 rounded-full text-xs font-bold mb-6 transition-colors duration-300 ${
-          dark ? 'text-brand' : 'text-slate-900 border border-slate-200 shadow-sm'
+        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold mb-6 transition-colors duration-300 ${
+          dark ? 'bg-white/20 text-white border border-white/30' : 'text-slate-900 border border-slate-200 shadow-sm'
         }`}>
           <Heart className="w-3.5 h-3.5" /> Choose Your Cause
         </div>
@@ -107,7 +107,7 @@ export default function Categories() {
                     {cat.description}
                   </p>
                   <div className="mb-8">
-                    <span className={`modern-badge ${dark ? 'bg-white/10 text-gray-300 border border-white/10' : 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`modern-badge ${dark ? 'bg-white/20 text-white border border-white/25' : 'bg-gray-100 text-gray-600'}`}>
                       {cat.impact_badge}
                     </span>
                   </div>

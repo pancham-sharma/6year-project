@@ -28,7 +28,15 @@ export default function Messages({ darkMode }: Props) {
 
   const [mobileShowChat, setMobileShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [convList, activeId]);
 
   // Group messages into conversations
   useEffect(() => {
@@ -50,7 +58,7 @@ export default function Messages({ darkMode }: Props) {
         if (myName) { /* used in the loop below */ }
         
         const adminIds = new Set(allUsers.filter((u: any) => u.role === 'ADMIN' || u.is_staff || u.is_superuser).map((u: any) => String(u.id)));
-        if (myId) adminIds.add(String(myId));
+        if (myIdVal) adminIds.add(String(myIdVal));
 
         const conversationsMap: any = {};
         rawMessages.forEach((m: any) => {
@@ -73,7 +81,7 @@ export default function Messages({ darkMode }: Props) {
             isSentByMe = false;
           } else {
             // Both admins or both users
-            isSentByMe = String(m.sender) === String(myId) || m.sender_username === myName;
+            isSentByMe = String(m.sender) === String(myIdVal) || m.sender_username === myName;
             otherUser = isSentByMe ? m.receiver : m.sender;
             otherUserName = isSentByMe ? (m.receiver_full_name || m.receiver_username) : (m.sender_full_name || m.sender_username);
             otherUserEmail = isSentByMe ? m.receiver_email : m.sender_email;
@@ -91,6 +99,7 @@ export default function Messages({ darkMode }: Props) {
               unread: 0,
               lastMessage: '',
               lastTime: '',
+              lastTimestamp: 0
             };
           }
           
@@ -99,14 +108,23 @@ export default function Messages({ darkMode }: Props) {
             text: m.message_body,
             type: isSentByMe ? 'sent' : 'received',
             read: m.read ?? false,
+            is_edited: m.is_edited,
             status: m.status || 'Active',
             timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           });
           
           conversationsMap[otherUser].lastMessage = m.message_body;
           conversationsMap[otherUser].lastTime = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          conversationsMap[otherUser].lastTimestamp = new Date(m.timestamp).getTime();
-          if (!m.read && !isSentByMe) conversationsMap[otherUser].unread += 1;
+          
+          const msgTimestamp = new Date(m.timestamp).getTime();
+          if (msgTimestamp > conversationsMap[otherUser].lastTimestamp) {
+            conversationsMap[otherUser].lastTimestamp = msgTimestamp;
+          }
+          
+          // Only count unread if NOT sent by me AND NOT from the currently active chat
+          if (!m.read && !isSentByMe && String(activeId) !== String(otherUser)) {
+            conversationsMap[otherUser].unread += 1;
+          }
         });
 
         // Add empty states for all registered users so admin can initiate chats
@@ -177,42 +195,79 @@ export default function Messages({ darkMode }: Props) {
   // WebSocket Connection
   useEffect(() => {
     const token = localStorage.getItem('access_token');
-    if (!token) return;
+    if (!token || !myId) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const host = window.location.host === 'localhost:5173' ? 'localhost:8000' : window.location.host;
     const wsUrl = `${protocol}://${host}/ws/chat/?token=${token}`;
     
+    console.log("Connecting to WebSocket:", wsUrl);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
+    ws.onopen = () => {
+      console.log("WebSocket Connected");
+      // If we already have an activeId, join its room immediately
+      if (activeId) {
+        const ids = [parseInt(myId), parseInt(activeId)].sort((a, b) => a - b);
+        ws.send(JSON.stringify({
+          action: 'join_room',
+          room_id: `${ids[0]}_${ids[1]}`
+        }));
+      }
+    };
+
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data);
+      console.log("WebSocket Message Received:", data);
+
       if (data.type === 'new_message') {
         const m = data.message;
         setConvList(prev => {
           const senderId = String(m.sender);
           const receiverId = String(m.receiver);
-          // For admin, we want to find the non-admin side to group by
-          // But our existing logic already handles this in the initial map.
-          // Let's just trigger a re-fetch or manually update.
-          // Refetching is safer for now to keep logic consistent.
-          // fetchChat(); // No, let's update manually for "true" WS feel.
+          const otherId = senderId === myId ? receiverId : senderId;
           
+          const exists = prev.some(c => String(c.id) === String(otherId));
+          
+          if (!exists) {
+            return prev; 
+          }
+
           return prev.map(c => {
-             const isThisConv = c.id === senderId || c.id === receiverId;
-             if (!isThisConv) return c;
+             if (String(c.id) !== String(otherId)) return c;
              
              const isSentByMe = String(m.sender) === myId;
              
+             // Check if this message (by ID or exact content) is already there
+             const isDuplicate = c.messages.some((existing: any) => 
+               String(existing.id) === String(m.id) || 
+               (String(existing.id).startsWith('temp-') && existing.text === m.message_body && existing.type === (isSentByMe ? 'sent' : 'received'))
+             );
+
              const newMsg = {
                id: m.id,
                text: m.message_body,
                type: isSentByMe ? 'sent' : 'received',
                read: m.read ?? false,
+               is_edited: m.is_edited,
                status: m.status || 'Active',
                timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
              };
+
+             if (isDuplicate) {
+               // Replace the optimistic temp message with the real server message
+               return {
+                 ...c,
+                 messages: c.messages.map((msg: any) => 
+                   (String(msg.id).startsWith('temp-') && msg.text === m.message_body && msg.type === (isSentByMe ? 'sent' : 'received'))
+                   ? newMsg : msg
+                 ),
+                 lastMessage: m.message_body,
+                 lastTime: newMsg.timestamp,
+                 lastTimestamp: new Date(m.timestamp).getTime()
+               };
+             }
 
              return {
                ...c,
@@ -220,15 +275,44 @@ export default function Messages({ darkMode }: Props) {
                lastMessage: m.message_body,
                lastTime: newMsg.timestamp,
                lastTimestamp: new Date(m.timestamp).getTime(),
-               unread: (!m.read && !isSentByMe) ? c.unread + 1 : c.unread
+               unread: (!m.read && !isSentByMe && String(activeId) !== String(otherId)) ? c.unread + 1 : c.unread
              };
           }).sort((a: any, b: any) => b.lastTimestamp - a.lastTimestamp);
         });
+      } else if (data.type === 'edit_message') {
+        const m = data.message;
+        setConvList(prev => prev.map(c => ({
+          ...c,
+          messages: c.messages.map((msg: any) => String(msg.id) === String(m.id) ? { ...msg, text: m.message_body, is_edited: true } : msg),
+          lastMessage: String(c.messages[c.messages.length - 1]?.id) === String(m.id) ? m.message_body : c.lastMessage
+        })));
+      } else if (data.type === 'delete_message') {
+        const mid = data.message_id;
+        setConvList(prev => prev.map(c => ({
+          ...c,
+          messages: c.messages.map((msg: any) => String(msg.id) === String(mid) ? { ...msg, text: '[Message Deleted]', isDeleted: true } : msg),
+          lastMessage: String(c.messages[c.messages.length - 1]?.id) === String(mid) ? '[Message Deleted]' : c.lastMessage
+        })));
       }
     };
 
+    ws.onerror = (err) => console.error("WebSocket Error:", err);
+    ws.onclose = () => console.log("WebSocket Disconnected");
+
     return () => ws.close();
-  }, []);
+  }, [myId]); // Only reconnect if myId changes (unlikely)
+
+  // Join room when activeId changes
+  useEffect(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && activeId && myId) {
+      const ids = [parseInt(myId), parseInt(activeId)].sort((a, b) => a - b);
+      wsRef.current.send(JSON.stringify({
+        action: 'join_room',
+        room_id: `${ids[0]}_${ids[1]}`
+      }));
+      console.log(`Joining room: ${ids[0]}_${ids[1]}`);
+    }
+  }, [activeId, myId]);
 
   const activeConv = convList.find(c => c.id === activeId);
 
@@ -245,15 +329,16 @@ export default function Messages({ darkMode }: Props) {
   const divider = darkMode ? 'border-gray-700' : 'border-gray-200';
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    
-    // Automatically clear unread for the active conversation
-    if (activeId) {
-      setConvList(prev => prev.map(c => 
-        String(c.id) === String(activeId) && c.unread > 0
-          ? { ...c, unread: 0, messages: c.messages.map((m: any) => ({ ...m, read: true })) }
-          : c
-      ));
+    if (activeId && chatContainerRef.current) {
+      const container = chatContainerRef.current;
+      const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
+      
+      const lastMsg = activeConv?.messages[activeConv.messages.length - 1];
+      const isMe = lastMsg && lastMsg.type === 'sent';
+
+      if (isAtBottom || isMe) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   }, [activeId, activeConv?.messages.length]);
 
@@ -301,17 +386,25 @@ export default function Messages({ darkMode }: Props) {
 
   const editMessage = async (msgId: any, newText: string) => {
     if (!newText.trim()) return;
-    try {
-      await fetchAPI(`/api/chat/messages/${msgId}/`, {
-        method: 'PATCH',
-        body: JSON.stringify({ message_body: newText.trim() })
-      });
-      setConvList((prev: any[]) => prev.map((c: any) => ({
-        ...c,
-        messages: c.messages.map((m: any) => m.id === msgId ? { ...m, text: newText.trim() } : m)
-      })));
-    } catch (err) {
-      console.error("Failed to edit message", err);
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: 'edit_message',
+        message_id: msgId,
+        message: newText.trim()
+      }));
+    } else {
+      try {
+        await fetchAPI(`/api/chat/messages/${msgId}/`, {
+          method: 'PATCH',
+          body: JSON.stringify({ message_body: newText.trim(), is_edited: true })
+        });
+        setConvList((prev: any[]) => prev.map((c: any) => ({
+          ...c,
+          messages: c.messages.map((m: any) => m.id === msgId ? { ...m, text: newText.trim(), is_edited: true } : m)
+        })));
+      } catch (err) {
+        console.error("Failed to edit message", err);
+      }
     }
   };
 
@@ -320,11 +413,9 @@ export default function Messages({ darkMode }: Props) {
     setActiveId(stringId);
     setMobileShowChat(true);
 
-    // Find all unread received messages for this conversation
+    // Find the conversation
     const conv = convList.find(c => String(c.id) === stringId);
     if (!conv) return;
-
-    const unreadMsgs = conv.messages.filter((m: any) => m.type === 'received' && !m.read);
     
     // Clear unread count IMMEDIATELY in state
     setConvList((prev: any[]) => prev.map((c: any) =>
@@ -333,36 +424,36 @@ export default function Messages({ darkMode }: Props) {
         : c
     ));
 
-    // Persist the read status to the backend
-    if (unreadMsgs.length > 0) {
-      try {
-        await Promise.all(
-          unreadMsgs.map((m: any) =>
-            fetchAPI(`/api/chat/messages/${m.id}/`, {
-              method: 'PATCH',
-              body: JSON.stringify({ read: true })
-            }).catch(() => {})
-          )
-        );
-      } catch (err) {
-        console.warn("Failed to persist read status:", err);
-      }
+    // Persist the read status to the backend using the bulk mark_read action
+    try {
+      await fetchAPI('/api/chat/messages/mark_read/', {
+        method: 'POST',
+        body: JSON.stringify({ other_user_id: stringId })
+      });
+    } catch (err) {
+      console.warn("Failed to persist read status:", err);
     }
   };
 
   const deleteMessage = async (msgId: any) => {
-    if (!confirm("Move this message to Recycle Bin?")) return;
-    try {
-      await fetchAPI(`/api/chat/messages/${msgId}/`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'Recycled' })
-      });
-      setConvList(prev => prev.map(c => ({
-        ...c,
-        messages: c.messages.filter((m: any) => m.id !== msgId)
-      })));
-    } catch (err) {
-      console.error("Failed to move message to recycle bin", err);
+    if (!confirm("Permanently delete this message?")) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: 'delete_message',
+        message_id: msgId
+      }));
+    } else {
+      try {
+        await fetchAPI(`/api/chat/messages/${msgId}/`, {
+          method: 'DELETE'
+        });
+        setConvList(prev => prev.map(c => ({
+          ...c,
+          messages: c.messages.filter((m: any) => m.id !== msgId)
+        })));
+      } catch (err) {
+        console.error("Failed to delete message", err);
+      }
     }
   };
 
@@ -423,7 +514,13 @@ export default function Messages({ darkMode }: Props) {
                     <span className="text-xs text-green-500 font-mono">{conv.donationRef}</span>
                   )}
                 </div>
-                {/* Unread badge removed as requested */}
+                {conv.unread > 0 && (
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                      {conv.unread}
+                    </span>
+                  </div>
+                )}
               </button>
             );
           })}
@@ -465,8 +562,11 @@ export default function Messages({ darkMode }: Props) {
               </div>
             )}
 
-            {/* Messages */}
-            <div className={`flex-1 overflow-y-auto p-5 space-y-4 ${chatBg}`}>
+            {/* Chat Messages */}
+            <div 
+              ref={chatContainerRef}
+              className={`flex-1 overflow-y-auto p-4 space-y-4 ${chatBg} custom-scrollbar`}
+            >
               {activeConv?.messages.length === 0 ? (
                  <div className={`text-center py-10 text-sm ${textSub}`}>No messages yet. Send a message to start the conversation!</div>
               ) : activeConv?.messages.map((msg: any) => (
@@ -494,7 +594,16 @@ export default function Messages({ darkMode }: Props) {
                             <button onClick={() => { editMessage(msg.id, editText); setEditingId(null); }} className="text-[10px] font-bold text-white bg-white/20 px-2 py-0.5 rounded">Save</button>
                           </div>
                         </div>
-                      ) : msg.text}
+                      ) : (
+                        <div className="flex flex-col">
+                          <p className={msg.isDeleted ? 'italic opacity-50' : ''}>{msg.text}</p>
+                          {msg.is_edited && !msg.isDeleted && (
+                            <span className={`text-[8px] mt-1 opacity-50 uppercase tracking-tighter ${msg.type === 'sent' ? 'text-white' : textSub}`}>
+                              Edited
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className={`flex items-center gap-1 ${msg.type === 'sent' ? 'justify-end' : 'justify-start'}`}>

@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { Heart, Menu, X, Sun, Moon, Globe, Bell, User } from 'lucide-react';
 
 export default function Navbar() {
-  const { dark, toggleDark, lang, setLang, t, isLoggedIn } = useApp();
+  const { dark, toggleDark, lang, setLang, t, isLoggedIn, notifications } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
 
@@ -63,8 +63,13 @@ export default function Navbar() {
             </button>
 
             {isLoggedIn && (
-              <Link to="/notifications" className={`p-2 rounded-xl transition-all duration-300 ${dark ? 'text-slate-200 hover:bg-white/10' : 'text-slate-600 hover:bg-gray-100'}`}>
-                <Bell className="w-4 h-4" />
+              <Link to="/notifications" className={`relative p-2 rounded-xl transition-all duration-300 ${dark ? 'text-slate-200' : 'text-slate-600'}`}>
+                <Bell className="w-5 h-5" />
+                {notifications?.filter((n: any) => !n.read).length > 0 && (
+                  <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                    {notifications.filter((n: any) => !n.read).length}
+                  </span>
+                )}
               </Link>
             )}
 

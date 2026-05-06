@@ -46,9 +46,11 @@ export default function Notifications() {
     
     // Redirect logic
     if (content.includes('volunteer') || content.includes('application') || content.includes('teaching') || content.includes('status')) {
-      navigate('/dashboard'); // Volunteer status is on dashboard
-    } else if (content.includes('donation') || content.includes('received') || content.includes('pickup')) {
-      navigate('/dashboard'); // Donation history is on dashboard
+      navigate('/dashboard', { state: { tab: 'volunteer' } });
+    } else if (content.includes('pickup') || content.includes('scheduled')) {
+      navigate('/dashboard', { state: { tab: 'pickups' } });
+    } else if (content.includes('donation') || content.includes('received') || content.includes('impact')) {
+      navigate('/dashboard', { state: { tab: 'history' } });
     } else {
       navigate('/dashboard'); // Default hub
     }
@@ -96,25 +98,25 @@ export default function Notifications() {
                   <div
                     key={n.id}
                     onClick={() => handleNotificationClick(n)}
-                    className={`group relative flex items-center gap-3.5 p-3 sm:p-3.5 rounded-2xl cursor-pointer transition-all duration-300 border ${
+                    className={`group relative flex items-center gap-3 p-2.5 sm:p-3 rounded-2xl cursor-pointer transition-all duration-300 border ${
                       dark 
                         ? 'bg-slate-800/60 border-slate-700/50 hover:bg-slate-800 shadow-md' 
                         : 'bg-white border-gray-100 hover:border-primary-100 shadow-sm hover:shadow-md'
                     }`}
                   >
-                    <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${
+                    <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${
                       dark 
                         ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30' 
                         : 'bg-primary-50 text-primary-600'
                     }`}>
-                      <Icon className="w-5.5 h-5.5" />
+                      <Icon className="w-5 h-5" />
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <h4 className={`text-[14px] sm:text-[15px] font-bold leading-tight ${dark ? 'text-white' : 'text-slate-900'}`}>
+                      <h4 className={`text-[13px] sm:text-[14px] font-bold leading-tight ${dark ? 'text-white' : 'text-slate-900'}`}>
                         {n.title || 'Update'}
                       </h4>
-                      <p className={`text-[12px] sm:text-[13px] leading-relaxed mt-0.5 ${dark ? 'text-slate-200' : 'text-slate-600'} line-clamp-2`}>
+                      <p className={`text-[11px] sm:text-[12px] leading-relaxed mt-0.5 ${dark ? 'text-slate-200' : 'text-slate-600'} line-clamp-2`}>
                         {n.text}
                       </p>
                       <p className={`text-[9px] sm:text-[10px] mt-1.5 font-semibold uppercase tracking-widest ${dark ? 'text-primary-400' : 'text-slate-400'}`}>

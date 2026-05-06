@@ -1,19 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLocation } from 'react-router-dom';
-import { User, MapPin, Clock, Download, HandHeart, TreePine, Utensils, TrendingUp, CheckCircle, Package, Loader, Mail, Send, Truck, Calendar, LogOut } from 'lucide-react';
+import { User, MapPin, Clock, Download, HandHeart, TreePine, Utensils, TrendingUp, CheckCircle, Package, Loader, Mail, Send, Truck, Calendar, LogOut, Users, GraduationCap, Megaphone, HeartPulse, Shirt, Apple, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { fetchAPI } from '../utils/api';
 
 export default function Dashboard() {
   const { dark, t, user: appUser, setUser: setAppUser, setNotifications, logout } = useApp();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<'history' | 'profile' | 'addresses' | 'messages' | 'pickups'>('history');
+  const [activeTab, setActiveTab] = useState<'history' | 'profile' | 'addresses' | 'messages' | 'pickups' | 'volunteer'>('history');
   const [showDonationToast, setShowDonationToast] = useState(false);
   
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [donations, setDonations] = useState<any[]>([]);
+  const [volunteerApps, setVolunteerApps] = useState<any[]>([]);
   const [profileForm, setProfileForm] = useState({ first_name: '', last_name: '', email: '', phone_number: '', city: '' });
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
@@ -21,90 +24,219 @@ export default function Dashboard() {
   const [replyText, setReplyText] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
   const [adminId, setAdminId] = useState<number | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [editingMsgId, setEditingMsgId] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [menuMsgId, setMenuMsgId] = useState<number | null>(null);
 
   useEffect(() => {
-    // Show success toast if coming from donation form
     if (location.state?.donated) {
       setShowDonationToast(true);
       const timer = setTimeout(() => setShowDonationToast(false), 4000);
       return () => clearTimeout(timer);
     }
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab);
+    }
   }, [location.state]);
 
-  useEffect(() => {
-    const loadDashboardData = async () => {
-      try {
-        const [donsRes, notifRes, profRes, msgRes, volRes] = await Promise.all([
-          fetchAPI('/api/donations/').catch(() => []),
-          fetchAPI('/api/chat/notifications/').catch(() => []),
-          fetchAPI('/api/users/profile/').catch(() => null),
-          fetchAPI('/api/chat/messages/').catch(() => []),
-          fetchAPI('/api/users/volunteer/').catch(() => [])
-        ]);
+  const loadDashboardData = useCallback(async () => {
+    try {
+      const [donsRes, notifRes, profRes, msgRes, volRes] = await Promise.all([
+        fetchAPI('/api/donations/').catch(() => []),
+        fetchAPI('/api/chat/notifications/').catch(() => []),
+        fetchAPI('/api/users/profile/').catch(() => null),
+        fetchAPI('/api/chat/messages/').catch(() => []),
+        fetchAPI('/api/users/volunteer/').catch(() => [])
+      ]);
+      
+      setDonations(donsRes.results || donsRes || []);
+      const apps = volRes.results || volRes || [];
+      setVolunteerApps(apps.filter((a: any) => a.status.toLowerCase() !== 'recycled'));
+      setNotifications(notifRes.results || notifRes || []);
+      const rawMsgs = (msgRes.results || msgRes || []).filter((m: any) => m.status !== 'Recycled');
+      
+      setMessages(prev => {
+        const existingIds = new Set(rawMsgs.map((m: any) => String(m.id)));
+        // Keep messages from previous state that aren't in the new fetch yet (e.g. just sent)
+        const unsynced = prev.filter(m => !existingIds.has(String(m.id)));
         
-        setDonations(donsRes.results || donsRes || []);
-        setNotifications(notifRes.results || notifRes || []);
-        const rawMsgs = msgRes.results || msgRes || [];
-        setMessages(rawMsgs.filter((m: any) => m.status !== 'Recycled'));
+        // Combine and sort by timestamp
+        return [...rawMsgs, ...unsynced].sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+      });
 
-        // --- Volunteer Status Monitor ---
-        const apps = volRes.results || volRes || [];
-        const prevStatuses = JSON.parse(localStorage.getItem('vol_app_statuses') || '{}');
-        const newStatuses: Record<string, string> = {};
-        
-        for (const app of apps) {
-          newStatuses[app.id] = app.status;
-          // If status changed from Pending or doesn't exist, and is now Approved/Rejected
-          if (prevStatuses[app.id] !== app.status && prevStatuses[app.id] && app.status !== 'Pending') {
-            await fetchAPI('/api/chat/notifications/', {
-              method: 'POST',
-              body: JSON.stringify({
-                title: 'Volunteer Status Updated',
-                message: `Your application for ${app.volunteering_role} has been ${app.status.toLowerCase()}.`
-              })
-            }).catch(() => {});
-          }
+      // Identify admin ID from existing messages
+      if (!adminId) {
+        const firstAdminMsg = rawMsgs.find((m: any) => 
+          m.sender_username?.toLowerCase().includes('admin') || 
+          m.receiver_username?.toLowerCase().includes('admin') ||
+          m.sender_email?.toLowerCase().includes('admin')
+        );
+        if (firstAdminMsg) {
+          const possibleId = firstAdminMsg.sender_username?.toLowerCase().includes('admin') ? firstAdminMsg.sender : firstAdminMsg.receiver;
+          setAdminId(Number(possibleId));
         }
-        localStorage.setItem('vol_app_statuses', JSON.stringify(newStatuses));
-        // ---------------------------------
-
-        if (profRes) {
-          setProfileForm({
-            first_name: profRes.first_name || '',
-            last_name: profRes.last_name || '',
-            email: profRes.email || '',
-            phone_number: profRes.phone_number || '',
-            city: profRes.city || ''
-          });
-          // Sync global user context so the display name at top is always real DB data
-          setAppUser({
-            id: profRes.id,
-            name: profRes.first_name
-              ? `${profRes.first_name} ${profRes.last_name || ''}`.trim()
-              : profRes.username || '',
-            email: profRes.email || '',
-            phone: profRes.phone_number || '',
-            city: profRes.city || '',
-            role: profRes.role || '',
-          });
-        }
-      } catch (err) {
-        console.error("Failed to load dashboard data", err);
-      } finally {
-        setLoading(false);
       }
-    };
+
+      // --- Volunteer Status Monitor ---
+      const prevStatuses = JSON.parse(localStorage.getItem('vol_app_statuses') || '{}');
+      const newStatuses: Record<string, string> = {};
+      
+      for (const app of apps) {
+        newStatuses[app.id] = app.status;
+        if (prevStatuses[app.id] !== app.status && prevStatuses[app.id] && app.status !== 'Pending') {
+          await fetchAPI('/api/chat/notifications/', {
+            method: 'POST',
+            body: JSON.stringify({
+              title: 'Volunteer Status Updated',
+              message: `Your application for ${app.volunteering_role} has been ${app.status.toLowerCase()}.`
+            })
+          }).catch(() => {});
+        }
+      }
+      localStorage.setItem('vol_app_statuses', JSON.stringify(newStatuses));
+
+      if (profRes) {
+        setProfileForm({
+          first_name: profRes.first_name || '',
+          last_name: profRes.last_name || '',
+          email: profRes.email || '',
+          phone_number: profRes.phone_number || '',
+          city: profRes.city || ''
+        });
+        setAppUser({
+          id: profRes.id,
+          name: profRes.first_name
+            ? `${profRes.first_name} ${profRes.last_name || ''}`.trim()
+            : profRes.username || '',
+          email: profRes.email || '',
+          phone: profRes.phone_number || '',
+          city: profRes.city || '',
+          role: profRes.role || '',
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load dashboard data", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [adminId, setDonations, setVolunteerApps, setNotifications, setMessages, setAdminId, setProfileForm, setAppUser, setLoading]);
+
+  useEffect(() => {
     loadDashboardData();
-    
-    // Fetch admin ID for chat initiation
+    const interval = setInterval(() => {
+      if (activeTab === 'messages' || activeTab === 'history') {
+         loadDashboardData();
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [activeTab, loadDashboardData]);
+
+  useEffect(() => {
+    // Attempt to fetch dedicated admin ID once on mount
     fetchAPI('/api/users/admin-id/').then(res => {
       if (res.id) setAdminId(res.id);
-    }).catch(err => console.warn("Admin ID fetch failed", err));
-
-    const interval = setInterval(loadDashboardData, 3000); // Faster poll for real-time feel
-    return () => clearInterval(interval);
+    }).catch(err => console.warn("Dedicated Admin ID fetch failed", err));
   }, []);
+
+  const [ws, setWs] = useState<WebSocket | null>(null);
+
+  // WebSocket Connection
+  useEffect(() => {
+    if (activeTab !== 'messages' || !appUser.id || !adminId) return;
+
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const host = window.location.host === 'localhost:5173' ? 'localhost:8000' : window.location.host;
+    const wsUrl = `${protocol}://${host}/ws/chat/?token=${token}`;
+    
+    console.log("User connecting to WebSocket:", wsUrl);
+    const newWs = new WebSocket(wsUrl);
+    
+    newWs.onopen = () => {
+      console.log("User WebSocket Connected");
+      // Join specific room
+      const ids = [parseInt(String(appUser.id)), parseInt(String(adminId))].sort((a, b) => a - b);
+      newWs.send(JSON.stringify({
+        action: 'join_room',
+        room_id: `${ids[0]}_${ids[1]}`
+      }));
+    };
+
+    newWs.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'new_message') {
+        const m = data.message;
+        setMessages(prev => {
+          // Check if this message (by ID or exact content) is already there
+          const isDuplicate = prev.some(existing => 
+            String(existing.id) === String(m.id) || 
+            (existing.temp && existing.message_body === m.message_body && String(existing.sender) === String(m.sender))
+          );
+          if (isDuplicate) {
+            // Replace the optimistic temp message with the real server message
+            return prev.map(existing => 
+              (existing.temp && existing.message_body === m.message_body && String(existing.sender) === String(m.sender))
+              ? m : existing
+            );
+          }
+          return [...prev, m];
+        });
+      } else if (data.type === 'edit_message') {
+        const m = data.message;
+        setMessages(prev => prev.map(msg => String(msg.id) === String(m.id) ? m : msg));
+      } else if (data.type === 'delete_message') {
+        const mid = data.message_id;
+        setMessages(prev => prev.map(msg => String(msg.id) === String(mid) ? { ...msg, message_body: '[Message Deleted]', isDeleted: true } : msg));
+      }
+    };
+
+    setWs(newWs);
+    return () => newWs.close();
+  }, [activeTab, appUser.id, adminId]);
+
+  const handleEditMessage = async (msgId: number, text: string) => {
+    if (!text.trim() || !ws) return;
+    
+    const newText = text.trim();
+    // Optimistic local update
+    setMessages(prev => prev.map(msg => 
+      String(msg.id) === String(msgId) ? { ...msg, message_body: newText, is_edited: true } : msg
+    ));
+
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        action: 'edit_message',
+        message_id: msgId,
+        message: newText
+      }));
+    } else {
+      try {
+        await fetchAPI(`/api/chat/messages/${msgId}/`, {
+          method: 'PATCH',
+          body: JSON.stringify({ message_body: newText, is_edited: true })
+        });
+      } catch (err) {
+        console.error("Failed to edit message via REST", err);
+      }
+    }
+    setEditingMsgId(null);
+    setEditingText('');
+  };
+
+  const handleDeleteMessage = async (msgId: number) => {
+    if (!ws) return;
+    if (window.confirm('Delete this message?')) {
+      ws.send(JSON.stringify({
+        action: 'delete_message',
+        message_id: msgId
+      }));
+      setMenuMsgId(null);
+    }
+  };
 
   const handleProfileSave = async () => {
     setSavingProfile(true);
@@ -135,21 +267,57 @@ export default function Dashboard() {
   };
 
   const handleSendMessage = async () => {
-    if (!replyText.trim()) return;
+    if (!replyText.trim() || !adminId) return;
+    
+    const textToSend = replyText.trim();
+    setReplyText(''); // Clear early for better UX
+
+    // Add optimistically to UI
+    const tempId = Date.now();
+    const optimisticMsg = {
+      id: tempId,
+      temp: true,
+      sender: appUser.id,
+      receiver: adminId,
+      message_body: textToSend,
+      timestamp: new Date().toISOString(),
+      sender_username: appUser.name,
+      read: false
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    // Try WebSocket first
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        action: 'send_message',
+        receiver_id: adminId,
+        message: textToSend
+      }));
+      return;
+    }
+
+    // Fallback to REST API
     setSendingMsg(true);
     try {
-      // Use fetched adminId or fallback to 1
-      const targetId = adminId || 1;
-
       const newMsg = await fetchAPI('/api/chat/messages/', {
         method: 'POST',
         body: JSON.stringify({
-          receiver: targetId,
-          message_body: replyText
+          receiver: adminId,
+          message_body: textToSend
         })
       });
-      setMessages(prev => [...prev, newMsg]);
-      setReplyText('');
+      // The WebSocket will broadcast this back to us if connected, 
+      // but adding/replacing optimistically for non-WS users
+      setMessages(prev => {
+        const isDuplicate = prev.some(m => 
+          String(m.id) === String(newMsg.id) || 
+          (m.temp && m.message_body === newMsg.message_body)
+        );
+        if (isDuplicate) {
+          return prev.map(m => (m.temp && m.message_body === newMsg.message_body) ? newMsg : m);
+        }
+        return [...prev, newMsg];
+      });
     } catch (err) {
       console.error("Failed to send message", err);
     } finally {
@@ -157,12 +325,31 @@ export default function Dashboard() {
     }
   };
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages (smart scroll)
   useEffect(() => {
-    if (activeTab === 'messages') {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (activeTab === 'messages' && chatContainerRef.current) {
+      const container = chatContainerRef.current;
+      const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
+      
+      const lastMsg = messages[messages.length - 1];
+      const isMe = lastMsg && (String(lastMsg.sender) === String(appUser.id) || String(lastMsg.sender_email) === String(appUser.email));
+
+      if (isAtBottom || isMe) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   }, [messages.length, activeTab]);
+
+  const getRoleIcon = (role: string) => {
+    const r = role.toLowerCase();
+    if (r.includes('teach')) return GraduationCap;
+    if (r.includes('food') || r.includes('distrib')) return Apple;
+    if (r.includes('tree') || r.includes('plant')) return TreePine;
+    if (r.includes('aware')) return Megaphone;
+    if (r.includes('med')) return HeartPulse;
+    if (r.includes('cloth')) return Shirt;
+    return HandHeart;
+  };
 
   const handleDownloadReceipt = async (donationId: number) => {
     try {
@@ -186,6 +373,7 @@ export default function Dashboard() {
   const tabs = [
     { key: 'history' as const, label: t.dashboard.history, icon: Clock },
     { key: 'pickups' as const, label: 'Pickup Status', icon: Truck },
+    { key: 'volunteer' as const, label: 'Volunteer Status', icon: Users },
     { key: 'profile' as const, label: t.dashboard.profile, icon: User },
     { key: 'addresses' as const, label: t.dashboard.addresses, icon: MapPin },
     { key: 'messages' as const, label: 'Messages', icon: Mail },
@@ -455,6 +643,59 @@ export default function Dashboard() {
                 </div>
               )}
 
+              {/* Volunteer Status */}
+              {activeTab === 'volunteer' && (
+                <div className="animate-fade-in">
+                  <h3 className={`text-lg font-bold mb-6 ${dark ? 'text-white' : 'text-gray-900'}`}>Volunteer Applications</h3>
+                  <div className="space-y-4">
+                    {volunteerApps.length === 0 ? (
+                      <div className="text-center py-10">
+                        <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>No volunteer applications found. Join us today!</p>
+                      </div>
+                    ) : volunteerApps.map((app: any) => {
+                      const Icon = getRoleIcon(app.volunteering_role);
+                      const isApproved = app.status === 'Approved';
+                      const isRejected = app.status === 'Rejected';
+                      
+                      return (
+                        <div key={app.id} className={`flex items-center gap-3 p-3.5 rounded-2xl transition-all border-2 shadow-sm ${
+                          isApproved ? (dark ? 'bg-green-500/5 border-green-500/10' : 'bg-green-50/50 border-green-100/50') :
+                          isRejected ? (dark ? 'bg-red-500/5 border-red-500/10' : 'bg-red-50/50 border-red-100/50') :
+                          (dark ? 'bg-slate-700/20 border-slate-700/50' : 'bg-gray-50 border-gray-100')
+                        }`}>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${
+                            isApproved ? 'bg-green-100' : isRejected ? 'bg-red-100' : 'bg-amber-100'
+                          }`}>
+                            <Icon className={`w-5 h-5 ${
+                              isApproved ? 'text-green-600' : isRejected ? 'text-red-600' : 'text-amber-600'
+                            }`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                               <p className={`font-bold text-sm capitalize leading-tight ${dark ? 'text-white' : 'text-gray-900'}`}>{app.volunteering_role}</p>
+                               <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                                 isApproved ? 'bg-green-500 text-white' :
+                                 isRejected ? 'bg-red-500 text-white' :
+                                 'bg-amber-500 text-white'
+                               }`}>
+                                 {app.status}
+                               </span>
+                            </div>
+                            <p className={`text-[11px] ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                              📍 {app.city} • {new Date(app.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="hidden sm:block text-right">
+                            <p className={`text-[9px] font-bold uppercase tracking-tighter opacity-50 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>REF CODE</p>
+                            <p className={`text-[11px] font-mono font-bold ${dark ? 'text-slate-400' : 'text-slate-600'}`}>#VOL-{app.id}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Saved Addresses */}
               {activeTab === 'addresses' && (
                 <div className="animate-fade-in">
@@ -488,19 +729,26 @@ export default function Dashboard() {
                   </div>
                   
                   {/* Message List */}
-                  <div className={`flex-1 overflow-y-auto mb-4 space-y-4 pr-2 custom-scrollbar`}>
+                  <div 
+                    ref={chatContainerRef}
+                    className={`flex-1 overflow-y-auto mb-4 space-y-4 pr-2 custom-scrollbar`}
+                  >
                     {messages.length === 0 ? (
                       <div className="h-full flex items-center justify-center">
                         <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>No messages yet. Send a message to start the conversation.</p>
                       </div>
                     ) : messages.map(m => {
-                      const isMe = String(m.sender) === String(appUser.id);
+                      const isMe = String(m.sender) === String(appUser.id) || 
+                                   String(m.sender_email) === String(appUser.email);
+                      const isEditing = editingMsgId === m.id;
+                      const isMenuOpen = menuMsgId === m.id;
+
                       return (
-                        <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[80%] p-4 rounded-2xl ${
+                        <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} group relative`}>
+                          <div className={`max-w-[80%] p-4 rounded-2xl relative ${
                             isMe 
-                              ? `bg-primary-500 ${dark ? 'text-white' : 'text-slate-900'} rounded-tr-none shadow-md shadow-primary-500/20` 
-                              : dark ? 'bg-slate-700 text-gray-200 rounded-tl-none border border-slate-600' : 'bg-slate-50 text-slate-900 border border-slate-200 rounded-tl-none shadow-sm'
+                              ? `bg-[#0d9488] text-white rounded-tr-none shadow-md shadow-teal-500/20` 
+                              : dark ? 'bg-slate-700 text-gray-200 rounded-tl-none border border-slate-600' : 'bg-white text-slate-900 border border-slate-200 rounded-tl-none shadow-sm'
                           }`}>
                             {!isMe && (
                               <div className="mb-1">
@@ -508,8 +756,68 @@ export default function Dashboard() {
                                 <p className={`text-[9px] opacity-60`}>{m.sender_email}</p>
                               </div>
                             )}
-                            <p className="text-sm leading-relaxed">{m.message_body}</p>
-                            <p className={`text-[9px] mt-1 text-right opacity-60`}>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+
+                            {isEditing ? (
+                              <div className="flex flex-col gap-2">
+                                <textarea
+                                  value={editingText}
+                                  onChange={e => setEditingText(e.target.value)}
+                                  className="bg-white/10 border border-white/20 rounded-lg p-2 text-sm outline-none text-white w-full min-h-[60px]"
+                                  autoFocus
+                                />
+                                <div className="flex justify-end gap-2">
+                                  <button onClick={() => setEditingMsgId(null)} className="text-[10px] hover:underline">Cancel</button>
+                                  <button onClick={() => handleEditMessage(m.id, editingText)} className="text-[10px] font-bold bg-white text-[#0d9488] px-2 py-1 rounded">Save</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className={`text-sm leading-relaxed whitespace-pre-wrap ${m.isDeleted ? 'italic opacity-50 text-[11px]' : ''}`}>
+                                  {m.message_body}
+                                </p>
+                                <div className="flex items-center justify-between mt-1 gap-4">
+                                  <span className="text-[8px] opacity-40 uppercase tracking-tighter">
+                                    {m.is_edited ? 'edited' : ''}
+                                  </span>
+                                  <p className={`text-[9px] text-right opacity-60`}>
+                                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </p>
+                                </div>
+                              </>
+                            )}
+
+                            {/* Options Menu for My Messages */}
+                            {isMe && !isEditing && !m.isDeleted && (
+                              <div className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                  onClick={() => setMenuMsgId(isMenuOpen ? null : m.id)}
+                                  className={`p-1.5 rounded-full hover:bg-slate-100 ${dark ? 'hover:bg-slate-700 text-slate-400' : 'text-slate-500'}`}
+                                >
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </button>
+
+                                {isMenuOpen && (
+                                  <div className={`absolute bottom-full left-0 mb-1 z-20 rounded-xl border shadow-xl overflow-hidden min-w-[100px] ${dark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'}`}>
+                                    <button 
+                                      onClick={() => {
+                                        setEditingMsgId(m.id);
+                                        setEditingText(m.message_body);
+                                        setMenuMsgId(null);
+                                      }}
+                                      className="w-full px-3 py-2 flex items-center gap-2 text-[11px] hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
+                                    >
+                                      <Pencil className="w-3 h-3" /> Edit
+                                    </button>
+                                    <button 
+                                      onClick={() => handleDeleteMessage(m.id)}
+                                      className="w-full px-3 py-2 flex items-center gap-2 text-[11px] hover:bg-red-50 text-red-500"
+                                    >
+                                      <Trash2 className="w-3 h-3" /> Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -526,14 +834,20 @@ export default function Dashboard() {
                       onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
                       placeholder="Type your message to admin..." 
                       className={`w-full pl-5 pr-14 py-4 rounded-2xl border-2 transition-all ${
-                        dark ? 'bg-slate-800 border-slate-700 text-white focus:border-primary-500' : 'bg-white border-gray-100 focus:border-primary-500 shadow-sm'
+                        dark 
+                          ? 'bg-slate-800 border-slate-700 text-white focus:border-emerald-500 placeholder:text-gray-500' 
+                          : 'bg-white border-gray-200 focus:border-emerald-500 shadow-sm placeholder:text-gray-400 font-medium text-slate-800'
                       } outline-none text-sm`}
                     />
                     <button 
                       onClick={handleSendMessage}
                       disabled={sendingMsg || !replyText.trim()}
-                      className={`absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-xl transition-all ${
-                        replyText.trim() ? 'bg-primary-500 text-white shadow-lg' : 'bg-gray-200 text-gray-400 dark:bg-slate-700'
+                      className={`absolute right-2 top-1/2 -translate-y-1/2 p-2.5 rounded-xl transition-all active:scale-95 ${
+                        replyText.trim() 
+                          ? 'bg-[#0d9488] text-white shadow-lg shadow-teal-500/30 hover:bg-[#0f766e]' 
+                          : dark 
+                            ? 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-white' 
+                            : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
                       }`}
                     >
                       {sendingMsg ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

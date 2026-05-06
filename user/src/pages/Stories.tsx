@@ -156,7 +156,7 @@ export default function Stories() {
 
         {/* CTA */}
         <div className="mt-16 text-center">
-          <div className={`rounded-3xl p-8 sm:p-12 bg-gradient-to-br from-primary-500 to-accent-600 relative overflow-hidden`}>
+          <div className={`rounded-3xl p-8 sm:p-12 relative overflow-hidden ${dark ? 'bg-[#0f172b] border border-white/10' : 'bg-[#1e293b]'}`}>
             <div className="absolute inset-0 opacity-10">
               <div className="absolute top-5 left-5 w-32 h-32 rounded-full bg-white" />
               <div className="absolute bottom-5 right-5 w-48 h-48 rounded-full bg-white" />

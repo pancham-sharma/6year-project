@@ -76,8 +76,8 @@ export default function Footer() {
               />
               <button className={`absolute right-1 top-1 bottom-1 px-3 rounded-lg text-[9px] font-bold transition-all active:scale-95 ${
                 dark 
-                  ? 'bg-white text-slate-900 hover:bg-brand' 
-                  : 'bg-slate-900 text-white shadow-md shadow-slate-900/20'
+                  ? 'bg-white text-slate-900 hover:bg-brand hover:text-white' 
+                  : 'bg-slate-900 text-white shadow-md shadow-slate-900/20 hover:bg-brand'
               }`}>
                 Join
               </button>

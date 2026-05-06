@@ -6,6 +6,7 @@ from .serializers import MessageSerializer, NotificationSerializer
 class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None # Disable pagination to show all chat history
 
     def get_queryset(self):
         user = self.request.user
@@ -19,6 +20,17 @@ class MessageViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)
+
+    from rest_framework.decorators import action
+    @action(detail=False, methods=['post'])
+    def mark_read(self, request):
+        other_user_id = request.data.get('other_user_id')
+        if not other_user_id:
+            return Response({"error": "other_user_id is required"}, status=400)
+        
+        # Mark all messages from other_user to me as read
+        Message.objects.filter(sender_id=other_user_id, receiver=request.user, read=False).update(read=True)
+        return Response({"status": "success"})
 
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer

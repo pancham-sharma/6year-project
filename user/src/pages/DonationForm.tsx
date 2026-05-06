@@ -35,6 +35,22 @@ export default function DonationForm() {
     address: '', city: '', state: '', pincode: '', landmark: '', phone: '', date: '', time: '',
     useCurrentLocation: false, consent: false, transactionId: '',
   });
+  const [existingDonations, setExistingDonations] = useState<any[]>([]);
+
+  // Load existing donations to check for active requests
+  useEffect(() => {
+    const loadExisting = async () => {
+      try {
+        const res = await fetchAPI('/api/donations/');
+        const data = res.results || res || [];
+        // Filter out recycled to get relevant history
+        setExistingDonations(data.filter((d: any) => d.status.toLowerCase() !== 'recycled'));
+      } catch (err) {
+        console.error("Failed to load existing donations", err);
+      }
+    };
+    if (user.id) loadExisting();
+  }, [user.id]);
 
   // Pre-fill user details if available
   useEffect(() => {
@@ -222,10 +238,12 @@ export default function DonationForm() {
         </div>
 
         {errorMsg && (
-          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-xl text-center font-medium">
+          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-xl text-center font-medium shadow-sm border border-red-200">
             {errorMsg}
           </div>
         )}
+
+        {/* Status moved to Dashboard */}
 
         {/* Step Progress */}
         <div className="flex items-center justify-center mb-12">
@@ -253,7 +271,11 @@ export default function DonationForm() {
         </div>
 
         {/* Form Content */}
-        <div className={`rounded-3xl p-6 sm:p-8 ${dark ? 'bg-slate-800' : 'bg-white shadow-xl shadow-gray-100/50 border border-gray-100'}`}>
+        <div className={`rounded-3xl p-6 sm:p-8 transition-all ${
+          existingDonations.some(d => ['Pending', 'Scheduled'].includes(d.status)) 
+            ? 'opacity-40 pointer-events-none grayscale-[0.5] scale-[0.98]' 
+            : ''
+        } ${dark ? 'bg-slate-800' : 'bg-white shadow-xl shadow-gray-100/50 border border-gray-100'}`}>
           {/* Step 1 */}
           {step === 1 && (
             <div className="space-y-6 animate-fade-in">
@@ -488,13 +510,13 @@ export default function DonationForm() {
                 {t.donate.next} <ChevronRight className="w-4 h-4" />
               </button>
             ) : (
-              <button onClick={handleSubmit} disabled={!form.consent || !validateStep(1) || !validateStep(2) || loading}
+              <button onClick={handleSubmit} disabled={!form.consent || !validateStep(1) || !validateStep(2) || loading || existingDonations.some(d => ['Pending', 'Scheduled'].includes(d.status))}
                 className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-sm transition-all ${
-                  form.consent && validateStep(1) && validateStep(2) && !loading 
+                  form.consent && validateStep(1) && validateStep(2) && !loading && !existingDonations.some(d => ['Pending', 'Scheduled'].includes(d.status))
                     ? (dark ? 'bg-white text-slate-900 shadow-xl shadow-white/10 hover:bg-slate-100' : 'bg-brand text-slate-900 shadow-xl shadow-brand/20 hover:bg-slate-800 hover:text-white') 
                     : (dark ? 'bg-slate-800 text-slate-400 border-2 border-slate-700 cursor-not-allowed' : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed')
                 }`}>
-                {loading ? <Loader className="w-4 h-4 animate-spin" /> : <>{t.donate.submit} <Check className="w-4 h-4" /></>}
+                {loading ? <Loader className="w-4 h-4 animate-spin" /> : existingDonations.some(d => ['Pending', 'Scheduled'].includes(d.status)) ? 'Request Pending' : <>{t.donate.submit} <Check className="w-4 h-4" /></>}
               </button>
             )}
           </div>

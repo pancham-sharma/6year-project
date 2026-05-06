@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, RotateCcw, Loader, Search, Heart, Handshake, MessageSquare, Bell } from 'lucide-react';
+import { Trash2, RotateCcw, Loader, Search, Heart, Handshake, MessageSquare, Bell, CheckCircle, XCircle } from 'lucide-react';
 import { fetchAPI } from '../utils/api';
 
 interface Props { darkMode: boolean; }
@@ -11,6 +11,13 @@ export default function RecycleBin({ darkMode }: Props) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const fetchRecycled = async () => {
     setLoading(true);
@@ -38,50 +45,90 @@ export default function RecycleBin({ darkMode }: Props) {
     }
   };
 
-  useEffect(() => {
-    fetchRecycled();
-  }, []);
+  useEffect(() => { fetchRecycled(); }, []);
 
   const restoreItem = async (id: any, type: 'donation' | 'application' | 'notification' | 'message') => {
+    const key = `restore-${type}-${id}`;
+    setActionLoading(prev => ({ ...prev, [key]: true }));
     try {
       let endpoint = '';
-      if (type === 'donation') endpoint = `/api/donations/${id}/`;
-      else if (type === 'application') endpoint = `/api/users/volunteer/admin/${id}/`;
-      else if (type === 'notification') endpoint = `/api/chat/notifications/${id}/`;
-      else if (type === 'message') endpoint = `/api/chat/messages/${id}/`;
+      // Restore status differs per type
+      let restoreStatus = 'Pending';
+      if (type === 'donation')     { endpoint = `/api/donations/${id}/`; restoreStatus = 'Pending'; }
+      else if (type === 'application') { endpoint = `/api/users/volunteer/admin/${id}/`; restoreStatus = 'Pending'; }
+      else if (type === 'notification') { endpoint = `/api/chat/notifications/${id}/`; restoreStatus = 'Active'; }
+      else if (type === 'message')  { endpoint = `/api/chat/messages/${id}/`; restoreStatus = 'Active'; }
         
       await fetchAPI(endpoint, {
         method: 'PATCH',
-        body: JSON.stringify({ status: 'Active' }) // Note: donations use 'Pending', others might differ, but 'Active' is our new default
+        body: JSON.stringify({ status: restoreStatus })
       });
       
-      if (type === 'donation') setDonations(prev => prev.filter(d => d.id !== id));
+      if (type === 'donation')      setDonations(prev => prev.filter(d => d.id !== id));
       else if (type === 'application') setApplications(prev => prev.filter(a => a.id !== id));
       else if (type === 'notification') setNotifications(prev => prev.filter(n => n.id !== id));
-      else if (type === 'message') setMessages(prev => prev.filter(m => m.id !== id));
+      else if (type === 'message')  setMessages(prev => prev.filter(m => m.id !== id));
+
+      showToast('Item restored successfully!', 'success');
     } catch (err) {
       console.error("Failed to restore item", err);
+      showToast('Failed to restore item.', 'error');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [key]: false }));
     }
   };
 
   const permanentDelete = async (id: any, type: 'donation' | 'application' | 'notification' | 'message') => {
     if (!window.confirm("PERMANENTLY DELETE this item? This cannot be undone.")) return;
+    const key = `delete-${type}-${id}`;
+    setActionLoading(prev => ({ ...prev, [key]: true }));
     try {
       let endpoint = '';
-      if (type === 'donation') endpoint = `/api/donations/${id}/`;
+      if (type === 'donation')      endpoint = `/api/donations/${id}/`;
       else if (type === 'application') endpoint = `/api/users/volunteer/admin/${id}/`;
       else if (type === 'notification') endpoint = `/api/chat/notifications/${id}/`;
-      else if (type === 'message') endpoint = `/api/chat/messages/${id}/`;
+      else if (type === 'message')  endpoint = `/api/chat/messages/${id}/`;
         
       await fetchAPI(endpoint, { method: 'DELETE' });
       
-      if (type === 'donation') setDonations(prev => prev.filter(d => d.id !== id));
+      if (type === 'donation')      setDonations(prev => prev.filter(d => d.id !== id));
       else if (type === 'application') setApplications(prev => prev.filter(a => a.id !== id));
       else if (type === 'notification') setNotifications(prev => prev.filter(n => n.id !== id));
-      else if (type === 'message') setMessages(prev => prev.filter(m => m.id !== id));
+      else if (type === 'message')  setMessages(prev => prev.filter(m => m.id !== id));
+
+      showToast('Item permanently deleted.', 'success');
     } catch (err) {
       console.error("Failed to delete item", err);
+      showToast('Failed to delete item.', 'error');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [key]: false }));
     }
+  };
+
+  // Helper: action buttons with loading state
+  const ActionButtons = ({ id, type }: { id: any; type: 'donation' | 'application' | 'notification' | 'message' }) => {
+    const restoring = actionLoading[`restore-${type}-${id}`];
+    const deleting  = actionLoading[`delete-${type}-${id}`];
+    return (
+      <div className="flex items-center justify-end gap-2">
+        <button
+          title="Restore"
+          onClick={() => restoreItem(id, type)}
+          disabled={restoring || deleting}
+          className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-50 transition-all"
+        >
+          {restoring ? <Loader size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+        </button>
+        <button
+          title="Delete Permanently"
+          onClick={() => permanentDelete(id, type)}
+          disabled={restoring || deleting}
+          className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50 transition-all"
+        >
+          {deleting ? <Loader size={14} className="animate-spin" /> : <Trash2 size={14} />}
+        </button>
+      </div>
+    );
   };
 
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
@@ -96,6 +143,16 @@ export default function RecycleBin({ darkMode }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl text-sm font-bold animate-fade-in ${
+          toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle size={16} /> : <XCircle size={16} />}
+          {toast.msg}
+        </div>
+      )}
+
       <div className={`rounded-2xl border p-6 ${card} shadow-sm`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
@@ -144,14 +201,7 @@ export default function RecycleBin({ darkMode }: Props) {
                         </td>
                         <td className={`px-4 py-4 ${textSub}`}>{item.category} - {item.quantity_description}</td>
                         <td className={`px-4 py-4 ${textSub}`}>{new Date(item.timestamp).toLocaleDateString()}</td>
-                        <td className="px-4 py-4 text-right space-x-2">
-                          <button title="Restore" onClick={() => restoreItem(item.id, 'donation')} className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400">
-                            <RotateCcw size={14} />
-                          </button>
-                          <button title="Delete Permanently" onClick={() => permanentDelete(item.id, 'donation')} className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400">
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
+                        <td className="px-4 py-4"><ActionButtons id={item.id} type="donation" /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -185,14 +235,7 @@ export default function RecycleBin({ darkMode }: Props) {
                         </td>
                         <td className={`px-4 py-4 ${textSub}`}>{item.volunteering_role} in {item.city}</td>
                         <td className={`px-4 py-4 ${textSub}`}>{new Date(item.created_at).toLocaleDateString()}</td>
-                        <td className="px-4 py-4 text-right space-x-2">
-                          <button title="Restore" onClick={() => restoreItem(item.id, 'application')} className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400">
-                            <RotateCcw size={14} />
-                          </button>
-                          <button title="Delete Permanently" onClick={() => permanentDelete(item.id, 'application')} className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400">
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
+                        <td className="px-4 py-4"><ActionButtons id={item.id} type="application" /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -224,14 +267,7 @@ export default function RecycleBin({ darkMode }: Props) {
                           <p className={`text-xs ${textSub} truncate max-w-md`}>{item.message}</p>
                         </td>
                         <td className={`px-4 py-4 ${textSub}`}>{new Date(item.timestamp).toLocaleDateString()}</td>
-                        <td className="px-4 py-4 text-right space-x-2">
-                          <button title="Restore" onClick={() => restoreItem(item.id, 'notification')} className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400">
-                            <RotateCcw size={14} />
-                          </button>
-                          <button title="Delete Permanently" onClick={() => permanentDelete(item.id, 'notification')} className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400">
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
+                        <td className="px-4 py-4"><ActionButtons id={item.id} type="notification" /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -265,14 +301,7 @@ export default function RecycleBin({ darkMode }: Props) {
                         </td>
                         <td className={`px-4 py-4 ${textSub} max-w-md truncate`}>{item.message_body}</td>
                         <td className={`px-4 py-4 ${textSub}`}>{new Date(item.timestamp).toLocaleDateString()}</td>
-                        <td className="px-4 py-4 text-right space-x-2">
-                          <button title="Restore" onClick={() => restoreItem(item.id, 'message')} className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400">
-                            <RotateCcw size={14} />
-                          </button>
-                          <button title="Delete Permanently" onClick={() => permanentDelete(item.id, 'message')} className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400">
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
+                        <td className="px-4 py-4"><ActionButtons id={item.id} type="message" /></td>
                       </tr>
                     ))}
                   </tbody>

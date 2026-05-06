@@ -143,7 +143,7 @@ export default function Home() {
       <section className="py-24 sm:py-32 bg-slate-50/50 dark:bg-white/[0.02]">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16 md:mb-24 px-4">
-            <p className="mono-label text-brand-deep mb-4 uppercase tracking-[0.2em] text-[11px] font-extrabold">{t.categories.title}</p>
+            <p className={`mono-label mb-4 uppercase tracking-[0.2em] text-[11px] font-extrabold ${dark ? 'text-brand' : 'text-brand-deep'}`}>{t.categories.title}</p>
             <h2 className={`section-heading mb-6 font-bold tracking-tight ${dark ? 'text-white' : 'text-slate-900'}`}>{t.categories.title}</h2>
             <p className={`text-base sm:text-lg max-w-2xl mx-auto font-medium leading-relaxed ${dark ? 'text-slate-400' : 'text-slate-600'}`}>{t.categories.sub}</p>
           </div>
@@ -173,7 +173,7 @@ export default function Home() {
                       {cat.description}
                     </p>
                     <div className="mb-8">
-                      <span className={`modern-badge ${dark ? 'bg-white/10 text-gray-300' : 'bg-brand/10 text-brand-deep border border-brand/20'}`}>
+                      <span className={`modern-badge ${dark ? 'bg-white/20 text-white border border-white/25' : 'bg-brand/10 text-brand-deep border border-brand/20'}`}>
                         {cat.impact_badge}
                       </span>
                     </div>
@@ -190,25 +190,25 @@ export default function Home() {
 
       <section className="py-20 sm:py-28">
         <div className="max-w-5xl mx-auto px-4">
-          <div className={`rounded-[40px] p-8 sm:p-16 relative overflow-hidden text-center transition-all duration-500 shadow-2xl ${dark ? 'bg-white shadow-white/5' : 'bg-[#0f172b] shadow-slate-900/40'}`}>
+          <div className={`rounded-[40px] p-8 sm:p-16 relative overflow-hidden text-center transition-all duration-500 shadow-[0_30px_70px_rgba(0,0,0,0.15)] ${dark ? 'bg-[#0f172b] shadow-black/60 border border-white/5' : 'bg-white shadow-slate-200/80 border border-slate-100'}`}>
              <div className="absolute top-0 right-0 w-96 h-96 bg-brand opacity-10 blur-[100px] -mr-48 -mt-48 animate-pulse" />
              <div className="absolute bottom-0 left-0 w-96 h-96 bg-brand opacity-10 blur-[100px] -ml-48 -mb-48 animate-pulse" />
              
              <div className="relative z-10 flex flex-col items-center justify-center text-center max-w-3xl mx-auto">
-                <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold font-serif mb-6 tracking-tight`} style={{ color: '#95f0c9' }}>
+                <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold font-serif mb-6 tracking-tight ${dark ? 'text-[#95f0c9]' : 'text-slate-900'}`}>
                   Ready to Make a Difference?
                 </h2>
-                <p className={`text-base sm:text-lg mb-8 font-medium leading-relaxed px-4 ${dark ? 'text-slate-600' : 'text-slate-200'}`}>
+                <p className={`text-base sm:text-lg mb-8 font-medium leading-relaxed px-4 ${dark ? 'text-slate-300' : 'text-slate-600'}`}>
                   Every donation, no matter how small, creates ripples of positive change. Start your journey of giving today.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
                   <Link to="/donate" className={`px-8 py-3 rounded-full text-[15px] font-bold transition-all duration-300 active:scale-95 shadow-xl ${
-                    dark ? 'bg-slate-900 text-white hover:bg-slate-800 shadow-slate-900/20' : 'bg-white text-slate-900 shadow-white/10 hover:bg-brand hover:text-slate-900'
+                    dark ? 'bg-white text-slate-900 hover:bg-brand shadow-white/10' : 'bg-slate-900 text-white shadow-slate-900/20 hover:bg-slate-800'
                   }`}>
                     Start Donating
                   </Link>
                   <Link to="/about" className={`px-8 py-3 rounded-full text-[15px] font-bold border-2 transition-all active:scale-95 ${
-                    dark ? 'border-slate-200 text-slate-900 hover:bg-slate-50' : 'border-white/10 text-white hover:bg-white/5'
+                    dark ? 'border-white/20 text-white hover:bg-white/10' : 'border-slate-300 text-slate-700 hover:bg-slate-50'
                   }`}>
                     Learn More
                   </Link>
