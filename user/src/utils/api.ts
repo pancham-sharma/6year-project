@@ -8,8 +8,9 @@
  * redirect to /auth — permanently stopping 401 spam.
  */
 
-let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? '' 
+  : 'https://donation-admin-panel.onrender.com';
 
 function onRefreshed(newToken: string) {
   refreshSubscribers.forEach(cb => cb(newToken));
@@ -21,7 +22,7 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refreshToken) return null;
 
   try {
-    const res = await fetch('/api/users/login/refresh/', {
+    const res = await fetch(`${API_BASE_URL}/api/users/login/refresh/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken }),
@@ -46,6 +47,9 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
 export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Promise<any> => {
   const headers = new Headers(options.headers || {});
 
@@ -58,10 +62,12 @@ export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Pro
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(endpoint, { ...options, headers });
+  const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  const response = await fetch(fullUrl, { ...options, headers });
 
   // ── Auto-refresh on 401 ──────────────────────────────────────────────────
   if (response.status === 401) {
+
     // Exempt login and register from global 401 message
     const isAuthEndpoint = endpoint.includes('login') || endpoint.includes('register');
     if (!localStorage.getItem('refresh_token') && !isAuthEndpoint) {
@@ -86,7 +92,7 @@ export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Pro
       }
       retryHeaders.set('Authorization', `Bearer ${newToken}`);
 
-      const retryResponse = await fetch(endpoint, { ...options, headers: retryHeaders });
+      const retryResponse = await fetch(fullUrl, { ...options, headers: retryHeaders });
       if (!retryResponse.ok) {
         const errData = await retryResponse.json().catch(() => ({}));
         throw new Error(errData.detail || 'Request failed after token refresh.');

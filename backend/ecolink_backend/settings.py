@@ -13,7 +13,13 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-default-key-for-dev')
 DEBUG = env('DEBUG', default=True)
 
-ALLOWED_HOSTS = ['*'] # Change in production
+ALLOWED_HOSTS = ['donation-admin-panel.onrender.com', 'localhost', '127.0.0.1']
+
+CORS_ALLOWED_ORIGINS = [
+    "https://pancham-sharma-6year-project.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 INSTALLED_APPS = [
     'daphne',
@@ -43,6 +49,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -51,6 +58,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Use WhiteNoise for static files storage (compression and caching)
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 
 ROOT_URLCONF = 'ecolink_backend.urls'
 
@@ -133,7 +144,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = True # Restrict in production
+CORS_ALLOW_CREDENTIALS = True
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

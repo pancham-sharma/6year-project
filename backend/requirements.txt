@@ -17,3 +17,4 @@ channels-redis
 daphne
 gunicorn
 uvicorn
+whitenoise
