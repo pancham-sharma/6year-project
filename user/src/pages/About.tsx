@@ -49,10 +49,11 @@ export default function About() {
       <section className="max-w-7xl mx-auto px-4 mb-16">
         <div className={`relative rounded-[32px] overflow-hidden shadow-2xl group border border-gray-100`}>
           <img 
-            src="https://pancham-sharma-6year-project.vercel.app/images/about-team.jpg" 
+            src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1200" 
             alt="Our Team" 
             className="w-full h-[250px] sm:h-[320px] md:h-[400px] lg:h-[450px] object-cover transition-transform duration-1000 group-hover:scale-105" 
           />
+
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
           
           <div className="absolute inset-0 flex flex-col justify-end p-8 sm:p-12 md:p-16">
@@ -98,10 +99,11 @@ export default function About() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
           <div className="rounded-3xl overflow-hidden shadow-2xl">
             <img 
-              src="https://pancham-sharma-6year-project.vercel.app/images/stories-food.jpg" 
+              src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=1200" 
               alt="Our story" 
               className="w-full h-[350px] sm:h-[450px] md:h-[500px] lg:h-[550px] object-cover hover:scale-105 transition-transform duration-700" 
             />
+
           </div>
           <div>
             <h2 className={`text-3xl font-bold font-serif mb-6 ${dark ? 'text-white' : 'text-gray-900'}`}>{t.about.story}</h2>
@@ -183,11 +185,12 @@ export default function About() {
           <h2 className={`text-3xl font-bold font-serif text-center mb-12 ${dark ? 'text-white' : 'text-gray-900'}`}>Our Work in Pictures</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              'https://pancham-sharma-6year-project.vercel.app/images/hero.jpg',
-              'https://pancham-sharma-6year-project.vercel.app/images/stories-food.jpg',
-              'https://pancham-sharma-6year-project.vercel.app/images/stories-education.jpg',
-              'https://pancham-sharma-6year-project.vercel.app/images/stories-trees.jpg'
+              'https://images.unsplash.com/photo-1469571486042-0ba985e8ceda?q=80&w=800',
+              'https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=800',
+              'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=800',
+              'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=800'
             ].map((img, i) => (
+
               <div key={i} className="rounded-2xl overflow-hidden shadow-lg group cursor-pointer aspect-square">
                 <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
               </div>

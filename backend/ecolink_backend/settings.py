@@ -18,7 +18,7 @@ ALLOWED_HOSTS = ['donation-admin-panel.onrender.com', 'sewa-marg.vercel.app', 'a
 CORS_ALLOWED_ORIGINS = [
     "https://sewa-marg.vercel.app",
     "https://admin-panel-blush-ten.vercel.app",
-    "https://admin-panel-blush-ten.vercel.app/",
+
     "https://pancham-sharma-6year-project.vercel.app",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -32,16 +32,18 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'cloudinary_storage',
     'django.contrib.staticfiles',
 
     # Third party
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'drf_spectacular',
     'django_filters',
     'cloudinary',
-    'cloudinary_storage',
+
 
     # Local apps
     'users',
@@ -64,7 +66,8 @@ MIDDLEWARE = [
 ]
 
 # Use WhiteNoise for static files storage (compression and caching)
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
 
 
 ROOT_URLCONF = 'ecolink_backend.urls'

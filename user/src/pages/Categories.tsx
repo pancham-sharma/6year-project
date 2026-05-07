@@ -37,12 +37,13 @@ export default function Categories() {
   const { dark, t } = useApp();
   
   const permanentCategories = [
-    { id: 'p1', name: t.categories.food, description: t.categories.foodDesc, impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', image: "/Join the Movement_ Support Our Homeless Community!.jpeg" },
-    { id: 'p2', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', image: "/Two individuals are sharing a box of donated clothes labeled 'DONATION' in a warm, communal setting_.jpeg" },
-    { id: 'p3', name: t.categories.books, description: t.categories.booksDesc, impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: 'category_images/download_9_IOLG5uL.jpeg' },
-    { id: 'p4', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "category_images/download_9.jpeg" },
-    { id: 'p5', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', image: '/images/stories-trees.jpg' },
+    { id: 'p1', name: t.categories.food, description: t.categories.foodDesc, impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', image: "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=800" },
+    { id: 'p2', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', image: "https://images.unsplash.com/photo-1532629345422-7515f3d16bb8?q=80&w=800" },
+    { id: 'p3', name: t.categories.books, description: t.categories.booksDesc, impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=800" },
+    { id: 'p4', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=800" },
+    { id: 'p5', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', image: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=800" },
   ];
+
 
 
   const [dynamicCategories, setDynamicCategories] = useState<any[]>([]);

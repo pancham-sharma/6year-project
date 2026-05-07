@@ -1,18 +1,35 @@
 import os
-from django.core.asgi import get_asgi_application
+import sys
+import traceback
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ecolink_backend.settings')
-django_asgi_app = get_asgi_application()
+try:
+    from django.core.asgi import get_asgi_application
+    from channels.routing import ProtocolTypeRouter, URLRouter
 
-from chat.middleware import JWTAuthMiddleware
-from channels.routing import ProtocolTypeRouter, URLRouter
-import chat.routing
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ecolink_backend.settings')
 
-application = ProtocolTypeRouter({
-    "http": django_asgi_app,
-    "websocket": JWTAuthMiddleware(
-        URLRouter(
-            chat.routing.websocket_urlpatterns
-        )
-    ),
-})
+    # Initialize Django ASGI application
+    django_asgi_app = get_asgi_application()
+
+    # Import routing and middleware AFTER get_asgi_application()
+    from chat.middleware import JWTAuthMiddleware
+    import chat.routing
+
+    application = ProtocolTypeRouter({
+        "http": django_asgi_app,
+        "websocket": JWTAuthMiddleware(
+            URLRouter(
+                chat.routing.websocket_urlpatterns
+            )
+        ),
+    })
+except Exception as e:
+    print("\n" + "="*50)
+    print("CRITICAL: ASGI IMPORT ERROR")
+    print("="*50)
+    traceback.print_exc()
+    print("="*50 + "\n")
+    raise e
+
+
+
