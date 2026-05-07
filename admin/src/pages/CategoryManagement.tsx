@@ -26,11 +26,31 @@ const iconList = [
 const getImageUrl = (path: any) => {
   if (!path) return null;
   if (typeof path !== 'string') return URL.createObjectURL(path);
-  if (path.startsWith('http') || path.startsWith('https')) return path;
-  if (path.startsWith('/media/')) return `http://127.0.0.1:8000${path}`;
-  if (path.startsWith('/')) return path; // Frontend asset
-  return `http://127.0.0.1:8000/media/${path}`;
+  if (path.startsWith('http') || path.startsWith('https')) {
+    // NUCLEAR FIX: Intercept and replace broken Vercel URLs
+    if (path.includes('pancham-sharma-6year-project.vercel.app')) {
+      const p = path.toLowerCase();
+      if (p.includes('food')) return '/images/stories-food.jpg';
+      if (p.includes('clothes')) return "https://images.unsplash.com/photo-1556906781-9a412961c28c?q=80&w=800";
+      if (p.includes('books') || p.includes('education')) return '/images/stories-education.jpg';
+      if (p.includes('money')) return "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=800";
+      if (p.includes('trees')) return '/images/stories-trees.jpg';
+      return '/images/hero.jpg'; // Generic local fallback
+    }
+
+    return path;
+  }
+  
+  // Use production backend URL if in production
+  const base = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://127.0.0.1:8000'
+    : 'https://donation-admin-panel.onrender.com';
+
+  if (path.startsWith('/media/')) return `${base}${path}`;
+  if (path.startsWith('/') || path.startsWith('images/')) return path; // Frontend asset
+  return `${base}/media/${path}`;
 };
+
 
 interface Category {
   id?: number | string;
@@ -72,11 +92,14 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
   }, [message]);
 
   const permanentCategories: Category[] = [
-    { id: 'p1', name: 'Food', description: 'Help feed families in need with nutritious meals', impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', image: "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=800", is_active: true, is_system: true },
-    { id: 'p2', name: 'Clothes', description: 'Provide warmth and dignity through clothing', impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', image: "https://images.unsplash.com/photo-1532629345422-7515f3d16bb8?q=80&w=800", is_active: true, is_system: true },
-    { id: 'p3', name: 'Books', description: 'Empower minds through education materials', impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=800", is_active: true, is_system: true },
-    { id: 'p4', name: 'Money', description: 'Your financial support drives all our programs', impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=800", is_active: true, is_system: true },
-    { id: 'p5', name: 'Trees', description: 'Plant hope for a greener tomorrow', impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', image: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=800", is_active: true, is_system: true },
+    { id: 'p1', name: 'Food', description: 'Help feed families in need with nutritious meals', impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', image: "/images/stories-food.jpg", is_active: true, is_system: true },
+    { id: 'p2', name: 'Clothes', description: 'Provide warmth and dignity through clothing', impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', image: "https://images.unsplash.com/photo-1556906781-9a412961c28c?q=80&w=800", is_active: true, is_system: true },
+    { id: 'p3', name: 'Books', description: 'Empower minds through education materials', impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: "/images/stories-education.jpg", is_active: true, is_system: true },
+    { id: 'p4', name: 'Money', description: 'Your financial support drives all our programs', impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=800", is_active: true, is_system: true },
+    { id: 'p5', name: 'Trees', description: 'Plant hope for a greener tomorrow', impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', image: "/images/stories-trees.jpg", is_active: true, is_system: true },
+
+
+
   ];
 
   const fetchCategories = async () => {
@@ -390,7 +413,15 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
                     src={getImageUrl(cat.image) || ''} 
                     alt={cat.name} 
                     className="w-full h-full object-cover card-img-grayscale transition-all duration-500 group-hover:grayscale-0" 
-                    onError={(e) => (e.currentTarget.src = 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=400')}
+                    onError={(e) => {
+                      const name = cat.name.toLowerCase();
+                      if (name.includes('food')) e.currentTarget.src = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=800";
+                      else if (name.includes('clothes')) e.currentTarget.src = "https://images.unsplash.com/photo-1532629345422-7515f3d16bb8?q=80&w=800";
+                      else if (name.includes('book')) e.currentTarget.src = "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=800";
+                      else if (name.includes('money')) e.currentTarget.src = "https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=800";
+                      else if (name.includes('tree')) e.currentTarget.src = "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=800";
+                      else e.currentTarget.src = 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=400';
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-300">

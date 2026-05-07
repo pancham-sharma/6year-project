@@ -1,19 +1,31 @@
 @echo off
-echo Initializing Git...
-git init
-echo Adding files...
-git add .
-echo Committing changes...
-git commit -m "Fix deployment dependencies, TypeScript bugs, and Git optimization"
-echo Updating remote URL...
-git remote remove origin >nul 2>&1
-git remote add origin https://github.com/pancham-sharma/6year-project.git
-echo Pushing to GitHub (Force)...
-git push -u origin main --force
-if %errorlevel% neq 0 (
-    echo Pushing to master instead...
-    git push -u origin master --force
-)
+title Seva Marg Git Push
 echo.
-echo Done! If you see errors, make sure you are logged into GitHub CLI or have your credentials ready.
+echo ===================================
+echo    Pushing Changes to GitHub
+echo ===================================
+echo.
+
+:: Check for changes
+git status -s
+
+echo.
+set /p msg="Enter commit message (or press enter for 'updates'): "
+if "%msg%"=="" set msg=updates
+
+echo.
+echo [1/3] Adding files...
+git add .
+
+echo [2/3] Committing changes...
+git commit -m "%msg%"
+
+echo [3/3] Pushing to GitHub...
+git push
+
+echo.
+echo ===================================
+echo           DONE!
+echo ===================================
+echo.
 pause

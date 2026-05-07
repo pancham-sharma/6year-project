@@ -185,11 +185,12 @@ export default function About() {
           <h2 className={`text-3xl font-bold font-serif text-center mb-12 ${dark ? 'text-white' : 'text-gray-900'}`}>Our Work in Pictures</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              'https://images.unsplash.com/photo-1469571486042-0ba985e8ceda?q=80&w=800',
+              'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=800',
               'https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=800',
               'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=800',
               'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=800'
             ].map((img, i) => (
+
 
               <div key={i} className="rounded-2xl overflow-hidden shadow-lg group cursor-pointer aspect-square">
                 <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
