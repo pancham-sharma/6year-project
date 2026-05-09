@@ -77,6 +77,30 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
     def create(self, request, *args, **kwargs):
+        email = request.data.get('email')
+        
+        # Check if user already exists
+        existing_user = User.objects.filter(email=email).first()
+        if existing_user:
+            if not existing_user.is_email_verified:
+                # Account exists but not verified - Resend OTP automatically
+                EmailOTP.objects.filter(user=existing_user).delete()
+                otp_code = str(random.randint(100000, 999999))
+                EmailOTP.objects.create(user=existing_user, otp=otp_code)
+                send_otp_email(existing_user.email, otp_code, existing_user.first_name)
+                
+                return Response({
+                    "success": False,
+                    "message": "Account already exists but email is not verified. A new OTP has been sent to your email.",
+                    "email_unverified": True,
+                    "email": existing_user.email
+                }, status=status.HTTP_200_OK) # Return 200 so frontend can switch to OTP view
+            else:
+                return Response({
+                    "success": False,
+                    "message": "User already exists with this email. Please login instead."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
@@ -84,16 +108,12 @@ class RegisterView(generics.CreateAPIView):
             otp_code = str(random.randint(100000, 999999))
             EmailOTP.objects.create(user=user, otp=otp_code)
             
-            # Send Real Email via Resend
-            email_sent = send_otp_email(user.email, otp_code, user.first_name)
+            # Send Email
+            send_otp_email(user.email, otp_code, user.first_name)
             
-            if not email_sent:
-                # Fallback to simulation if Resend fails/not configured
-                print(f"\n[EMAIL SIMULATION] To: {user.email} | Code: {otp_code}\n")
-
             return Response({
                 "success": True,
-                "message": "Registration successful! Please check your email for the OTP.",
+                "message": "Registration successful! Verification code has been sent to your email. Please verify before logging in.",
                 "email": user.email
             }, status=status.HTTP_201_CREATED)
         

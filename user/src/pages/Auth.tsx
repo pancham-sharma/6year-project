@@ -278,7 +278,7 @@ export default function Auth() {
     try {
       if (!isLogin) {
         // Handle Signup
-        await fetchAPI('/api/users/register/', {
+        const res = await fetchAPI('/api/users/register/', {
           method: 'POST',
           body: JSON.stringify({
             username: cleanEmail,
@@ -290,9 +290,19 @@ export default function Auth() {
             city: form.city
           })
         });
+        
         setLoading(false);
-        setSuccessMsg("Registration successful! Check email for OTP.");
-        setShowOTP(true);
+        if (res.email_unverified) {
+          // Account exists but not verified - message updated to user request
+          setSuccessMsg("Account already exists but email is not verified. A new OTP has been sent to your email.");
+        } else {
+          setSuccessMsg("Verification OTP has been sent to your email. Please verify before logging in.");
+        }
+        
+        setTimeout(() => {
+          setShowOTP(true);
+          setSuccessMsg('');
+        }, 1500);
         return;
       }
 
@@ -333,7 +343,7 @@ export default function Auth() {
       
       if (isLogin) {
         if (msg.toLowerCase().includes('verification required') || msg.includes('403')) {
-          msg = "Email verification required. Redirecting to verification...";
+          msg = "Your email is not verified. Please verify your email first.";
           setTimeout(() => {
             setErrorMsg('');
             setShowOTP(true);
@@ -347,7 +357,7 @@ export default function Auth() {
         }
       } else {
         if (msg.toLowerCase().includes('exists')) {
-          msg = "User already registered";
+          msg = "User already exists. Please login instead.";
         } else if (msg.includes('500')) {
           msg = "Server error: Please run migrations (makemigrations & migrate)";
         }

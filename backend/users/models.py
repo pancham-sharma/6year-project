@@ -37,8 +37,8 @@ class EmailOTP(models.Model):
     def is_expired(self):
         from django.utils import timezone
         from datetime import timedelta
-        # Expire after 5 minutes
-        return timezone.now() > self.created_at + timedelta(minutes=5)
+        # Expire after 10 minutes
+        return timezone.now() > self.created_at + timedelta(minutes=10)
 
     def __str__(self):
         return f"OTP for {self.user.email}"
