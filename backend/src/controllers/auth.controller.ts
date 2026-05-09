@@ -12,35 +12,35 @@ export const googleAuth = async (req: Request, res: Response) => {
   const { token } = req.body;
 
   if (!token) {
+    console.error('❌ Google Auth Attempt: No token provided in request body');
     return res.status(400).json({ error: 'No token provided' });
   }
 
   try {
     console.log('--- Google Auth Token Verification ---');
+    
     // Verify the Firebase ID token
+    // This will throw if the token is invalid, expired, or if Firebase isn't initialized
     const decodedToken = await auth.verifyIdToken(token);
     const { email, name, picture, uid } = decodedToken;
 
-    console.log(`Verified user: ${email} (UID: ${uid})`);
+    console.log(`✅ Token Verified: ${email} (Firebase UID: ${uid})`);
 
     if (!email) {
-      return res.status(400).json({ error: 'Email not found in token' });
+      return res.status(400).json({ error: 'Email not found in token. Please check your Google account settings.' });
     }
 
     // Check if user exists in the Django-compatible PostgreSQL table
-    // Note: Django table is likely 'users_user'
     const userResult = await query('SELECT * FROM users_user WHERE email = $1', [email]);
     let user = userResult.rows[0];
 
     if (!user) {
-      console.log(`User ${email} not found. Creating new donor...`);
+      console.log(`👤 User ${email} not found. Creating new donor profile...`);
       const username = email.split('@')[0] + Math.floor(Math.random() * 900 + 100);
       const nameParts = (name || '').split(' ');
       const firstName = nameParts[0] || '';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      // Insert new user following Django's standard schema
-      // We set a long random password hash as they login via Google
       const insertResult = await query(
         `INSERT INTO users_user (
           email, username, first_name, last_name, role, is_email_verified, 
@@ -49,17 +49,16 @@ export const googleAuth = async (req: Request, res: Response) => {
         [email, username, firstName, lastName, 'DONOR', true, '!', false, true, false]
       );
       user = insertResult.rows[0];
-      console.log(`User created: ${username}`);
+      console.log(`✅ New user created: ${username}`);
     } else {
-      console.log(`User ${email} found. Role: ${user.role}`);
-      // Ensure email is marked as verified if it wasn't
+      console.log(`✨ Existing user found: ${user.username} (Role: ${user.role})`);
       if (!user.is_email_verified) {
         await query('UPDATE users_user SET is_email_verified = $1 WHERE id = $2', [true, user.id]);
         user.is_email_verified = true;
       }
     }
 
-    // Generate a custom JWT for the application
+    // Generate Application JWT
     const accessToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
@@ -89,12 +88,20 @@ export const googleAuth = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ Google Auth Error:', error.message);
     
+    // Specific error handling for Firebase common issues
     if (error.code === 'auth/id-token-expired') {
-      return res.status(401).json({ error: 'Firebase ID token has expired. Please login again.' });
+      return res.status(401).json({ error: 'Session expired. Please login with Google again.' });
     }
     
-    return res.status(500).json({ 
-      error: 'Authentication failed on server', 
+    if (error.message.includes('project ID')) {
+      return res.status(500).json({ 
+        error: 'Backend Configuration Error', 
+        details: 'Firebase Project ID is missing or incorrect in the server environment.' 
+      });
+    }
+    
+    return res.status(401).json({ 
+      error: 'Authentication failed', 
       details: error.message 
     });
   }
