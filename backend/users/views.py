@@ -47,7 +47,7 @@ def send_otp_email(email, otp_code, first_name="User"):
             <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; margin: 20px 0;">
                 {otp_code}
             </div>
-            <p style="color: #6b7280; font-size: 14px;">This code will expire in 5 minutes. If you didn't request this, please ignore this email.</p>
+            <p style="color: #6b7280; font-size: 14px;">This code will expire in 10 minutes. If you didn't request this, please ignore this email.</p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
             <p style="text-align: center; color: #9ca3af; font-size: 12px;">© 2024 SevaMarg Foundation</p>
         </div>
@@ -77,16 +77,23 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
     def create(self, request, *args, **kwargs):
-        email = request.data.get('email')
+        email = request.data.get('email', '').strip().lower()
+        print(f"--- Registration Flow Start for {email} ---")
         
-        # Check if user already exists
-        existing_user = User.objects.filter(email=email).first()
+        if not email:
+            return Response({"success": False, "message": "Email is required"}, status=400)
+
+        # Check if user already exists (Case-Insensitive)
+        existing_user = User.objects.filter(email__iexact=email).first()
         if existing_user:
+            print(f"🔍 Duplicate Check: User {email} already exists. Verified: {existing_user.is_email_verified}")
             if not existing_user.is_email_verified:
-                # Account exists but not verified - Resend OTP automatically
+                print(f"📧 Unverified user detected. Resending OTP...")
                 EmailOTP.objects.filter(user=existing_user).delete()
                 otp_code = str(random.randint(100000, 999999))
                 EmailOTP.objects.create(user=existing_user, otp=otp_code)
+                
+                print(f"🔢 New OTP Generated: {otp_code}")
                 send_otp_email(existing_user.email, otp_code, existing_user.first_name)
                 
                 return Response({
@@ -94,8 +101,9 @@ class RegisterView(generics.CreateAPIView):
                     "message": "Account already exists but email is not verified. A new OTP has been sent to your email.",
                     "email_unverified": True,
                     "email": existing_user.email
-                }, status=status.HTTP_200_OK) # Return 200 so frontend can switch to OTP view
+                }, status=status.HTTP_200_OK)
             else:
+                print(f"🚫 Registration Blocked: User {email} is already verified.")
                 return Response({
                     "success": False,
                     "message": "User already exists with this email. Please login instead."
@@ -103,10 +111,12 @@ class RegisterView(generics.CreateAPIView):
 
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
+            print(f"👤 Creating new user profile for {email}")
             user = serializer.save()
             # Generate 6-digit OTP
             otp_code = str(random.randint(100000, 999999))
             EmailOTP.objects.create(user=user, otp=otp_code)
+            print(f"🔢 Initial OTP Generated: {otp_code}")
             
             # Send Email
             send_otp_email(user.email, otp_code, user.first_name)
@@ -124,7 +134,8 @@ class RegisterView(generics.CreateAPIView):
             msg = serializer.errors[first_field][0]
             if isinstance(msg, dict):
                 msg = next(iter(msg.values()))[0]
-
+        
+        print(f"❌ Registration Validation Failed: {msg}")
         return Response({
             "success": False,
             "message": msg
@@ -134,28 +145,34 @@ class VerifyEmailView(APIView):
     permission_classes = (permissions.AllowAny,)
 
     def post(self, request):
-        email = request.data.get('email')
-        otp = request.data.get('otp')
+        email = request.data.get('email', '').strip().lower()
+        otp = request.data.get('otp', '').strip()
+        
+        print(f"--- Verification Attempt for {email} (OTP: {otp}) ---")
         
         if not email or not otp:
             return Response({"success": False, "message": "Email and OTP are required"}, status=400)
             
         try:
-            user = User.objects.get(email=email)
+            user = User.objects.get(email__iexact=email)
             otp_obj = EmailOTP.objects.get(user=user)
             
             if otp_obj.otp == otp:
                 if otp_obj.is_expired():
+                    print(f"⏰ OTP Expired for {email}")
                     return Response({"success": False, "message": "OTP has expired. Please resend."}, status=400)
                 
+                print(f"✅ Email Verified successfully for {email}")
                 user.is_email_verified = True
                 user.save()
                 otp_obj.delete() # Clean up
                 return Response({"success": True, "message": "Email verified successfully! You can now login."})
             else:
+                print(f"❌ Invalid OTP entry for {email}")
                 return Response({"success": False, "message": "Invalid OTP code"}, status=400)
                 
         except (User.DoesNotExist, EmailOTP.DoesNotExist):
+            print(f"❓ Verification Error: User or OTP record not found for {email}")
             return Response({"success": False, "message": "User not found or OTP not generated"}, status=404)
 
 class ResendOTPView(APIView):
@@ -230,22 +247,32 @@ class SocialAuthGoogleView(APIView):
             if not firebase_admin._apps:
                 from django.conf import settings
                 
-                project_id = os.getenv('FIREBASE_PROJECT_ID') or os.getenv('GOOGLE_CLOUD_PROJECT')
-                client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
-                private_key = os.getenv('FIREBASE_PRIVATE_KEY')
+                project_id = (os.getenv('FIREBASE_PROJECT_ID') or os.getenv('GOOGLE_CLOUD_PROJECT', '')).strip(' "')
+                client_email = (os.getenv('FIREBASE_CLIENT_EMAIL') or '').strip(' "')
+                private_key = (os.getenv('FIREBASE_PRIVATE_KEY') or '').strip(' "')
 
                 if project_id and client_email and private_key:
                     print(f"📡 Initializing Firebase with Env: {project_id}")
-                    # Fix Render newline issue
+                    # Fix Render newline issue and handle escaped newlines
                     formatted_key = private_key.replace('\\n', '\n')
-                    cred = credentials.Certificate({
-                        "project_id": project_id,
-                        "client_email": client_email,
-                        "private_key": formatted_key,
-                        "type": "service_account",
-                        "token_uri": "https://oauth2.googleapis.com/token",
-                    })
-                    firebase_admin.initialize_app(cred)
+                    
+                    # Ensure it has the correct PEM headers
+                    if '-----BEGIN PRIVATE KEY-----' not in formatted_key:
+                        formatted_key = f"-----BEGIN PRIVATE KEY-----\n{formatted_key}\n-----END PRIVATE KEY-----"
+                    
+                    try:
+                        cred = credentials.Certificate({
+                            "project_id": project_id,
+                            "client_email": client_email,
+                            "private_key": formatted_key,
+                            "type": "service_account",
+                            "token_uri": "https://oauth2.googleapis.com/token",
+                        })
+                        firebase_admin.initialize_app(cred)
+                    except Exception as ce:
+                        print(f"❌ Certificate Error: {str(ce)}")
+                        # Last ditch attempt with default if env fails
+                        firebase_admin.initialize_app()
                 else:
                     # Fallback to local JSON if env not set
                     cred_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')

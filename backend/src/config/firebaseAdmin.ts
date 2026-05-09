@@ -13,9 +13,9 @@ console.log("GOOGLE PROJECT:", process.env.GOOGLE_CLOUD_PROJECT);
  */
 
 const validateEnv = (): { projectId: string; clientEmail: string; privateKey: string } => {
-  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  const projectId = (process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || '').trim().replace(/^"|"$/g, '');
+  const clientEmail = (process.env.FIREBASE_CLIENT_EMAIL || '').trim().replace(/^"|"$/g, '');
+  const privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').trim().replace(/^"|"$/g, '');
 
   const missing = [];
   if (!projectId) missing.push('FIREBASE_PROJECT_ID / GOOGLE_CLOUD_PROJECT');
