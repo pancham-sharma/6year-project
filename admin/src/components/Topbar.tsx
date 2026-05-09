@@ -24,7 +24,8 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
     const fetchNotifications = async () => {
       try {
         const res = await fetchAPI('/api/chat/notifications/');
-        const data = res.results || res || [];
+        const rawData = res?.results || res;
+        const data = Array.isArray(rawData) ? rawData : [];
         setNotifications(data.filter((n: any) => n.status !== 'Recycled'));
       } catch (err) {
         console.error("Failed to load notifications", err);
@@ -40,8 +41,8 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
           fetchAPI('/api/users/list/').catch(() => [])
         ]);
         setAllData({
-          donations: (dons.results || dons || []),
-          users: (users.results || users || [])
+          donations: Array.isArray(dons?.results) ? dons.results : (Array.isArray(dons) ? dons : []),
+          users: Array.isArray(users?.results) ? users.results : (Array.isArray(users) ? users : [])
         });
       } catch (err) { console.error(err); }
     };
@@ -53,7 +54,11 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
       if (!token) return;
 
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const isLocal = window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1' || 
+                      window.location.hostname.startsWith('192.168.');
+      
+      const host = isLocal
         ? `${window.location.hostname}:8000` 
         : 'donation-admin-panel.onrender.com';
       const wsUrl = `${protocol}://${host}/ws/notifications/?token=${token}`;
@@ -106,7 +111,7 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
   }, [searchQuery, allData]);
 
 
-  const unread = notifications.filter(n => !n.read).length;
+  const unread = Array.isArray(notifications) ? notifications.filter(n => !n.read).length : 0;
 
   const bg = darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';

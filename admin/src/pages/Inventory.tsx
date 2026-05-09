@@ -32,7 +32,8 @@ export default function Inventory({ darkMode }: Props) {
   });
 
   const inventory = useMemo(() => {
-    const raw = Array.isArray(invData) ? invData : (invData?.results || []);
+    const rawData = invData?.results || invData;
+    const raw = Array.isArray(rawData) ? rawData : [];
     return raw.map((item: any) => ({
       id: item.id,
       category: item.category,
@@ -46,7 +47,8 @@ export default function Inventory({ darkMode }: Props) {
   }, [invData]);
 
   const impactMetrics = useMemo(() => {
-    return Array.isArray(impactData) ? impactData : (impactData?.results || []);
+    const rawData = impactData?.results || impactData;
+    return Array.isArray(rawData) ? rawData : [];
   }, [impactData]);
 
   // Mutations

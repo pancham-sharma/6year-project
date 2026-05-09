@@ -122,7 +122,7 @@ export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Pro
               retryHeaders.set('Content-Type', 'application/json');
             }
             retryHeaders.set('Authorization', `Bearer ${newToken}`);
-            const retryResponse = await fetch(endpoint, { ...options, headers: retryHeaders });
+            const retryResponse = await fetch(fullUrl, { ...options, headers: retryHeaders });
             if (!retryResponse.ok) {
               const errData = await retryResponse.json().catch(() => ({}));
               reject(new Error(errData.detail || 'Request failed.'));
