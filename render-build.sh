@@ -8,7 +8,9 @@ cd backend
 echo "📦 Installing dependencies..."
 pip install -r requirements.txt
 
-echo "🗄️ Running database migrations..."
+echo "🗄️ Forcing database migrations..."
+# This command forces Django to re-check the 'users' app migrations
+python manage.py migrate users --fake-initial || true
 python manage.py migrate
 
 echo "✅ Build and Migration complete!"
