@@ -53,7 +53,38 @@ def send_otp_email(email, otp_code, first_name="User"):
     """
     plain_message = strip_tags(html_message)
     
+    # Primary: Resend API (More reliable on Render)
+    resend_api_key = os.getenv('RESEND_API_KEY')
+    if resend_api_key:
+        try:
+            import requests
+            print(f"📡 [DIAGNOSTIC] Resend Key Found. Attempting Resend API for {email}...")
+            response = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": "SevaMarg <onboarding@resend.dev>",
+                    "to": [email],
+                    "subject": subject,
+                    "html": html_message,
+                }
+            )
+            if response.status_code in [200, 201]:
+                print(f"✅ OTP sent successfully via Resend API to {email}")
+                return True
+            else:
+                print(f"⚠️ Resend API failed (Status {response.status_code}): {response.text}")
+        except Exception as re:
+            print(f"❌ Resend API Error: {str(re)}")
+    else:
+        print("⚠️ [DIAGNOSTIC] RESEND_API_KEY NOT FOUND in Environment. Skipping Resend.")
+
+    # Fallback: Gmail SMTP
     try:
+        print(f"📧 [DIAGNOSTIC] Attempting Gmail SMTP Fallback for {email}...")
         send_mail(
             subject,
             plain_message,
@@ -62,39 +93,10 @@ def send_otp_email(email, otp_code, first_name="User"):
             html_message=html_message,
             fail_silently=False,
         )
-        print(f"✅ OTP Email sent successfully to {email}")
+        print(f"✅ OTP Email sent successfully via SMTP to {email}")
         return True
     except Exception as e:
-        print(f"❌ Gmail SMTP Failed: {str(e)}")
-        
-        # Fallback to Resend API
-        resend_api_key = os.getenv('RESEND_API_KEY')
-        if resend_api_key:
-            try:
-                import requests
-                print("📤 Attempting Resend API Fallback...")
-                response = requests.post(
-                    "https://api.resend.com/emails",
-                    headers={
-                        "Authorization": f"Bearer {resend_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "from": "SevaMarg <onboarding@resend.dev>",
-                        "to": [email],
-                        "subject": subject,
-                        "html": html_message,
-                    }
-                )
-                if response.status_code in [200, 201]:
-                    print(f"✅ Resend API Fallback successful for {email}")
-                    return True
-                else:
-                    print(f"❌ Resend API Error: {response.text}")
-            except Exception as re:
-                print(f"❌ Resend Fallback Failed: {str(re)}")
-        
-        print(f"❌ Final OTP Email Failure for {email}")
+        print(f"❌ Final OTP Email Failure for {email}: {str(e)}")
         return False
 
 class RegisterView(generics.CreateAPIView):
@@ -414,7 +416,38 @@ def send_password_reset_email(email, otp_code):
     """
     plain_message = f"Your password reset code is: {otp_code}. It will expire in 15 minutes."
     
+    # Primary: Resend API (More reliable on Render)
+    resend_api_key = os.getenv('RESEND_API_KEY')
+    if resend_api_key:
+        try:
+            import requests
+            print(f"📡 [DIAGNOSTIC] Resend Key Found. Attempting Resend API for {email}...")
+            response = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {resend_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": "SevaMarg <onboarding@resend.dev>",
+                    "to": [email],
+                    "subject": subject,
+                    "html": html_message,
+                }
+            )
+            if response.status_code in [200, 201]:
+                print(f"✅ Reset email sent successfully via Resend API to {email}")
+                return True
+            else:
+                print(f"⚠️ Resend API failed (Status {response.status_code}): {response.text}")
+        except Exception as re:
+            print(f"❌ Resend API Error: {str(re)}")
+    else:
+        print("⚠️ [DIAGNOSTIC] RESEND_API_KEY NOT FOUND in Environment. Skipping Resend.")
+
+    # Fallback: Gmail SMTP
     try:
+        print(f"📧 [DIAGNOSTIC] Attempting Gmail SMTP Fallback for {email}...")
         send_mail(
             subject,
             plain_message,
@@ -423,38 +456,10 @@ def send_password_reset_email(email, otp_code):
             html_message=html_message,
             fail_silently=False,
         )
+        print(f"✅ Reset email sent successfully via SMTP to {email}")
         return True
     except Exception as e:
-        print(f"❌ Gmail SMTP Failed: {str(e)}")
-        
-        # Fallback to Resend API
-        resend_api_key = os.getenv('RESEND_API_KEY')
-        if resend_api_key:
-            try:
-                import requests
-                print("📤 Attempting Resend API Fallback...")
-                response = requests.post(
-                    "https://api.resend.com/emails",
-                    headers={
-                        "Authorization": f"Bearer {resend_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "from": "SevaMarg <onboarding@resend.dev>",
-                        "to": [email],
-                        "subject": subject,
-                        "html": html_message,
-                    }
-                )
-                if response.status_code in [200, 201]:
-                    print(f"✅ Resend API Fallback successful for {email}")
-                    return True
-                else:
-                    print(f"❌ Resend API Error: {response.text}")
-            except Exception as re:
-                print(f"❌ Resend Fallback Failed: {str(re)}")
-        
-        print(f"❌ Final Reset Email Failure for {email}")
+        print(f"❌ Final Reset Email Failure for {email}: {str(e)}")
         return False
 
 class PasswordResetRequestView(APIView):
