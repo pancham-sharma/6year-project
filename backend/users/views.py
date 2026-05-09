@@ -317,27 +317,25 @@ class SocialAuthGoogleView(APIView):
                             print("🔐 Attempting Firebase Init via Environment Variables...")
                             
                             # Clean the private key thoroughly
-                            raw_key = private_key.strip(' "')
-                            # Fix literal \n strings to actual newlines
-                            formatted_key = raw_key.replace('\\n', '\n')
+                            raw_key = private_key.strip(' "\'').replace('\\n', '\n')
                             
-                            # Ensure the key has the correct PEM headers
-                            if '-----BEGIN PRIVATE KEY-----' not in formatted_key:
-                                formatted_key = f"-----BEGIN PRIVATE KEY-----\n{formatted_key}\n-----END PRIVATE KEY-----"
+                            # Extract only the base64 content between headers if they exist
+                            clean_body = raw_key.replace('-----BEGIN PRIVATE KEY-----', '')
+                            clean_body = clean_body.replace('-----END PRIVATE KEY-----', '')
+                            # Remove all whitespace/newlines from the body to get pure base64
+                            pure_base64 = "".join(clean_body.split())
                             
-                            # Final safety check: if it looks like one long line, split it (common in Render)
-                            if '\n' not in formatted_key.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '').strip():
-                                # Try to reconstruct if it's just one long base64 string
-                                print("🛠️ Reconstructing single-line Private Key...")
-                                body = formatted_key.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '').strip()
-                                # Add newlines every 64 chars as per PEM standard
-                                body = '\n'.join([body[i:i+64] for i in range(0, len(body), 64)])
-                                formatted_key = f"-----BEGIN PRIVATE KEY-----\n{body}\n-----END PRIVATE KEY-----\n"
+                            # Reconstruct PEM Sandwhich perfectly (64 chars per line)
+                            formatted_body = '\n'.join([pure_base64[i:i+64] for i in range(0, len(pure_base64), 64)])
+                            final_pem = f"-----BEGIN PRIVATE KEY-----\n{formatted_body}\n-----END PRIVATE KEY-----\n"
+                            
+                            print(f"🛠️ PEM Reconstructed. Body length: {len(pure_base64)}")
+                            print(f"🔍 Key Preview: {final_pem[:30]}...[HIDDEN]...{final_pem[-30:].strip()}")
 
                             cred = credentials.Certificate({
                                 "project_id": project_id,
                                 "client_email": client_email,
-                                "private_key": formatted_key,
+                                "private_key": final_pem,
                                 "type": "service_account",
                                 "token_uri": "https://oauth2.googleapis.com/token",
                             })
