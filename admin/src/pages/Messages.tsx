@@ -25,6 +25,7 @@ export default function Messages({ darkMode }: Props) {
   const [localSearch, setLocalSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const [locallyReadIds, setLocallyReadIds] = useState<Set<string>>(new Set());
 
   const [mobileShowChat, setMobileShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -121,8 +122,8 @@ export default function Messages({ darkMode }: Props) {
             conversationsMap[otherUser].lastTimestamp = msgTimestamp;
           }
           
-          // Only count unread if NOT sent by me AND NOT from the currently active chat
-          if (!m.read && !isSentByMe && String(activeId) !== String(otherUser)) {
+          // Only count unread if NOT sent by me AND NOT from the currently active chat AND NOT locally read
+          if (!m.read && !isSentByMe && String(activeId) !== String(otherUser) && !locallyReadIds.has(String(otherUser))) {
             conversationsMap[otherUser].unread += 1;
           }
         });
@@ -272,13 +273,24 @@ export default function Messages({ darkMode }: Props) {
                };
              }
 
+             const isUnread = !m.read && !isSentByMe && String(activeId) !== String(otherId);
+             
+             if (isUnread) {
+               // New message from user, we should allow notifications again even if previously cleared
+               setLocallyReadIds(prev => {
+                 const next = new Set(prev);
+                 next.delete(String(otherId));
+                 return next;
+               });
+             }
+
              return {
                ...c,
                messages: [...c.messages, newMsg],
                lastMessage: m.message_body,
                lastTime: newMsg.timestamp,
                lastTimestamp: new Date(m.timestamp).getTime(),
-               unread: (!m.read && !isSentByMe && String(activeId) !== String(otherId)) ? c.unread + 1 : c.unread
+               unread: isUnread ? c.unread + 1 : c.unread
              };
           }).sort((a: any, b: any) => b.lastTimestamp - a.lastTimestamp);
         });
@@ -426,6 +438,7 @@ export default function Messages({ darkMode }: Props) {
         ? { ...c, unread: 0, messages: c.messages.map((m: any) => ({ ...m, read: true })) }
         : c
     ));
+    setLocallyReadIds(prev => new Set(prev).add(stringId));
 
     // Persist the read status to the backend using the bulk mark_read action
     try {
@@ -433,6 +446,8 @@ export default function Messages({ darkMode }: Props) {
         method: 'POST',
         body: JSON.stringify({ other_user_id: stringId })
       });
+      // After successful backend update, we can potentially remove from locallyReadIds 
+      // but keeping it until next full fetch is safer.
     } catch (err) {
       console.warn("Failed to persist read status:", err);
     }

@@ -9,22 +9,25 @@ echo.
 :: Ensure origin is correct
 git remote set-url origin https://github.com/pancham-sharma/6year-project.git
 
-:: Check for changes
-git status -s
+echo.
+echo [0/4] Untracking ignored files...
+git rm --cached image.png PUSH.bat git_push.bat 2>nul
 
 echo.
 set /p msg="Enter commit message (or press enter for 'updates'): "
 if "%msg%"=="" set msg=updates
 
-echo.
-echo [1/3] Adding files...
+echo [1/4] Adding files...
 git add .
 
-echo [2/3] Committing changes...
+echo [2/4] Committing changes...
 git commit -m "%msg%"
 
-echo [3/3] Pushing to GitHub...
-git push origin main
+echo [3/4] Pushing to GitHub...
+git push origin main --force
+
+echo [4/4] Finalizing...
+git push --set-upstream origin main
 
 echo.
 echo ===================================

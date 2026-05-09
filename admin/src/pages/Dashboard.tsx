@@ -32,10 +32,15 @@ export default function Dashboard({ darkMode }: Props) {
   const axisColor = darkMode ? '#9ca3af' : '#6b7280';
   
   const statusColors: Record<string, string> = {
-    Completed: 'bg-green-100 text-green-700',
-    Scheduled: 'bg-blue-100 text-blue-700',
-    Pending: 'bg-amber-100 text-amber-700',
-    Cancelled: 'bg-red-100 text-red-700',
+    Completed: 'bg-green-100 text-green-900 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-none',
+    Scheduled: 'bg-blue-100 text-blue-900 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-none',
+    Pending: 'bg-amber-100 text-amber-900 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-none',
+    Cancelled: 'bg-red-100 text-red-900 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-none',
+  };
+
+  const getStatusColor = (status: string) => {
+    const s = status?.charAt(0).toUpperCase() + status?.slice(1).toLowerCase();
+    return statusColors[s] || 'bg-gray-100 text-gray-800 border border-gray-200';
   };
 
   // Compute Metrics dynamically from Donations Table
@@ -320,7 +325,7 @@ export default function Dashboard({ darkMode }: Props) {
                   <td className={`px-5 py-3.5 ${textSub}`}>{d.quantity_description}</td>
                   <td className={`px-5 py-3.5 ${textSub}`}>{new Date(d.timestamp).toLocaleDateString()}</td>
                   <td className="px-5 py-3.5">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColors[d.status]}`}>{d.status}</span>
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${getStatusColor(d.status)}`}>{d.status}</span>
                   </td>
                 </tr>
               ))}

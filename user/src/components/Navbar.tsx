@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { Heart, Menu, X, Sun, Moon, Globe, Bell, User } from 'lucide-react';
+import { Heart, Menu, X, Sun, Moon, Globe, Bell, User, LogOut, LayoutDashboard, Settings, ChevronDown } from 'lucide-react';
 
 export default function Navbar() {
-  const { dark, toggleDark, lang, setLang, t, isLoggedIn, notifications } = useApp();
+  const { dark, toggleDark, lang, setLang, t, isLoggedIn, notifications, user, logout } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
 
   const navLinks = [
@@ -74,9 +75,55 @@ export default function Navbar() {
             )}
 
             {isLoggedIn ? (
-              <Link to="/dashboard" className={`p-2 rounded-xl transition-all duration-300 ${dark ? 'text-slate-200 hover:bg-white/10' : 'text-slate-600 hover:bg-gray-100'}`}>
-                <User className="w-4 h-4" />
-              </Link>
+              <div className="relative ml-4">
+                <button 
+                  onClick={() => setProfileOpen(!profileOpen)}
+                  className="flex items-center gap-2 group p-1 rounded-full transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10"
+                >
+                  <div className="relative">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black text-white shadow-[0_8px_20px_-4px_rgba(24,226,153,0.4)] transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 overflow-hidden ${!user.image ? 'bg-gradient-to-br from-[#18E299] to-[#0fa76e]' : ''}`}>
+                      {user.image ? (
+                        <img src={user.image} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        user.name ? user.name.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : <User className="w-4 h-4" />)
+                      )}
+                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full shadow-sm"></div>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${profileOpen ? 'rotate-180' : ''} ${dark ? 'text-slate-400' : 'text-slate-600'}`} />
+                </button>
+
+                {/* Profile Dropdown */}
+                {profileOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)}></div>
+                    <div className={`absolute right-0 mt-3 w-64 rounded-2xl shadow-2xl border z-50 animate-fade-in py-2 overflow-hidden ${dark ? 'bg-slate-900 border-white/10 text-white shadow-black/50' : 'bg-white border-gray-100 text-slate-900 shadow-gray-200/50'}`}>
+                      <div className={`px-4 py-3 border-b ${dark ? 'border-white/5' : 'border-gray-50'}`}>
+                        <p className="text-sm font-bold truncate">{user.name || 'User'}</p>
+                        <p className={`text-xs truncate ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{user.email}</p>
+                      </div>
+                      
+                      <div className="p-2 space-y-1">
+                        <Link to="/dashboard" onClick={() => setProfileOpen(false)} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${dark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                          <LayoutDashboard className="w-4 h-4 text-brand" />
+                          Dashboard
+                        </Link>
+                        <Link to="/dashboard" state={{ tab: 'profile' }} onClick={() => setProfileOpen(false)} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${dark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                          <Settings className="w-4 h-4 text-brand" />
+                          Settings
+                        </Link>
+                        <button 
+                          onClick={() => { logout(); setProfileOpen(false); }}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-red-500 transition-colors ${dark ? 'hover:bg-red-500/10' : 'hover:bg-red-50'}`}
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             ) : (
               <Link to="/auth" className={`px-4 py-2 rounded-full text-sm font-bold transition-all duration-300 ${dark ? 'text-white hover:bg-white/10' : 'text-slate-900 hover:bg-gray-100'}`}>
                 {t.nav.login}

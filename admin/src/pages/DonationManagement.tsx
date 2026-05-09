@@ -16,18 +16,28 @@ const CATEGORIES = ['Food', 'Clothes', 'Books', 'Monetary', 'Environment'];
 const STATUSES = ['Pending', 'Scheduled', 'Completed', 'Cancelled'];
 
 const statusColors: Record<string, string> = {
-  Completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  Scheduled: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  Pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  Cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  Completed: 'bg-green-100 text-green-900 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-none',
+  Scheduled: 'bg-blue-100 text-blue-900 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-none',
+  Pending: 'bg-amber-100 text-amber-900 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-none',
+  Cancelled: 'bg-red-100 text-red-900 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-none',
+};
+
+const getStatusColor = (status: string) => {
+  const s = status?.charAt(0).toUpperCase() + status?.slice(1).toLowerCase();
+  return statusColors[s] || 'bg-gray-100 text-gray-800 border border-gray-200';
 };
 
 const catColors: Record<string, string> = {
-  Food: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300',
-  Clothes: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
-  Books: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
-  Monetary: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
-  Environment: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300',
+  Food: 'bg-amber-50 text-amber-900 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-none',
+  Clothes: 'bg-purple-50 text-purple-900 border border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-none',
+  Books: 'bg-blue-50 text-blue-900 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-none',
+  Monetary: 'bg-emerald-50 text-emerald-900 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-none',
+  Environment: 'bg-green-50 text-green-900 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-none',
+};
+
+const getCatColor = (cat: string) => {
+  const c = cat?.charAt(0).toUpperCase() + cat?.slice(1).toLowerCase();
+  return catColors[c] || 'bg-gray-100 text-gray-800 border border-gray-200';
 };
 
 export default function DonationManagement({ darkMode }: Props) {
@@ -228,7 +238,7 @@ export default function DonationManagement({ darkMode }: Props) {
               ) : (
                 data?.data.map((d: any) => (
                   <tr key={d.id} className={`transition-colors ${rowHover} ${isPlaceholderData ? 'opacity-50' : ''}`}>
-                    <td className="px-4 py-4 font-mono text-xs font-bold text-green-600">#{d.id}</td>
+                    <td className={`px-5 py-3.5 font-mono text-xs font-bold ${greenText}`}>#{d.id}</td>
                     <td className={`px-4 py-4 font-medium ${textMain}`}>{d.donorName}</td>
                     <td className={`px-4 py-4 ${textSub}`}>
                       <div className="flex items-center gap-1.5"><Phone size={12} /> {d.contact}</div>
@@ -237,12 +247,12 @@ export default function DonationManagement({ darkMode }: Props) {
                       <div className="flex items-start gap-1"><MapPin size={12} className="mt-0.5" /> <span className="truncate max-w-[150px]">{d.address}</span></div>
                     </td>
                     <td className="px-4 py-4 min-w-[120px]">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${catColors[d.category] || 'bg-gray-100 text-gray-600'}`}>{d.category}</span>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${getCatColor(d.category)}`}>{d.category}</span>
                     </td>
                     <td className={`px-4 py-4 font-medium ${textMain} min-w-[150px]`}>{d.quantity}</td>
                     <td className={`px-4 py-4 ${textSub}`}>{d.date}</td>
                     <td className="px-4 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${statusColors[d.status] || 'bg-gray-100 text-gray-600'}`}>{d.status}</span>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${getStatusColor(d.status)}`}>{d.status}</span>
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-2">

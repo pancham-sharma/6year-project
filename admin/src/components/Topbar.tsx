@@ -190,7 +190,7 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
       <div className="flex items-center gap-2">
         {/* Search */}
         <div className="relative">
-          <div className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${inputBg} w-56 focus-within:w-80 transition-all duration-300`}>
+          <div className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${inputBg} w-56 focus-within:w-96 focus-within:shadow-lg focus-within:border-green-500/50 transition-all duration-500 ease-in-out`}>
             <Search size={14} className={darkMode ? 'text-gray-300' : textSub} />
             <input 
               className="bg-transparent outline-none w-full" 

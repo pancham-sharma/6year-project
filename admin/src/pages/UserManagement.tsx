@@ -240,7 +240,11 @@ export default function UserManagement({ darkMode }: Props) {
                           <p className={`text-sm font-medium ${textMain}`}>{d.category} · {d.quantity_description}</p>
                           <p className={`text-xs ${textSub}`}>{new Date(d.timestamp).toLocaleDateString()}</p>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${d.status === 'Completed' ? 'bg-green-100 text-green-700' : d.status === 'Scheduled' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>{d.status}</span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${
+                          d.status === 'Completed' ? 'bg-green-100 text-green-900 border border-green-200' : 
+                          d.status === 'Scheduled' ? 'bg-blue-100 text-blue-900 border border-blue-200' : 
+                          'bg-amber-100 text-amber-900 border border-amber-200'
+                        }`}>{d.status}</span>
                       </div>
                     ))}
                   </div>

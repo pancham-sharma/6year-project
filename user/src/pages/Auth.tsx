@@ -345,11 +345,12 @@ export default function Auth() {
             email: res.user.email,
             phone: res.user.phone_number || '',
             city: res.user.city || '',
-            role: res.user.role
+            role: res.user.role,
+            image: res.user.profile_image || ''
           });
         }
-        
-        window.location.href = '#/dashboard';
+        setIsLoggedIn(true);
+        navigate('/dashboard');
       }
     } catch (error: any) {
       console.error("Google Auth failed:", error);

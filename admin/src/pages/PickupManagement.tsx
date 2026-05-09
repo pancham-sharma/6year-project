@@ -66,10 +66,16 @@ export default function PickupManagement({ darkMode }: Props) {
 
   const displayed = filtered;
 
-  const statusBadge: Record<string, string> = {
-    Pending: 'bg-amber-100 text-amber-700',
-    Scheduled: 'bg-blue-100 text-blue-700',
-    Completed: 'bg-green-100 text-green-700',
+  const statusColors: Record<string, string> = {
+    Completed: 'bg-green-100 text-green-900 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-none',
+    Scheduled: 'bg-blue-100 text-blue-900 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-none',
+    Pending: 'bg-amber-100 text-amber-900 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-none',
+    Cancelled: 'bg-red-100 text-red-900 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-none',
+  };
+
+  const getStatusColor = (status: string) => {
+    const s = status?.charAt(0).toUpperCase() + status?.slice(1).toLowerCase();
+    return statusColors[s] || 'bg-gray-100 text-gray-800 border border-gray-200';
   };
 
   const assignPickup = async () => {
@@ -184,7 +190,7 @@ export default function PickupManagement({ darkMode }: Props) {
                   <p className={`font-bold text-sm ${textMain}`}>{d.donorName}</p>
                   <p className="text-xs font-mono text-green-500">#{d.id}</p>
                 </div>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusBadge[d.status] || 'bg-gray-100 text-gray-600'}`}>{d.status}</span>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${getStatusColor(d.status)}`}>{d.status}</span>
               </div>
 
               <div className="space-y-2 mb-4">

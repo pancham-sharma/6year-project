@@ -636,8 +636,15 @@ export default function Dashboard() {
                     </button>
                   </div>
                   <div className="flex items-center gap-4 mb-8">
-                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-3xl text-white font-bold">
-                      {appUser.name.charAt(0)}
+                    <div className="relative">
+                      <div className={`w-24 h-24 rounded-3xl flex items-center justify-center text-4xl font-black text-white shadow-[0_20px_50px_-12px_rgba(24,226,153,0.5)] transform transition-all duration-500 hover:scale-105 hover:rotate-2 overflow-hidden ${!appUser.image ? 'bg-gradient-to-br from-[#18E299] to-[#0fa76e]' : ''}`}>
+                        {appUser.image ? (
+                          <img src={appUser.image} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                          appUser.name ? appUser.name.charAt(0).toUpperCase() : <User className="w-10 h-10" />
+                        )}
+                      </div>
+                      <div className="absolute -bottom-2 -right-2 w-7 h-7 bg-green-500 border-4 border-white dark:border-slate-800 rounded-full shadow-lg"></div>
                     </div>
                     <div>
                       <h4 className={`text-xl font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{appUser.name}</h4>
