@@ -174,26 +174,34 @@ class SocialAuthGoogleView(APIView):
         try:
             # Initialize Firebase Admin if not already initialized
             if not firebase_admin._apps:
-                cred_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
-                if os.path.exists(cred_path):
-                    # Option A: Use JSON file
-                    cred = credentials.Certificate(cred_path)
-                    firebase_admin.initialize_app(cred)
-                elif os.getenv('FIREBASE_PRIVATE_KEY'):
-                    # Option B: Use Environment Variables (Best for Vercel/Render)
-                    cred_dict = {
-                        "type": "service_account",
-                        "project_id": os.getenv('FIREBASE_PROJECT_ID'),
-                        "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-                        "private_key": os.getenv('FIREBASE_PRIVATE_KEY').replace('\\n', '\n'),
-                        "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
-                        "token_uri": "https://oauth2.googleapis.com/token",
-                    }
-                    cred = credentials.Certificate(cred_dict)
-                    firebase_admin.initialize_app(cred)
+                # 1. Try Environment Variables (Production / Secure Dev)
+                private_key = os.getenv('FIREBASE_PRIVATE_KEY')
+                if private_key:
+                    try:
+                        cred_dict = {
+                            "type": "service_account",
+                            "project_id": os.getenv('FIREBASE_PROJECT_ID'),
+                            "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+                            "private_key": private_key.replace('\\n', '\n'),
+                            "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
+                            "token_uri": "https://oauth2.googleapis.com/token",
+                        }
+                        cred = credentials.Certificate(cred_dict)
+                        firebase_admin.initialize_app(cred)
+                    except Exception as e:
+                        print(f"Firebase Env Init Error: {e}")
+                        # Fallback if env vars are partial
+                        firebase_admin.initialize_app()
+                
+                # 2. Local Fallback (Only if no env vars and file exists)
                 else:
-                    # Fallback
-                    firebase_admin.initialize_app()
+                    cred_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
+                    if os.path.exists(cred_path):
+                        cred = credentials.Certificate(cred_path)
+                        firebase_admin.initialize_app(cred)
+                    else:
+                        # Final Fallback (Default credentials)
+                        firebase_admin.initialize_app()
 
             # Verify the Firebase ID token
             # This is much more secure and robust than generic google-auth

@@ -10,8 +10,9 @@ echo.
 git remote set-url origin https://github.com/pancham-sharma/6year-project.git
 
 echo.
-echo [0/4] Untracking ignored files...
-git rm --cached image.png PUSH.bat git_push.bat 2>nul
+echo [0/4] Untracking ignored files (Aggressive Reset)...
+git rm -r --cached . >nul 2>nul
+echo Done clearing cache.
 
 echo.
 set /p msg="Enter commit message (or press enter for 'updates'): "
