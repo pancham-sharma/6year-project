@@ -314,14 +314,14 @@ class SocialAuthGoogleView(APIView):
             if not firebase_admin._apps:
                 print("🔥 [FIREBASE] No apps found. Initializing...")
             else:
-                # If we are here but getting "Default Credentials" errors later, we should reset
                 print(f"🔥 [FIREBASE] Existing apps found: {firebase_admin._apps}")
-                    # 1. Try Environment Variables First
-                    if client_email and private_key:
-                        try:
-                            print("🔐 Attempting Firebase Init via Environment Variables...")
-                            # Clean the private key thoroughly
-                            raw_key = private_key.strip(' "\'').replace('\\n', '\n')
+
+            # 1. Try Environment Variables First
+            if client_email and private_key:
+                try:
+                    print("🔐 Attempting Firebase Init via Environment Variables...")
+                    # Clean the private key thoroughly
+                    raw_key = private_key.strip(' "\'').replace('\\n', '\n')
                             
                             # Extract only the base64 content
                             clean_body = raw_key.replace('-----BEGIN PRIVATE KEY-----', '')
