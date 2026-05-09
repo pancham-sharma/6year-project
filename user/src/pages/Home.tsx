@@ -19,7 +19,7 @@ const getImageUrl = (path: string) => {
 
   if (path.startsWith('http')) return path;
 
-  const base = API_BASE_URL || 'http://127.0.0.1:8000';
+  const base = API_BASE_URL;
   if (path.startsWith('/media/')) return `${base}${path}`;
   if (path.startsWith('/') || path.startsWith('images/')) return path;
   return `${base}/media/${path}`;

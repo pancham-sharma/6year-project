@@ -196,9 +196,12 @@ export default function Messages({ darkMode }: Props) {
     if (!token || !myId) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? `${window.location.hostname}:8000` 
-      : 'donation-admin-panel.onrender.com';
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+    const host = apiBase 
+      ? apiBase.replace(/^https?:\/\//, '') 
+      : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+          ? `${window.location.hostname}:8000` 
+          : window.location.host);
     const wsUrl = `${protocol}://${host}/ws/chat/?token=${token}`;
 
     

@@ -54,13 +54,12 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
       if (!token) return;
 
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const isLocal = window.location.hostname === 'localhost' || 
-                      window.location.hostname === '127.0.0.1' || 
-                      window.location.hostname.startsWith('192.168.');
-      
-      const host = isLocal
-        ? `${window.location.hostname}:8000` 
-        : 'donation-admin-panel.onrender.com';
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const host = apiBase 
+        ? apiBase.replace(/^https?:\/\//, '') 
+        : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? `${window.location.hostname}:8000` 
+            : window.location.host);
       const wsUrl = `${protocol}://${host}/ws/notifications/?token=${token}`;
 
       

@@ -30,7 +30,7 @@ User = get_user_model()
 import random
 import requests
 from django.core.mail import send_mail
-from .models import VolunteerApplication, EmailOTP
+from .models import VolunteerApplication, EmailOTP, PasswordResetOTP
 
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -89,12 +89,18 @@ class RegisterView(generics.CreateAPIView):
             if existing_user:
                 print(f"🔍 User {email} already exists. Verified: {existing_user.is_email_verified}")
                 if not existing_user.is_email_verified:
-                    # DO NOT generate OTP automatically anymore
+                    print(f"📧 Unverified user {email} attempting registration. Sending new OTP.")
+                    # Send new OTP and redirect
+                    EmailOTP.objects.filter(user=existing_user).delete()
+                    otp_code = str(random.randint(100000, 999999))
+                    EmailOTP.objects.create(user=existing_user, otp=otp_code)
+                    send_otp_email(existing_user.email, otp_code, existing_user.first_name)
+                    
                     return Response({
-                        "success": False,
-                        "message": "Account already exists but email is not verified. Please verify your email or click resend OTP.",
-                        "email_unverified": True,
-                        "email": existing_user.email
+                        "success": True,
+                        "message": "Account exists but is not verified. A new verification code has been sent.",
+                        "email": existing_user.email,
+                        "is_redirect": True
                     }, status=status.HTTP_200_OK) 
                 else:
                     return Response({
@@ -162,7 +168,25 @@ class VerifyEmailView(APIView):
                 user.is_email_verified = True
                 user.save()
                 otp_obj.delete() # Clean up
-                return Response({"success": True, "message": "Email verified successfully! You can now login."})
+                
+                # Auto-login: Generate tokens
+                refresh = RefreshToken.for_user(user)
+                
+                return Response({
+                    "success": True, 
+                    "message": "Email verified successfully! Redirecting to dashboard...",
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                    "user": {
+                        "id": user.id,
+                        "username": user.username,
+                        "email": user.email,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                        "role": user.role,
+                        "profile_picture": user.profile_picture.url if user.profile_picture else None
+                    }
+                })
             else:
                 print(f"❌ Invalid OTP entry for {email}")
                 return Response({"success": False, "message": "Invalid OTP code"}, status=400)
@@ -336,23 +360,96 @@ class SocialAuthGoogleView(APIView):
             print(f"❌ Google Auth Error: {str(e)}")
             return Response({'error': f'Auth failed: {str(e)}'}, status=status.HTTP_401_UNAUTHORIZED)
 
+def send_password_reset_email(email, otp_code):
+    """Send Password Reset OTP via Email"""
+    subject = "Reset your password - SevaMarg"
+    html_message = f"""
+        <div style="font-family: sans-serif; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #4f46e5; text-align: center;">Reset Your Password</h2>
+            <p>You requested to reset your password. Your reset code is:</p>
+            <div style="background: #fef2f2; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; margin: 20px 0; color: #dc2626;">
+                {otp_code}
+            </div>
+            <p style="color: #6b7280; font-size: 14px;">This code will expire in 15 minutes. If you didn't request this, please secure your account.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="text-align: center; color: #9ca3af; font-size: 12px;">© 2024 SevaMarg Foundation</p>
+        </div>
+    """
+    plain_message = f"Your password reset code is: {otp_code}. It will expire in 15 minutes."
+    
+    try:
+        send_mail(
+            subject,
+            plain_message,
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        return True
+    except Exception as e:
+        print(f"❌ Failed to send Reset email: {str(e)}")
+        print(f"\n[RESET FALLBACK] Email: {email} | OTP: {otp_code}\n")
+        return False
+
 class PasswordResetRequestView(APIView):
     permission_classes = (permissions.AllowAny,)
 
     def post(self, request):
-        # Placeholder for triggering a password reset email
-        email = request.data.get('email')
-        if email:
-            # Send email logic here
-            return Response({"message": "Password reset email sent."})
-        return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+        email = request.data.get('email', '').strip().lower()
+        if not email:
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if user exists (Silent fail for security)
+        user_exists = User.objects.filter(email__iexact=email).exists()
+        
+        # Always generate and send (even if user doesn't exist, we send to the provided email to prevent timing attacks/leaks)
+        # But actually, if user doesn't exist, we don't NEED to send, but we return 200.
+        
+        if user_exists:
+            # Clean up old tokens for this email
+            PasswordResetOTP.objects.filter(email__iexact=email).delete()
+            
+            otp_code = str(random.randint(100000, 999999))
+            PasswordResetOTP.objects.create(email=email, otp=otp_code)
+            
+            print(f"🔑 Password Reset Requested for {email}. OTP: {otp_code}")
+            send_password_reset_email(email, otp_code)
+
+        return Response({"message": "If an account with this email exists, a reset code has been sent."})
 
 class PasswordResetConfirmView(APIView):
     permission_classes = (permissions.AllowAny,)
 
     def post(self, request):
-        # Placeholder for confirming password reset with token
-        return Response({"message": "Password successfully reset."})
+        email = request.data.get('email', '').strip().lower()
+        otp = request.data.get('otp', '').strip()
+        new_password = request.data.get('password', '').strip()
+
+        if not all([email, otp, new_password]):
+            return Response({"error": "Email, OTP, and new password are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        reset_obj = PasswordResetOTP.objects.filter(email__iexact=email, otp=otp, is_used=False).first()
+
+        if not reset_obj or reset_obj.is_expired():
+            return Response({"error": "Invalid or expired reset code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update User Password
+        user = User.objects.filter(email__iexact=email).first()
+        if user:
+            user.set_password(new_password)
+            user.save()
+            
+            # Mark token as used
+            reset_obj.is_used = True
+            reset_obj.save()
+            # Clean up
+            reset_obj.delete()
+            
+            print(f"✅ Password successfully reset for {email}")
+            return Response({"success": True, "message": "Password successfully reset. You can now login."})
+        
+        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
 class VolunteerApplicationView(APIView):
     permission_classes = (permissions.IsAuthenticated,)

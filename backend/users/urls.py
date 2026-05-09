@@ -27,8 +27,8 @@ urlpatterns = [
     
     # Social Auth & Password Reset
     path('auth/google/', SocialAuthGoogleView.as_view(), name='auth_google'),
-    path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
-    path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('forgot-password/', PasswordResetRequestView.as_view(), name='password_reset_request'),
+    path('reset-password/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('volunteer/', VolunteerApplicationView.as_view(), name='volunteer_apply'),
     path('volunteer/admin/list/', VolunteerApplicationAdminListView.as_view(), name='volunteer_admin_list'),
     path('volunteer/admin/<int:pk>/', VolunteerApplicationAdminDetailView.as_view(), name='volunteer_admin_detail'),

@@ -37,11 +37,24 @@ class EmailOTP(models.Model):
     def is_expired(self):
         from django.utils import timezone
         from datetime import timedelta
-        # Expire after 10 minutes
         return timezone.now() > self.created_at + timedelta(minutes=10)
 
     def __str__(self):
         return f"OTP for {self.user.email}"
+
+class PasswordResetOTP(models.Model):
+    email = models.EmailField()
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    def is_expired(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        return timezone.now() > self.created_at + timedelta(minutes=15)
+
+    def __str__(self):
+        return f"Reset OTP for {self.email}"
 
 class VolunteerApplication(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='volunteer_applications')

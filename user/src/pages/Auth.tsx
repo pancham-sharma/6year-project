@@ -39,6 +39,70 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  
+  // Forgot Password States
+  const [isForgotPass, setIsForgotPass] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [isResetMode, setIsResetMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetOTP, setResetOTP] = useState('');
+
+  const handleForgotPassRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await fetchAPI('/api/users/forgot-password/', {
+        method: 'POST',
+        body: JSON.stringify({ email: resetEmail })
+      });
+      setResetSent(true);
+      setIsResetMode(true);
+      setSuccessMsg(res.message || "Reset code sent!");
+    } catch (err) {
+      setErrorMsg("Failed to send reset code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPasswordConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (form.password !== form.confirmPassword) {
+      setErrorMsg("Passwords do not match");
+      return;
+    }
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await fetchAPI('/api/users/reset-password/', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          email: resetEmail, 
+          otp: resetOTP, 
+          password: form.password 
+        })
+      });
+      if (res.success) {
+        setSuccessMsg(res.message);
+        setTimeout(() => {
+          setIsForgotPass(false);
+          setIsResetMode(false);
+          setResetSent(false);
+          setIsLogin(true);
+          setSuccessMsg('');
+          setResetOTP('');
+          setForm(p => ({ ...p, password: '', confirmPassword: '' }));
+        }, 2000);
+      } else {
+        setErrorMsg(res.error || "Reset failed");
+      }
+    } catch (err) {
+      setErrorMsg("Failed to reset password");
+    } finally {
+      setLoading(false);
+    }
+  };
   const [form, setForm] = useState({ name: '', email: '', phone: '', city: '', password: '', confirmPassword: '' });
   const [passStrength, setPassStrength] = useState(0);
   
@@ -109,13 +173,8 @@ export default function Auth() {
     }
   };
 
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otp.length !== 6) {
-      setErrorMsg("Please enter 6-digit OTP");
-      return;
-    }
-
+  const handleVerifyOTP = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setVerifying(true);
     setErrorMsg('');
     try {
@@ -123,17 +182,41 @@ export default function Auth() {
         method: 'POST',
         body: JSON.stringify({ email: form.email, otp })
       });
+      
       if (res.success) {
-        setSuccessMsg("Email verified! Redirecting to login...");
-        setTimeout(() => {
-          setShowOTP(false);
-          setIsLogin(true);
-          setSuccessMsg('');
-          setForm(p => ({ ...p, password: '' })); // Clear password
-        }, 2000);
+        setSuccessMsg(res.message || "Email verified successfully! Redirecting...");
+        
+        // Auto-login if tokens are present
+        if (res.access) {
+          localStorage.setItem('access_token', res.access);
+          localStorage.setItem('refresh_token', res.refresh);
+          localStorage.setItem('user', JSON.stringify(res.user));
+          
+          if (typeof setUser === 'function') {
+            setUser({
+              id: res.user.id,
+              name: res.user.first_name || res.user.username,
+              email: res.user.email,
+              phone: res.user.phone_number || '',
+              city: res.user.city || '',
+              role: res.user.role,
+              image: res.user.profile_image || ''
+            });
+          }
+          setIsLoggedIn(true);
+          setTimeout(() => navigate('/dashboard'), 1500);
+        } else {
+          setTimeout(() => {
+            setShowOTP(false);
+            setIsLogin(true);
+            setSuccessMsg('');
+          }, 2000);
+        }
+      } else {
+        setErrorMsg(res.message || "Verification failed");
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Invalid OTP or expired");
+    } catch (err) {
+      setErrorMsg("Connection error. Try again.");
     } finally {
       setVerifying(false);
     }
@@ -291,18 +374,15 @@ export default function Auth() {
           })
         });
         
-        if (res.email_unverified) {
-          // Account exists but not verified
-          setSuccessMsg("Account already exists but email is not verified. Please verify your email or click resend OTP.");
-          setLoading(false);
-          // Stay on page so they can decide what to do
-          return;
-        } else {
-          setSuccessMsg("Verification OTP has been sent to your email. Please verify before logging in.");
+        if (res.is_redirect || res.success) {
+          setSuccessMsg(res.message || "Verification OTP has been sent to your email.");
           setTimeout(() => {
             setShowOTP(true);
             setSuccessMsg('');
           }, 1500);
+          return;
+        } else {
+          setErrorMsg(res.message || "Registration failed");
         }
         return;
       }
@@ -420,7 +500,7 @@ export default function Auth() {
             <Heart className="w-7 h-7 text-white" />
           </div>
           <h1 className={`text-2xl font-bold font-serif ${dark ? 'text-white' : 'text-gray-900'}`}>
-            {showOTP ? "Verify Email" : (isLogin ? t.auth.login : t.auth.signup)}
+            {showOTP ? "Verify Email" : isForgotPass ? "Reset Password" : (isLogin ? t.auth.login : t.auth.signup)}
           </h1>
           {showOTP && (
             <p className={`mt-2 text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -484,6 +564,75 @@ export default function Auth() {
                 Change email address
               </button>
             </div>
+          </form>
+        ) : isForgotPass ? (
+          <form onSubmit={resetSent ? handleResetPasswordConfirm : handleForgotPassRequest} className="space-y-4 animate-fade-in">
+            {!resetSent ? (
+              <div className="relative">
+                <Mail className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
+                <input 
+                  type="email" 
+                  placeholder="Enter your email" 
+                  value={resetEmail} 
+                  onChange={e => setResetEmail(e.target.value)} 
+                  required
+                  className={`w-full pl-10 pr-4 py-3 rounded-xl border-2 text-sm transition-colors ${dark ? 'bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-gray-50 border-gray-200 placeholder:text-gray-400 focus:border-primary-500 focus:bg-white'} outline-none`} 
+                />
+              </div>
+            ) : (
+              <>
+                <div className="relative">
+                  <Shield className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
+                  <input 
+                    type="text" 
+                    placeholder="Enter 6-digit Reset Code" 
+                    value={resetOTP} 
+                    onChange={e => setResetOTP(e.target.value)} 
+                    maxLength={6}
+                    required
+                    className={`w-full pl-10 pr-4 py-3 rounded-xl border-2 text-sm transition-colors ${dark ? 'bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-gray-50 border-gray-200 placeholder:text-gray-400 focus:border-primary-500 focus:bg-white'} outline-none`} 
+                  />
+                </div>
+                <div className="relative">
+                  <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
+                  <input 
+                    type={showPass ? 'text' : 'password'} 
+                    placeholder="New Password" 
+                    value={form.password} 
+                    onChange={e => setForm(p => ({ ...p, password: e.target.value }))} 
+                    required
+                    className={`w-full pl-10 pr-10 py-3 rounded-xl border-2 text-sm transition-colors ${dark ? 'bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-gray-50 border-gray-200 placeholder:text-gray-400 focus:border-primary-500 focus:bg-white'} outline-none`} 
+                  />
+                </div>
+                <div className="relative">
+                  <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
+                  <input 
+                    type={showPass ? 'text' : 'password'} 
+                    placeholder="Confirm New Password" 
+                    value={form.confirmPassword} 
+                    onChange={e => setForm(p => ({ ...p, confirmPassword: e.target.value }))} 
+                    required
+                    className={`w-full pl-10 pr-10 py-3 rounded-xl border-2 text-sm transition-colors ${dark ? 'bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-gray-50 border-gray-200 placeholder:text-gray-400 focus:border-primary-500 focus:bg-white'} outline-none`} 
+                  />
+                </div>
+              </>
+            )}
+
+            <button 
+              type="submit" 
+              disabled={loading}
+              className={`w-full flex justify-center py-4 rounded-xl font-bold transition-all active:scale-95 bg-primary-600 text-white shadow-lg shadow-primary-600/20`}
+            >
+              {loading ? <Loader className="w-5 h-5 animate-spin" /> : resetSent ? "Reset Password Now" : "Send Reset Code"}
+            </button>
+
+            <button 
+              type="button" 
+              onClick={() => { setIsForgotPass(false); setResetSent(false); }}
+              className={`w-full text-sm font-bold text-center ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`}
+            >
+              Back to Login
+            </button>
           </form>
         ) : (
           <>
@@ -578,13 +727,25 @@ export default function Auth() {
           )}
           <div className="relative">
             <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
-            <input type={showPass ? 'text' : 'password'} placeholder={t.auth.password} value={form.password} 
+            <input type={showPass ? 'text' : 'password'} placeholder={isResetMode ? "New Password" : t.auth.password} value={form.password} 
               onChange={e => { setForm(p => ({ ...p, password: e.target.value })); calculateStrength(e.target.value); }} required
               className={`w-full pl-10 pr-10 py-3 rounded-xl border-2 text-sm transition-colors ${dark ? 'bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-gray-50 border-gray-200 placeholder:text-gray-400 focus:border-primary-500 focus:bg-white'} outline-none`} />
             <button type="button" onClick={() => setShowPass(!showPass)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
               {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
+
+          {isLogin && !isForgotPass && (
+            <div className="flex justify-end px-1">
+              <button 
+                type="button" 
+                onClick={() => { setIsForgotPass(true); setResetEmail(form.email); }}
+                className="text-xs font-bold text-primary-500 hover:text-primary-600 transition-colors"
+              >
+                Forgot Password?
+              </button>
+            </div>
+          )}
 
           {!isLogin && (
             <div className="relative">

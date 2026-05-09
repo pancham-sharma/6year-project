@@ -8,9 +8,7 @@
  * redirect to login — permanently stopping 401 spam.
  */
 
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? '' 
-  : 'https://donation-admin-panel.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 function onRefreshed(newToken: string) {
   refreshSubscribers.forEach(cb => cb(newToken));
