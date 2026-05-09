@@ -3,12 +3,16 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
+console.log("=== FIREBASE ADMIN FILE LOADED ===");
+console.log("PROJECT:", process.env.FIREBASE_PROJECT_ID);
+console.log("GOOGLE PROJECT:", process.env.GOOGLE_CLOUD_PROJECT);
+
 /**
  * PRODUCTION-READY FIREBASE ADMIN SDK CONFIGURATION
  * Specifically designed for Render/Node.js to solve "Project ID required" errors.
  */
 
-const validateEnv = () => {
+const validateEnv = (): { projectId: string; clientEmail: string; privateKey: string } => {
   const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
@@ -24,7 +28,11 @@ const validateEnv = () => {
     throw new Error(`Missing Firebase configuration: ${missing.join(', ')}`);
   }
 
-  return { projectId, clientEmail, privateKey };
+  return { 
+    projectId: projectId as string, 
+    clientEmail: clientEmail as string, 
+    privateKey: privateKey as string 
+  };
 };
 
 const initializeFirebase = () => {

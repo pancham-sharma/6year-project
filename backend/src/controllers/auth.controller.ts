@@ -17,7 +17,8 @@ export const googleAuth = async (req: Request, res: Response) => {
   }
 
   try {
-    console.log('--- Google Auth Token Verification ---');
+    console.log("--- Google Auth Token Verification ---");
+    console.log("VERIFY TOKEN START");
     
     // Verify the Firebase ID token
     // This will throw if the token is invalid, expired, or if Firebase isn't initialized
