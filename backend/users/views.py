@@ -302,20 +302,22 @@ class SocialAuthGoogleView(APIView):
             if not firebase_admin._apps:
                 from django.conf import settings
                 
-                # --- Fail-Proof Firebase Initialization ---
+                 # --- Fail-Proof Firebase Initialization ---
                 project_id = os.getenv('FIREBASE_PROJECT_ID', 'donation-44db3').strip(' "')
                 client_email = os.getenv('FIREBASE_CLIENT_EMAIL', '').strip(' "')
                 private_key = os.getenv('FIREBASE_PRIVATE_KEY', '').strip(' "')
+                
+                print(f"📡 [DEBUG] Checking Env Vars...")
+                print(f"📡 [DEBUG] Project ID Found: {bool(project_id)} ('{project_id}')")
+                print(f"📡 [DEBUG] Client Email Found: {bool(client_email)}")
+                print(f"📡 [DEBUG] Private Key Found: {bool(private_key)}")
 
                 # Check if already initialized
                 if not firebase_admin._apps:
-                    print(f"📡 [FIREBASE DIAGNOSTIC] Project ID: {project_id}")
-                    
                     # 1. Try Environment Variables First
                     if client_email and private_key:
                         try:
                             print("🔐 Attempting Firebase Init via Environment Variables...")
-                            
                             # Clean the private key thoroughly
                             raw_key = private_key.strip(' "\'').replace('\\n', '\n')
                             
