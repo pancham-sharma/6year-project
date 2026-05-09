@@ -310,79 +310,72 @@ class SocialAuthGoogleView(APIView):
             print(f"📡 [DEBUG] Client Email Found: {bool(client_email)}")
             print(f"📡 [DEBUG] Private Key Found: {bool(private_key)}")
 
-            # FORCE RESET if broken
+            # Initialize ONLY if no apps exist
             if not firebase_admin._apps:
-                print("🔥 [FIREBASE] No apps found. Initializing...")
-            else:
-                print(f"🔥 [FIREBASE] Existing apps found: {firebase_admin._apps}")
+                # 1. Try Environment Variables First
+                if client_email and private_key:
+                    try:
+                        print("🔐 Attempting Firebase Init via Environment Variables...")
+                        # Clean the private key thoroughly
+                        raw_key = private_key.strip(' "\'').replace('\\n', '\n')
+                        
+                        # Extract only the base64 content
+                        clean_body = raw_key.replace('-----BEGIN PRIVATE KEY-----', '')
+                        clean_body = clean_body.replace('-----END PRIVATE KEY-----', '')
+                        
+                        # BRUTE FORCE: Remove every char that isn't A-Z, a-z, 0-9, +, /, or =
+                        import re
+                        pure_base64 = re.sub(r'[^A-Za-z0-9+/=]', '', clean_body)
+                        
+                        # PEM keys should not have '=' in the middle.
+                        if '=' in pure_base64[:-2]:
+                            print("⚠️ Rogue '=' detected in key body. Cleaning...")
+                            pure_base64 = pure_base64.replace('=', '') + '=='
+                        
+                        # Reconstruct PEM perfectly
+                        formatted_body = '\n'.join([pure_base64[i:i+64] for i in range(0, len(pure_base64), 64)])
+                        final_pem = f"-----BEGIN PRIVATE KEY-----\n{formatted_body}\n-----END PRIVATE KEY-----\n"
+                        
+                        print(f"🛠️ PEM Reconstructed. Body length: {len(pure_base64)}")
+                        
+                        cred = credentials.Certificate({
+                            "project_id": project_id,
+                            "client_email": client_email,
+                            "private_key": final_pem,
+                            "type": "service_account",
+                            "token_uri": "https://oauth2.googleapis.com/token",
+                        })
+                        firebase_admin.initialize_app(cred)
+                        print("✅ Firebase initialized successfully via ENV.")
+                    except Exception as e:
+                        print(f"❌ Firebase ENV Init Failed: {str(e)}")
 
-            # 1. Try Environment Variables First
-            if client_email and private_key:
-                try:
-                    print("🔐 Attempting Firebase Init via Environment Variables...")
-                    # Clean the private key thoroughly
-                    raw_key = private_key.strip(' "\'').replace('\\n', '\n')
-                            
-                            # Extract only the base64 content
-                            clean_body = raw_key.replace('-----BEGIN PRIVATE KEY-----', '')
-                            clean_body = clean_body.replace('-----END PRIVATE KEY-----', '')
-                            
-                            # BRUTE FORCE: Remove every char that isn't A-Z, a-z, 0-9, +, /, or =
-                            import re
-                            pure_base64 = re.sub(r'[^A-Za-z0-9+/=]', '', clean_body)
-                            
-                            # PEM keys should not have '=' in the middle.
-                            if '=' in pure_base64[:-2]:
-                                print("⚠️ Rogue '=' detected in key body. Cleaning...")
-                                pure_base64 = pure_base64.replace('=', '') + '=='
-                            
-                            # Reconstruct PEM perfectly
-                            formatted_body = '\n'.join([pure_base64[i:i+64] for i in range(0, len(pure_base64), 64)])
-                            final_pem = f"-----BEGIN PRIVATE KEY-----\n{formatted_body}\n-----END PRIVATE KEY-----\n"
-                            
-                            print(f"🛠️ PEM Reconstructed. Body length: {len(pure_base64)}")
-                            print(f"📡 [DEBUG] Raw Key Length: {len(private_key)}")
+                # 2. Try JSON File Fallback
+                if not firebase_admin._apps:
+                    json_filename = 'firebase-service-account.json'
+                    possible_json_paths = [
+                        os.path.join(os.path.dirname(os.path.dirname(__file__)), json_filename),
+                        f"/opt/render/project/src/backend/{json_filename}",
+                        f"/opt/render/project/src/{json_filename}"
+                    ]
+                    for path in possible_json_paths:
+                        if os.path.exists(path):
+                            try:
+                                print(f"📄 Found JSON at {path}. Initializing...")
+                                cred = credentials.Certificate(path)
+                                firebase_admin.initialize_app(cred)
+                                print("✅ Firebase initialized successfully via JSON.")
+                                break
+                            except Exception as e:
+                                print(f"⚠️ JSON Init Failed for {path}: {str(e)}")
 
-                            cred = credentials.Certificate({
-                                "project_id": project_id,
-                                "client_email": client_email,
-                                "private_key": final_pem,
-                                "type": "service_account",
-                                "token_uri": "https://oauth2.googleapis.com/token",
-                            })
-                            firebase_admin.initialize_app(cred)
-                            print("✅ Firebase initialized successfully via ENV.")
-                        except Exception as e:
-                            print(f"❌ Firebase ENV Init Failed: {str(e)}")
-                            print(f"DEBUG: Key length: {len(private_key)} | Starts with: {private_key[:30]}...")
-
-                    # 2. Try JSON File Fallback (Checking multiple Render paths)
-                    if not firebase_admin._apps:
-                        json_filename = 'firebase-service-account.json'
-                        possible_json_paths = [
-                            os.path.join(settings.BASE_DIR, json_filename),
-                            os.path.join(os.path.dirname(settings.BASE_DIR), 'backend', json_filename),
-                            f"/opt/render/project/src/backend/{json_filename}",
-                            f"/opt/render/project/src/{json_filename}"
-                        ]
-                        for path in possible_json_paths:
-                            if os.path.exists(path):
-                                try:
-                                    print(f"📄 Found JSON at {path}. Initializing...")
-                                    cred = credentials.Certificate(path)
-                                    firebase_admin.initialize_app(cred)
-                                    print("✅ Firebase initialized successfully via JSON.")
-                                    break
-                                except Exception as e:
-                                    print(f"⚠️ JSON Init Failed for {path}: {str(e)}")
-
-                    # 3. Last Resort: Default
-                    if not firebase_admin._apps:
-                        print("🚨 [CRITICAL] No Firebase credentials found. Using default App Engine credentials.")
-                        try:
-                            firebase_admin.initialize_app(options={'projectId': project_id})
-                        except Exception as e:
-                            print(f"❌ Final Firebase Init Failure: {str(e)}")
+                # 3. Last Resort: Default
+                if not firebase_admin._apps:
+                    print("🚨 [CRITICAL] No Firebase credentials found. Using default App Engine credentials.")
+                    try:
+                        firebase_admin.initialize_app(options={'projectId': project_id})
+                    except Exception as e:
+                        print(f"❌ Final Firebase Init Failure: {str(e)}")
                 # --- End Initialization ---
 
             print("--- Django Google Auth Verification ---")
