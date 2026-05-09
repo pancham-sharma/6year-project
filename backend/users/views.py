@@ -66,8 +66,8 @@ def send_otp_email(email, otp_code, first_name="User"):
         return True
     except Exception as e:
         print(f"❌ Failed to send OTP email to {email}: {str(e)}")
-        # Fallback log for local development
-        print(f"\n[DEVELOPMENT FALLBACK] To: {email} | OTP: {otp_code}\n")
+        # Log additional info for debugging
+        print(f"DEBUG INFO: SMTP User: {settings.EMAIL_HOST_USER} | From: {settings.DEFAULT_FROM_EMAIL}")
         return False
 
 class RegisterView(generics.CreateAPIView):
@@ -387,7 +387,8 @@ def send_password_reset_email(email, otp_code):
         )
         return True
     except Exception as e:
-        print(f"❌ Failed to send Reset email: {str(e)}")
+        print(f"❌ Failed to send Reset email to {email}: {str(e)}")
+        print(f"DEBUG INFO: SMTP User: {settings.EMAIL_HOST_USER} | From: {settings.DEFAULT_FROM_EMAIL}")
         print(f"\n[RESET FALLBACK] Email: {email} | OTP: {otp_code}\n")
         return False
 
