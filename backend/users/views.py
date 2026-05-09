@@ -16,13 +16,125 @@ except ImportError:
     qrcode = None
 from io import BytesIO
 import base64
+import random
+import os
+from django.conf import settings
+try:
+    import firebase_admin
+    from firebase_admin import auth, credentials
+except ImportError:
+    firebase_admin = None
 
 User = get_user_model()
+
+import random
+from django.core.mail import send_mail
+from .models import VolunteerApplication, EmailOTP
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (permissions.AllowAny,)
     serializer_class = RegisterSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            # Generate 6-digit OTP
+            otp_code = str(random.randint(100000, 999999))
+            EmailOTP.objects.create(user=user, otp=otp_code)
+            
+            # Send Email (Simulated to console)
+            send_mail(
+                'Verify your email - SevaMarg',
+                f'Welcome {user.first_name}! Your verification code is: {otp_code}',
+                'noreply@sevamarg.org',
+                [user.email],
+                fail_silently=True,
+            )
+            print(f"\n[EMAIL SIMULATION] To: {user.email} | Code: {otp_code}\n")
+
+            return Response({
+                "success": True,
+                "message": "Registration successful! Please check your email for the OTP.",
+                "email": user.email
+            }, status=status.HTTP_201_CREATED)
+        
+        # Flatten first error message
+        msg = "Validation error"
+        if serializer.errors:
+            first_field = next(iter(serializer.errors))
+            msg = serializer.errors[first_field][0]
+            if isinstance(msg, dict):
+                msg = next(iter(msg.values()))[0]
+
+        return Response({
+            "success": False,
+            "message": msg
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+class VerifyEmailView(APIView):
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request):
+        email = request.data.get('email')
+        otp = request.data.get('otp')
+        
+        if not email or not otp:
+            return Response({"success": False, "message": "Email and OTP are required"}, status=400)
+            
+        try:
+            user = User.objects.get(email=email)
+            otp_obj = EmailOTP.objects.get(user=user)
+            
+            if otp_obj.otp == otp:
+                if otp_obj.is_expired():
+                    return Response({"success": False, "message": "OTP has expired. Please resend."}, status=400)
+                
+                user.is_email_verified = True
+                user.save()
+                otp_obj.delete() # Clean up
+                return Response({"success": True, "message": "Email verified successfully! You can now login."})
+            else:
+                return Response({"success": False, "message": "Invalid OTP code"}, status=400)
+                
+        except (User.DoesNotExist, EmailOTP.DoesNotExist):
+            return Response({"success": False, "message": "User not found or OTP not generated"}, status=404)
+
+class ResendOTPView(APIView):
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({"success": False, "message": "Email is required"}, status=400)
+            
+        try:
+            user = User.objects.get(email=email)
+            if user.is_email_verified:
+                return Response({"success": False, "message": "Email is already verified"}, status=400)
+            
+            # Delete old OTP if exists
+            EmailOTP.objects.filter(user=user).delete()
+            
+            # New OTP
+            otp_code = str(random.randint(100000, 999999))
+            EmailOTP.objects.create(user=user, otp=otp_code)
+            
+            # Send Email
+            send_mail(
+                'New Verification Code - SevaMarg',
+                f'Your new verification code is: {otp_code}',
+                'noreply@sevamarg.org',
+                [user.email],
+                fail_silently=True,
+            )
+            print(f"\n[EMAIL RESEND SIMULATION] To: {user.email} | Code: {otp_code}\n")
+            
+            return Response({"success": True, "message": "New OTP sent to your email."})
+            
+        except User.DoesNotExist:
+            return Response({"success": False, "message": "User not found"}, status=404)
 
 class UserListView(generics.ListAPIView):
     queryset = User.objects.all()
@@ -52,10 +164,88 @@ class SocialAuthGoogleView(APIView):
     permission_classes = (permissions.AllowAny,)
 
     def post(self, request):
-        # Placeholder for Google OAuth token verification
-        # You would typically use google-auth to verify the token here
-        # and then return a JWT pair for the corresponding user.
-        return Response({"message": "Google authentication endpoint (Requires google-auth integration)"})
+        token = request.data.get('token')
+        if not token:
+            return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not firebase_admin:
+            return Response({"error": "Firebase Admin SDK not installed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            # Initialize Firebase Admin if not already initialized
+            if not firebase_admin._apps:
+                cred_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
+                if os.path.exists(cred_path):
+                    # Option A: Use JSON file
+                    cred = credentials.Certificate(cred_path)
+                    firebase_admin.initialize_app(cred)
+                elif os.getenv('FIREBASE_PRIVATE_KEY'):
+                    # Option B: Use Environment Variables (Best for Vercel/Render)
+                    cred_dict = {
+                        "type": "service_account",
+                        "project_id": os.getenv('FIREBASE_PROJECT_ID'),
+                        "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+                        "private_key": os.getenv('FIREBASE_PRIVATE_KEY').replace('\\n', '\n'),
+                        "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
+                        "token_uri": "https://oauth2.googleapis.com/token",
+                    }
+                    cred = credentials.Certificate(cred_dict)
+                    firebase_admin.initialize_app(cred)
+                else:
+                    # Fallback
+                    firebase_admin.initialize_app()
+
+            # Verify the Firebase ID token
+            # This is much more secure and robust than generic google-auth
+            try:
+                decoded_token = auth.verify_id_token(token)
+            except Exception as ve:
+                print(f"Firebase Token verification failed: {str(ve)}")
+                return Response({'error': f'Invalid Firebase token: {str(ve)}'}, status=status.HTTP_401_UNAUTHORIZED)
+
+            email = decoded_token.get('email')
+            name = decoded_token.get('name', '')
+            picture = decoded_token.get('picture', '')
+
+            if not email:
+                return Response({"error": "Email not found in token"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create or get user
+            # Split name into first and last if possible
+            name_parts = name.split(' ', 1)
+            f_name = name_parts[0] if len(name_parts) > 0 else ''
+            l_name = name_parts[1] if len(name_parts) > 1 else ''
+
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    'username': email.split('@')[0] + str(random.randint(100, 999)),
+                    'first_name': f_name,
+                    'last_name': l_name,
+                    'role': 'DONOR',
+                    'is_email_verified': True 
+                }
+            )
+
+            # If user exists but wasn't verified, mark as verified
+            if not user.is_email_verified:
+                user.is_email_verified = True
+                user.save()
+
+            # Generate tokens
+            refresh = RefreshToken.for_user(user)
+            
+            return Response({
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': UserSerializer(user).data
+            })
+
+        except Exception as e:
+            import traceback
+            print(f"Social Auth Error: {str(e)}")
+            traceback.print_exc()
+            return Response({"error": f"Internal Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PasswordResetRequestView(APIView):
     permission_classes = (permissions.AllowAny,)
@@ -193,6 +383,12 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
         
         user = User.objects.get(username=request.data.get('username'))
+        
+        if not user.is_email_verified:
+            return Response({
+                "error": "Email verification required. Please check your inbox.",
+                "email_unverified": True
+            }, status=status.HTTP_403_FORBIDDEN)
         
         if user.two_factor_enabled:
             otp = request.data.get('otp')

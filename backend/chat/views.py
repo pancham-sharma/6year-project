@@ -38,7 +38,16 @@ class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
+        try:
+            return Notification.objects.filter(user=self.request.user)
+        except Exception as e:
+            print(f"Notification Query Error: {e}")
+            return Notification.objects.none()
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        # Allow specifying a target user (e.g. by Admin), otherwise default to current user
+        user_id = self.request.data.get('user')
+        if user_id and (self.request.user.is_staff or getattr(self.request.user, 'role', None) == 'ADMIN'):
+            serializer.save(user_id=user_id)
+        else:
+            serializer.save(user=self.request.user)

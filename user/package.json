@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.100.9",
     "clsx": "2.1.1",
+    "firebase": "^10.14.1",
     "lucide-react": "^1.8.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",

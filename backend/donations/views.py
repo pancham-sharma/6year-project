@@ -29,18 +29,24 @@ class IsAdminOrReadOnly(permissions.BasePermission):
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrReadOnly]
+    pagination_class = None
 
     def get_queryset(self):
-        if self.request.user and (self.request.user.is_staff or self.request.user.is_admin()):
+        user = self.request.user
+        if user.is_authenticated and (user.is_staff or user.is_admin()):
             return Category.objects.all()
         return Category.objects.filter(is_active=True)
 
+from utils.pagination import CustomPagination
+
 class DonationViewSet(viewsets.ModelViewSet):
     serializer_class = DonationSerializer
+    pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'category', 'timestamp']
     search_fields = ['quantity_description']
     ordering_fields = ['timestamp', 'status']
+    ordering = ['-timestamp']
 
     def get_permissions(self):
         """public_stats is open to everyone; all other actions require a valid JWT."""
@@ -52,9 +58,13 @@ class DonationViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_authenticated:
             return Donation.objects.none()
+        
+        # Optimize with select_related for donor
+        queryset = Donation.objects.select_related('donor')
+        
         if user.is_staff or user.is_admin():
-            return Donation.objects.all()
-        return Donation.objects.filter(donor=user)
+            return queryset.all()
+        return queryset.filter(donor=user)
 
     @action(detail=False, methods=['get'])
     def public_stats(self, request):
@@ -181,14 +191,23 @@ class DataManagementViewSet(viewsets.ViewSet):
             
             filepath = os.path.join(backup_dir, filename)
             
-            with open(filepath, 'w') as f:
-                call_command('dumpdata', indent=2, stdout=f)
+            # Exclude large/system tables that often cause dumpdata errors or bloat
+            # and target specifically our local apps for a cleaner backup.
+            exclude_apps = ['contenttypes', 'auth.Permission', 'sessions', 'admin.LogEntry']
+            
+            with open(filepath, 'w', encoding='utf-8') as f:
+                call_command('dumpdata', 
+                            'users', 'donations', 'inventory', 'chat',
+                            exclude=exclude_apps,
+                            indent=2, 
+                            stdout=f)
             
             size_bytes = os.path.getsize(filepath)
             size_str = f"{size_bytes / 1024:.2f} KB" if size_bytes < 1024 * 1024 else f"{size_bytes / (1024 * 1024):.2f} MB"
             
+            # Use only the filename here, as upload_to='backups/' will handle the prefix
             backup = DatabaseBackup.objects.create(
-                file=f"backups/{filename}",
+                file=filename,
                 size=size_str,
                 backup_type='json'
             )

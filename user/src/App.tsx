@@ -1,6 +1,7 @@
 import { HashRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { useEffect } from 'react';
+import QueryProvider from './providers/QueryProvider';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -31,12 +32,14 @@ function AppContent() {
   const { dark } = useApp();
   const location = useLocation();
   const hideFooterRoutes = ['/auth', '/dashboard', '/notifications'];
+  const hideNavbarRoutes = ['/auth'];
   const shouldHideFooter = hideFooterRoutes.includes(location.pathname);
+  const shouldHideNavbar = hideNavbarRoutes.includes(location.pathname);
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${dark ? 'bg-slate-900 text-gray-100' : 'bg-white text-gray-900'}`}>
       <ScrollToTop />
-      <Navbar />
+      {!shouldHideNavbar && <Navbar />}
       <main>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -71,10 +74,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </AppProvider>
+    <QueryProvider>
+      <AppProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </AppProvider>
+    </QueryProvider>
   );
 }

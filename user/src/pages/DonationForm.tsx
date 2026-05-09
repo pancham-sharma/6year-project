@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { fetchAPI } from '../utils/api';
+import { useQuery } from '@tanstack/react-query';
+import { getCategories } from '../api/donations';
 import { 
   Check, ChevronRight, ChevronLeft, Package, MapPin, Navigation, Shield, Upload, Calendar, Clock, Loader,
   Utensils, Shirt, BookOpen, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins
@@ -23,13 +25,56 @@ const categoryColors: string[] = [
   'from-emerald-400 to-teal-500',
 ];
 
+declare const L: any;
+
+const MapEffect = ({ coords, onSelect, dark, mapRef }: any) => {
+  useEffect(() => {
+    if (typeof L === 'undefined') return;
+    
+    if (!mapRef.current) {
+      const map = L.map('map').setView([20.5937, 78.9629], 5); // Center of India
+      L.tileLayer(dark 
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      map.on('click', (e: any) => {
+        onSelect(e.latlng.lat, e.latlng.lng);
+      });
+
+      mapRef.current = map;
+      mapRef.marker = L.marker([0, 0]).addTo(map);
+    }
+
+    if (coords && mapRef.marker) {
+      mapRef.marker.setLatLng([coords.lat, coords.lon]);
+      mapRef.current.setView([coords.lat, coords.lon], 15);
+    }
+    
+    // Update theme if it changes
+    if (mapRef.current) {
+       mapRef.current.eachLayer((layer: any) => {
+         if (layer._url) mapRef.current.removeLayer(layer);
+       });
+       L.tileLayer(dark 
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(mapRef.current);
+    }
+
+  }, [coords, dark]);
+
+  return null;
+};
+
 export default function DonationForm() {
   const { dark, t, user } = useApp();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [dynamicTypes, setDynamicTypes] = useState<any[]>([]);
   const [form, setForm] = useState({
     types: [] as string[], 
     quantities: {} as Record<string, string>, 
@@ -40,20 +85,70 @@ export default function DonationForm() {
   });
   const [existingDonations, setExistingDonations] = useState<any[]>([]);
 
+  // React Query for Categories
+  const { data: categoryData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: getCategories,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
   // Load existing donations to check for active requests
   useEffect(() => {
     const loadExisting = async () => {
       try {
         const res = await fetchAPI('/api/donations/');
         const data = res.results || res || [];
-        // Filter out recycled to get relevant history
-        setExistingDonations(data.filter((d: any) => d.status.toLowerCase() !== 'recycled'));
+        // Filter out recycled to get relevant history with safety check
+        setExistingDonations(Array.isArray(data) ? data.filter((d: any) => d.status && d.status.toLowerCase() !== 'recycled') : []);
       } catch (err) {
         console.error("Failed to load existing donations", err);
       }
     };
     if (user.id) loadExisting();
   }, [user.id]);
+
+  // Derived Dynamic Types
+  const dynamicTypes = useMemo(() => {
+    if (!categoryData) return [
+      { value: 'food', label: 'Food', icon: Utensils, color: categoryColors[0] },
+      { value: 'clothes', label: 'Clothes', icon: Shirt, color: categoryColors[1] },
+      { value: 'books', label: 'Books', icon: BookOpen, color: categoryColors[2] },
+      { value: 'monetary', label: 'Monetary', icon: Banknote, color: categoryColors[3] },
+      { value: 'environment', label: 'Environment', icon: Sprout, color: categoryColors[4] },
+    ];
+    
+    const data = Array.isArray(categoryData) ? categoryData : (categoryData.results || []);
+    
+    const defaults = [
+      { name: 'Food', icon_name: 'Utensils' },
+      { name: 'Clothes', icon_name: 'Shirt' },
+      { name: 'Books', icon_name: 'BookOpen' },
+      { name: 'Monetary', icon_name: 'Banknote' },
+      { name: 'Environment', icon_name: 'Sprout' },
+      { name: 'Gift', icon_name: 'Gift' }
+    ];
+
+    const merged = defaults.map(def => {
+      const dbVer = data.find((c: any) => c.name.toLowerCase() === def.name.toLowerCase());
+      return dbVer || def;
+    });
+
+    const dbOnly = Array.isArray(data) ? data.filter((c: any) => 
+      !defaults.some(def => def.name.toLowerCase() === c.name.toLowerCase())
+    ) : [];
+
+    const forbidden = ['money', 'trees'];
+    const all = [...merged, ...dbOnly].filter(c => 
+      c && c.is_active !== false && !forbidden.includes(c.name.toLowerCase())
+    );
+
+    return all.map((c, index) => ({
+      value: c.name.toLowerCase(),
+      label: c.name,
+      icon: getCategoryIcon(c.icon_name),
+      color: categoryColors[index % categoryColors.length]
+    }));
+  }, [categoryData]);
 
   // Pre-fill user details if available
   useEffect(() => {
@@ -64,59 +159,80 @@ export default function DonationForm() {
         phone: prev.phone || user.phone || ''
       }));
     }
-
-    const loadCategories = async () => {
-      try {
-        const res = await fetchAPI('/api/donations/categories/');
-        const data = Array.isArray(res) ? res : (res.results || []);
-        
-        // Define system defaults to ensure they exist even if not in DB
-        const defaults = [
-          { name: 'Food', icon_name: 'Utensils' },
-          { name: 'Clothes', icon_name: 'Shirt' },
-          { name: 'Books', icon_name: 'BookOpen' },
-          { name: 'Monetary', icon_name: 'Banknote' },
-          { name: 'Environment', icon_name: 'Sprout' }
-        ];
-
-        // Merge DB categories with defaults
-        const merged = defaults.map(def => {
-          const dbVer = data.find((c: any) => c.name.toLowerCase() === def.name.toLowerCase());
-          return dbVer || def;
-        });
-
-        const dbOnly = data.filter((c: any) => 
-          !defaults.some(def => def.name.toLowerCase() === c.name.toLowerCase())
-        );
-
-        // Filter out 'Money' and 'Trees' to avoid duplicates with 'Monetary' and 'Environment'
-        const forbidden = ['money', 'trees'];
-        const all = [...merged, ...dbOnly].filter(c => 
-          c.is_active !== false && !forbidden.includes(c.name.toLowerCase())
-        );
-
-        const formatted = all.map((c, index) => ({
-          value: c.name.toLowerCase(),
-          label: c.name,
-          icon: getCategoryIcon(c.icon_name),
-          color: categoryColors[index % categoryColors.length]
-        }));
-
-        setDynamicTypes(formatted);
-      } catch (err) {
-        console.error("Failed to load categories", err);
-        // Fallback to static if API fails
-        setDynamicTypes([
-          { value: 'food', label: 'Food', icon: Utensils, color: categoryColors[0] },
-          { value: 'clothes', label: 'Clothes', icon: Shirt, color: categoryColors[1] },
-          { value: 'books', label: 'Books', icon: BookOpen, color: categoryColors[2] },
-          { value: 'monetary', label: 'Monetary', icon: Banknote, color: categoryColors[3] },
-          { value: 'environment', label: 'Environment', icon: Sprout, color: categoryColors[4] },
-        ]);
-      }
-    };
-    loadCategories();
   }, [user]);
+
+  const [mapCoords, setMapCoords] = useState<{lat: number, lon: number} | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const mapRef = useRef<any>(null);
+
+  const handleLocationSelect = async (lat: number, lon: number) => {
+    setMapCoords({ lat, lon });
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+      const data = await res.json();
+      if (data && data.address) {
+        const addr = data.address;
+        setForm(prev => ({
+          ...prev,
+          address: data.display_name || "",
+          city: addr.city || addr.town || addr.village || addr.suburb || "",
+          state: addr.state || "",
+          pincode: addr.postcode || "",
+        }));
+      }
+    } catch (err) {
+      console.error("Reverse geocoding failed", err);
+    }
+  };
+
+  const handleUseLocation = () => {
+    if (!navigator.geolocation) {
+      setErrorMsg("Geolocation is not supported by your browser");
+      return;
+    }
+
+    setGeoLoading(true);
+    setErrorMsg("");
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        handleLocationSelect(latitude, longitude);
+        update('useCurrentLocation', true);
+        setGeoLoading(false);
+      },
+      (err) => {
+        console.error("Geolocation error", err);
+        setErrorMsg("Location permission denied or unavailable");
+        setGeoLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // Debounced forward geocoding for manual address entry
+  useEffect(() => {
+    if (form.useCurrentLocation || !form.address || form.address.length < 5) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const query = encodeURIComponent(`${form.address}, ${form.city}, ${form.state} ${form.pincode}`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
+        const data = await res.json();
+        
+        if (data && data[0]) {
+          setMapCoords({ 
+            lat: parseFloat(data[0].lat), 
+            lon: parseFloat(data[0].lon) 
+          });
+        }
+      } catch (err) {
+        console.error("Forward geocoding failed", err);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [form.address, form.city, form.state, form.pincode, form.useCurrentLocation]);
 
   const steps = [
     { num: 1, label: t.donate.step1, icon: Package },
@@ -368,42 +484,62 @@ export default function DonationForm() {
             <div className="space-y-6 animate-fade-in">
               {/* Location Choice */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button onClick={() => update('useCurrentLocation', true)}
-                  className={`p-6 rounded-2xl border-2 text-center transition-all ${form.useCurrentLocation ? (dark ? 'border-brand bg-brand/5' : 'border-slate-900 bg-slate-50 shadow-lg') : dark ? 'border-slate-700' : 'border-gray-100 shadow-sm'}`}>
+                <button 
+                  onClick={handleUseLocation}
+                  disabled={geoLoading}
+                  className={`p-6 rounded-2xl border-2 text-center transition-all relative overflow-hidden ${form.useCurrentLocation ? (dark ? 'border-brand bg-brand/5' : 'border-slate-900 bg-slate-50 shadow-lg') : dark ? 'border-slate-700 hover:border-slate-600' : 'border-gray-100 hover:border-gray-200 shadow-sm'}`}
+                >
+                  {geoLoading && (
+                    <div className="absolute inset-0 bg-white/20 dark:bg-black/20 flex items-center justify-center z-10">
+                      <Loader className="w-5 h-5 animate-spin text-brand" />
+                    </div>
+                  )}
                   <Navigation className={`w-8 h-8 mx-auto mb-3 ${form.useCurrentLocation ? (dark ? 'text-brand' : 'text-slate-900') : 'text-slate-400'}`} />
                   <span className={`text-sm font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>{t.donate.useLocation}</span>
                 </button>
                 <button onClick={() => update('useCurrentLocation', false)}
-                  className={`p-6 rounded-2xl border-2 text-center transition-all ${!form.useCurrentLocation ? (dark ? 'border-brand bg-brand/5' : 'border-slate-900 bg-slate-50 shadow-lg') : dark ? 'border-slate-700' : 'border-gray-100 shadow-sm'}`}>
+                  className={`p-6 rounded-2xl border-2 text-center transition-all ${!form.useCurrentLocation ? (dark ? 'border-brand bg-brand/5' : 'border-slate-900 bg-slate-50 shadow-lg') : dark ? 'border-slate-700 hover:border-slate-600' : 'border-gray-100 hover:border-gray-200 shadow-sm'}`}>
                   <MapPin className={`w-8 h-8 mx-auto mb-3 ${!form.useCurrentLocation ? (dark ? 'text-brand' : 'text-slate-900') : 'text-slate-400'}`} />
                   <span className={`text-sm font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>{t.donate.manualAddress}</span>
                 </button>
               </div>
 
               {/* Map Preview */}
-              <div className={`rounded-2xl overflow-hidden border-2 ${dark ? 'border-slate-600' : 'border-gray-200'}`}>
-                <div className={`h-64 relative ${dark ? 'bg-slate-700' : 'bg-gradient-to-br from-primary-50 to-accent-50'}`}>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="relative inline-block">
-                        <MapPin className="w-12 h-12 text-primary-500 animate-bounce" />
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-1 bg-black/20 rounded-full blur-sm" />
-                      </div>
-                      <p className={`mt-3 text-sm font-medium ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-                        {form.useCurrentLocation ? '📍 Using your current location' : '📍 Pin your pickup location'}
-                      </p>
-                      {form.address && <p className={`mt-1 text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>{form.address}, {form.city}</p>}
+              <div className={`rounded-2xl overflow-hidden border-2 relative ${dark ? 'border-slate-600' : 'border-gray-200'}`}>
+                <div id="map" className="h-80 w-full z-0"></div>
+                {!mapCoords && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10 pointer-events-none text-white text-center p-4">
+                    <div className="animate-bounce">
+                       <MapPin className="w-10 h-10 mx-auto mb-2" />
+                       <p className="text-sm font-bold">Click on the map to pin your location</p>
                     </div>
                   </div>
-                  {/* Decorative map grid */}
-                  <svg className="absolute inset-0 w-full h-full opacity-10" viewBox="0 0 100 100">
-                    {Array.from({ length: 10 }).map((_, i) => (
-                      <line key={`h${i}`} x1="0" y1={i * 10} x2="100" y2={i * 10} stroke="currentColor" strokeWidth="0.3" />
-                    ))}
-                    {Array.from({ length: 10 }).map((_, i) => (
-                      <line key={`v${i}`} x1={i * 10} y1="0" x2={i * 10} y2="100" stroke="currentColor" strokeWidth="0.3" />
-                    ))}
-                  </svg>
+                )}
+                
+                {/* Custom Map Script */}
+                <MapEffect 
+                  coords={mapCoords} 
+                  onSelect={handleLocationSelect} 
+                  dark={dark} 
+                  mapRef={mapRef} 
+                />
+
+                <div className={`absolute bottom-4 left-4 right-4 p-3 rounded-xl backdrop-blur-md border ${dark ? 'bg-slate-900/80 border-white/10' : 'bg-white/80 border-gray-100'} z-10 shadow-lg`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dark ? 'text-brand' : 'text-slate-900'}`}>
+                        {form.useCurrentLocation ? '📍 Current Location' : '📍 Selected Location'}
+                      </p>
+                      <p className={`text-[11px] truncate leading-tight ${dark ? 'text-gray-300' : 'text-slate-600'}`}>
+                        {form.address || 'Select a point on the map...'}
+                      </p>
+                    </div>
+                    {mapCoords && (
+                      <div className={`px-2 py-1 rounded text-[9px] font-mono ${dark ? 'bg-white/5 text-gray-500' : 'bg-slate-100 text-slate-500'}`}>
+                        {mapCoords.lat.toFixed(4)}, {mapCoords.lon.toFixed(4)}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

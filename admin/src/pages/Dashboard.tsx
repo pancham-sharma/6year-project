@@ -1,25 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { Heart, DollarSign, Clock, CheckCircle2, TrendingUp, ArrowUpRight, Loader } from 'lucide-react';
-import { fetchAPI } from '../utils/api';
+import { useQuery } from '@tanstack/react-query';
+import { getDashboardData } from '../api/dashboard';
 import { useSearch } from '../context/SearchContext';
-
-
 
 interface Props { darkMode: boolean; }
 
 export default function Dashboard({ darkMode }: Props) {
   const { searchQuery } = useSearch();
-  // Database States
-  const [donations, setDonations] = useState<any[]>([]);
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [localSearch, setLocalSearch] = useState('');
 
+  // React Query for Dashboard Data
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['dashboard-data'],
+    queryFn: getDashboardData,
+  });
+
+  const donations = useMemo(() => data?.donations || [], [data]);
+  const inventory = useMemo(() => data?.inventory || [], [data]);
+  const notifications = useMemo(() => data?.notifications || [], [data]);
 
   // Styling Variables
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
@@ -34,27 +37,6 @@ export default function Dashboard({ darkMode }: Props) {
     Pending: 'bg-amber-100 text-amber-700',
     Cancelled: 'bg-red-100 text-red-700',
   };
-
-  // Fetch Data from Backend
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [donsRes, invRes, notifsRes] = await Promise.all([
-          fetchAPI('/api/donations/').catch(() => []),
-          fetchAPI('/api/inventory/items/').catch(() => []),
-          fetchAPI('/api/chat/notifications/').catch(() => [])
-        ]);
-        setDonations(donsRes.results || donsRes || []);
-        setInventory(invRes.results || invRes || []);
-        setNotifications(notifsRes.results || notifsRes || []);
-      } catch (err) {
-        console.error("Dashboard data load error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
 
   // Compute Metrics dynamically from Donations Table
   const totalDonations = donations.length;

@@ -6,6 +6,18 @@ import { fetchAPI, API_BASE_URL } from '../utils/api';
 
 const getImageUrl = (path: string) => {
   if (!path) return '/images/hero.jpg';
+  
+  // NUCLEAR FIX: Intercept and replace broken Vercel URLs (MUST BE FIRST)
+  if (path.includes('pancham-sharma-6year-project.vercel.app')) {
+    const p = path.toLowerCase();
+    if (p.includes('food')) return '/images/stories-food.jpg';
+    if (p.includes('clothes')) return "https://images.unsplash.com/photo-1556906781-9a412961c28c?q=80&w=800";
+    if (p.includes('books') || p.includes('education')) return '/images/stories-education.jpg';
+    if (p.includes('money')) return "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=800";
+    if (p.includes('trees')) return '/images/stories-trees.jpg';
+    return '/images/hero.jpg'; 
+  }
+
   if (path.startsWith('http') || path.startsWith('https')) return path;
   
   // Use production backend URL if in production
@@ -15,6 +27,7 @@ const getImageUrl = (path: string) => {
   if (path.startsWith('/') || path.startsWith('images/')) return path; // Frontend asset
   return `${base}/media/${path}`;
 };
+
 
 const iconMap: Record<string, any> = {
   utensils: Utensils,
@@ -37,34 +50,77 @@ export default function Categories() {
   const { dark, t } = useApp();
   
   const permanentCategories = [
-    { id: 'p1', name: t.categories.food, description: t.categories.foodDesc, impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', image: "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=800" },
-    { id: 'p2', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', image: "https://images.unsplash.com/photo-1532629345422-7515f3d16bb8?q=80&w=800" },
-    { id: 'p3', name: t.categories.books, description: t.categories.booksDesc, impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=800" },
-    { id: 'p4', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=800" },
-    { id: 'p5', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', image: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=800" },
+    { id: 'p1', key: 'food', name: t.categories.food, description: t.categories.foodDesc, impact_badge: t.categories.foodImpact, icon_name: 'Utensils', image: "https://i.pinimg.com/1200x/2b/b4/b0/2bb4b0e6331b1e738308549a500a49af.jpg" },
+    { id: 'p2', key: 'clothes', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: t.categories.clothesImpact, icon_name: 'Shirt', image: "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg" },
+    { id: 'p3', key: 'books', name: t.categories.books, description: t.categories.booksDesc, impact_badge: t.categories.booksImpact, icon_name: 'BookOpen', image: "category_images/download_9_IOLG5uL.jpeg" },
+    { id: 'p4', key: 'money', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: t.categories.moneyImpact, icon_name: 'Banknote', image: "category_images/download_9.jpeg" },
+    { id: 'p5', key: 'trees', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: t.categories.treesImpact, icon_name: 'Sprout', image: "category_images/nbl_Erinnerungsbaum.jpeg" },
+    { id: 'p6', key: 'gift', name: t.categories.gift, description: t.categories.giftDesc, impact_badge: t.categories.giftImpact, icon_name: 'Gift', image: "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?q=80&w=800" },
   ];
 
 
 
-  const [dynamicCategories, setDynamicCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await fetchAPI('/api/donations/categories/');
-        const categoriesData = Array.isArray(res) ? res : (res.results || []);
-        const filtered = categoriesData.filter((cat: any) => 
-          !permanentCategories.some(p => p.name.toLowerCase() === cat.name.toLowerCase())
+        const res = await fetchAPI(`/api/donations/categories/?t=${new Date().getTime()}`);
+        const categoriesData = Array.isArray(res) ? res : (res.results || res.data || []);
+        
+        // Deduplicate categoriesData itself by name first
+        const uniqueDB = categoriesData.reduce((acc: any[], current: any) => {
+          if (!acc.find(c => c.name.toLowerCase() === current.name.toLowerCase())) {
+            acc.push(current);
+          }
+          return acc;
+        }, []);
+
+        // Merge logic: Use DB version of permanent categories if they exist
+        const updatedPermanent = permanentCategories.map(p => {
+          const dbVersion = uniqueDB.find((cat: any) => 
+            cat.name.toLowerCase() === p.name.toLowerCase() || 
+            cat.name.toLowerCase() === p.key.toLowerCase() ||
+            (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
+            (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
+            (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
+          );
+          
+          if (dbVersion) {
+            return {
+              ...p,
+              ...dbVersion,
+              name: p.name,
+              description: dbVersion.description || p.description,
+              image: (dbVersion.image && !dbVersion.image.includes('pancham-sharma-6year-project.vercel.app'))
+                ? getImageUrl(dbVersion.image)
+                : p.image
+            };
+          }
+          return p;
+        });
+
+        const onlyDynamic = uniqueDB.filter((cat: any) => 
+          !permanentCategories.some(p => 
+            p.name.toLowerCase() === cat.name.toLowerCase() || 
+            p.key.toLowerCase() === cat.name.toLowerCase() ||
+            (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
+            (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
+            (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
+          )
         );
-        setDynamicCategories(filtered);
+
+        const allCategories = [...updatedPermanent, ...onlyDynamic];
+        console.log("Categories Fetch Results:", allCategories);
+        setCategories([...updatedPermanent, ...onlyDynamic]);
       } catch (err) {
         console.error("Failed to load categories", err);
+        setCategories(permanentCategories);
       }
     };
     fetchCategories();
-  }, []);
+  }, [t]);
 
-  const allCategories = [...permanentCategories, ...dynamicCategories];
 
   return (
     <div className={`min-h-screen pt-16 ${dark ? 'bg-[#0f172b]' : 'bg-white'}`}>
@@ -89,7 +145,7 @@ export default function Categories() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-          {allCategories.map((cat) => {
+          {categories.length > 0 ? categories.map((cat) => {
             const iconKey = (cat.icon_name || 'Heart').toLowerCase();
             const Icon = iconMap[iconKey] || Heart;
             return (
@@ -99,8 +155,18 @@ export default function Categories() {
                     src={getImageUrl(cat.image)} 
                     alt={cat.name} 
                     className="w-full h-full object-cover card-img-grayscale"
-                    onError={(e) => (e.currentTarget.src = '/images/hero.jpg')}
+                    onError={(e) => {
+                      const name = cat.name.toLowerCase();
+                      if (name.includes('food')) e.currentTarget.src = "https://i.pinimg.com/1200x/2b/b4/b0/2bb4b0e6331b1e738308549a500a49af.jpg";
+                      else if (name.includes('clothes')) e.currentTarget.src = "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg";
+                      else if (name.includes('book') || name.includes('education')) e.currentTarget.src = getImageUrl("category_images/download_9_IOLG5uL.jpeg");
+                      else if (name.includes('money')) e.currentTarget.src = getImageUrl("category_images/download_9.jpeg");
+                      else if (name.includes('tree')) e.currentTarget.src = getImageUrl("category_images/nbl_Erinnerungsbaum.jpeg");
+                      else if (name.includes('gift')) e.currentTarget.src = "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?q=80&w=800";
+                      else e.currentTarget.src = '/images/hero.jpg';
+                    }}
                   />
+
                 </div>
                 <div className="p-8 flex flex-col items-center text-center">
                   <div className="flex flex-col items-center mb-4">
@@ -123,7 +189,19 @@ export default function Categories() {
                 </div>
               </div>
             );
-          })}
+          }) : [1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className={`card-modern animate-pulse ${dark ? 'bg-white/5 border-white/10' : 'bg-white shadow-2xl shadow-black/5'}`}>
+              <div className="h-52 bg-gray-200 dark:bg-gray-800" />
+              <div className="p-8 flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-800 mb-4" />
+                <div className="h-6 w-32 bg-gray-200 dark:bg-gray-800 rounded mb-4" />
+                <div className="h-4 w-full bg-gray-200 dark:bg-gray-800 rounded mb-2" />
+                <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-800 rounded mb-6" />
+                <div className="h-8 w-40 bg-gray-200 dark:bg-gray-800 rounded-full mb-8" />
+                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 rounded" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

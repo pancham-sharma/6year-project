@@ -6,9 +6,8 @@ import { fetchAPI, API_BASE_URL } from '../utils/api';
 
 const getImageUrl = (path: string) => {
   if (!path) return '/images/hero.jpg';
-  if (path.startsWith('http') || path.startsWith('https')) return path;
   
-  // NUCLEAR FIX: Intercept and replace broken Vercel URLs
+  // NUCLEAR FIX: Intercept and replace broken Vercel URLs (MUST BE FIRST)
   if (path.includes('pancham-sharma-6year-project.vercel.app')) {
     const p = path.toLowerCase();
     if (p.includes('food')) return '/images/stories-food.jpg';
@@ -16,8 +15,11 @@ const getImageUrl = (path: string) => {
     if (p.includes('books') || p.includes('education')) return '/images/stories-education.jpg';
     if (p.includes('money')) return "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=800";
     if (p.includes('trees')) return '/images/stories-trees.jpg';
-    return '/images/hero.jpg'; // Generic fallback
+    return '/images/hero.jpg'; 
   }
+
+  if (path.startsWith('http') || path.startsWith('https')) return path;
+
 
 
 
@@ -58,18 +60,17 @@ export default function Home() {
   });
 
   const permanentCategories = [
-    { id: 'p1', name: t.categories.food, description: t.categories.foodDesc, impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', image: "/images/stories-food.jpg" },
-    { id: 'p2', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', image: "https://images.unsplash.com/photo-1556906781-9a412961c28c?q=80&w=800" },
-    { id: 'p3', name: t.categories.books, description: t.categories.booksDesc, impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: "/images/stories-education.jpg" },
-    { id: 'p4', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=800" },
-    { id: 'p5', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', image: "/images/stories-trees.jpg" },
-
-
+    { id: 'p1', key: 'food', name: t.categories.food, description: t.categories.foodDesc, impact_badge: t.categories.foodImpact, icon_name: 'Utensils', image: "https://i.pinimg.com/1200x/2b/b4/b0/2bb4b0e6331b1e738308549a500a49af.jpg" },
+    { id: 'p2', key: 'clothes', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: t.categories.clothesImpact, icon_name: 'Shirt', image: "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg" },
+    { id: 'p3', key: 'books', name: t.categories.books, description: t.categories.booksDesc, impact_badge: t.categories.booksImpact, icon_name: 'BookOpen', image: "category_images/download_9_IOLG5uL.jpeg" },
+    { id: 'p4', key: 'money', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: t.categories.moneyImpact, icon_name: 'Banknote', image: "category_images/download_9.jpeg" },
+    { id: 'p5', key: 'trees', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: t.categories.treesImpact, icon_name: 'Sprout', image: "category_images/nbl_Erinnerungsbaum.jpeg" },
+    { id: 'p6', key: 'gift', name: t.categories.gift, description: t.categories.giftDesc, impact_badge: t.categories.giftImpact, icon_name: 'Gift', image: "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?q=80&w=800" },
   ];
 
 
 
-  const [categories, setCategories] = useState<any[]>(permanentCategories);
+  const [categories, setCategories] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -93,37 +94,62 @@ export default function Home() {
 
     const fetchCategories = async () => {
       try {
-        const res = await fetchAPI('/api/donations/categories/');
-        const categoriesData = Array.isArray(res) ? res : (res.results || []);
+        const res = await fetchAPI(`/api/donations/categories/?t=${new Date().getTime()}`);
+        const categoriesData = Array.isArray(res) ? res : (res.results || res.data || []);
+        console.log("Fetched Categories Data:", categoriesData);
         
+        // Deduplicate categoriesData itself by name first
+        const uniqueDB = categoriesData.reduce((acc: any[], current: any) => {
+          if (!acc.find(c => c.name.toLowerCase() === current.name.toLowerCase())) {
+            acc.push(current);
+          }
+          return acc;
+        }, []);
+
         // Merge logic: Use DB version of permanent categories if they exist
         const updatedPermanent = permanentCategories.map(p => {
-          const dbVersion = categoriesData.find((cat: any) => cat.name.toLowerCase() === p.name.toLowerCase());
+          const dbVersion = uniqueDB.find((cat: any) => 
+            cat.name.toLowerCase() === p.name.toLowerCase() || 
+            cat.name.toLowerCase() === p.key.toLowerCase() ||
+            (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
+            (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
+            (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
+          );
+          
           if (dbVersion) {
             return {
               ...p,
               ...dbVersion,
-              image: (p.name === t.categories.books || p.name === t.categories.money)
-                ? p.image // Use hardcoded image for Books & Money
-                : (dbVersion.image ? getImageUrl(dbVersion.image) : p.image)
+              name: p.name,
+              description: dbVersion.description || p.description,
+              image: (dbVersion.image && !dbVersion.image.includes('pancham-sharma-6year-project.vercel.app'))
+                ? getImageUrl(dbVersion.image)
+                : p.image
             };
           }
           return p;
         });
 
-        const onlyDynamic = categoriesData.filter((cat: any) => 
-          !permanentCategories.some(p => p.name.toLowerCase() === cat.name.toLowerCase())
+        const onlyDynamic = uniqueDB.filter((cat: any) => 
+          !permanentCategories.some(p => 
+            p.name.toLowerCase() === cat.name.toLowerCase() || 
+            p.key.toLowerCase() === cat.name.toLowerCase() ||
+            (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
+            (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
+            (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
+          )
         );
 
         setCategories([...updatedPermanent, ...onlyDynamic]);
       } catch (err) {
         console.error("Failed to load categories", err);
+        setCategories(permanentCategories);
       }
     };
 
     fetchStats();
     fetchCategories();
-  }, []);
+  }, [t]); // Re-run when language changes to keep translations in sync
 
   return (
     <div className={`min-h-screen ${dark ? 'bg-near-black text-white' : 'bg-white text-near-black'}`}>
@@ -162,7 +188,7 @@ export default function Home() {
       </section>
 
       {/* Featured Categories */}
-      <section className="py-24 sm:py-32 bg-slate-50/50 dark:bg-white/[0.02]">
+      <section className="py-12 sm:py-16 bg-slate-50/50 dark:bg-white/[0.02]">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16 md:mb-24 px-4">
             <p className={`mono-label mb-4 uppercase tracking-[0.2em] text-[11px] font-extrabold ${dark ? 'text-brand' : 'text-brand-deep'}`}>{t.categories.title}</p>
@@ -171,7 +197,7 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-            {categories.map((cat) => {
+            {categories.length > 0 ? categories.map((cat) => {
               const iconKey = (cat.icon_name || 'Heart').toLowerCase();
               const Icon = iconMap[iconKey] || Heart;
               return (
@@ -181,7 +207,16 @@ export default function Home() {
                       src={getImageUrl(cat.image)} 
                       alt={cat.name} 
                       className="w-full h-full object-cover card-img-grayscale"
-                      onError={(e) => (e.currentTarget.src = '/images/hero.jpg')}
+                      onError={(e) => {
+                        const name = cat.name.toLowerCase();
+                        if (name.includes('food')) e.currentTarget.src = "https://i.pinimg.com/1200x/2b/b4/b0/2bb4b0e6331b1e738308549a500a49af.jpg";
+                        else if (name.includes('clothes')) e.currentTarget.src = "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg";
+                        else if (name.includes('book') || name.includes('education')) e.currentTarget.src = getImageUrl("category_images/download_9_IOLG5uL.jpeg");
+                        else if (name.includes('money')) e.currentTarget.src = getImageUrl("category_images/download_9.jpeg");
+                        else if (name.includes('tree')) e.currentTarget.src = getImageUrl("category_images/nbl_Erinnerungsbaum.jpeg");
+                        else if (name.includes('gift')) e.currentTarget.src = "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?q=80&w=800";
+                        else e.currentTarget.src = '/images/hero.jpg';
+                      }}
                     />
                   </div>
                   <div className="p-8 flex flex-col items-center text-center">
@@ -205,12 +240,24 @@ export default function Home() {
                   </div>
                 </div>
               );
-            })}
+            }) : [1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className={`card-modern w-full animate-pulse ${dark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100 shadow-xl shadow-gray-200/40'}`}>
+                <div className="h-60 bg-gray-200 dark:bg-gray-800" />
+                <div className="p-8 flex flex-col items-center">
+                  <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-800 mb-4" />
+                  <div className="h-6 w-32 bg-gray-200 dark:bg-gray-800 rounded mb-4" />
+                  <div className="h-4 w-full bg-gray-200 dark:bg-gray-800 rounded mb-2" />
+                  <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-800 rounded mb-6" />
+                  <div className="h-8 w-40 bg-gray-200 dark:bg-gray-800 rounded-full mb-8" />
+                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 rounded" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="py-20 sm:py-28">
+      <section className="py-12 sm:py-16">
         <div className="max-w-5xl mx-auto px-4">
           <div className={`rounded-[40px] p-8 sm:p-16 relative overflow-hidden text-center transition-all duration-500 shadow-[0_30px_70px_rgba(0,0,0,0.15)] ${dark ? 'bg-[#0f172b] shadow-black/60 border border-white/5' : 'bg-white shadow-slate-200/80 border border-slate-100'}`}>
              <div className="absolute top-0 right-0 w-96 h-96 bg-brand opacity-10 blur-[100px] -mr-48 -mt-48 animate-pulse" />

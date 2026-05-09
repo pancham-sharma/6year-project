@@ -1,105 +1,66 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { UserCheck, UserX, Loader, Mail, Phone, MapPin, Briefcase, Search, X } from 'lucide-react';
-import { fetchAPI } from '../utils/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getVolunteersData, updateVolunteerStatus } from '../api/volunteers';
 import { useSearch } from '../context/SearchContext';
-
 
 interface Props { darkMode: boolean; }
 
 export default function Volunteers({ darkMode }: Props) {
   const { searchQuery } = useSearch();
-  const [applications, setApplications] = useState<any[]>([]);
-  const [activeVolunteers, setActiveVolunteers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'applications' | 'active'>('applications');
   const [localSearch, setLocalSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [appsRes, usersRes] = await Promise.all([
-        fetchAPI('/api/users/volunteer/admin/list/'),
-        fetchAPI('/api/users/list/')
-      ]);
-      const apps = (appsRes.results || appsRes || []).filter((a: any) => a.status !== 'Recycled');
-      const users = usersRes.results || usersRes || [];
-      
-      setApplications(apps);
-      
-      // Combine users with VOLUNTEER role and Approved applications
-      const roleVolunteers = users.filter((u: any) => u.role === 'VOLUNTEER');
-      const approvedApps = apps.filter((a: any) => a.status === 'Approved');
-      
-      // Deduplicate by email to avoid double-listing
-      const combined = [...roleVolunteers];
-      approvedApps.forEach((app: any) => {
-        if (!combined.some((v: any) => v.email?.toLowerCase() === app.email?.toLowerCase())) {
-          combined.push({
-            id: `app-${app.id}`,
-            username: app.name,
-            email: app.email,
-            city: app.city,
-            role: 'VOLUNTEER',
-            isFromApp: true
-          });
-        }
-      });
-      
-      setActiveVolunteers(combined);
-    } catch (err) {
-      console.error("Failed to fetch volunteer data", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // React Query
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['volunteers'],
+    queryFn: getVolunteersData,
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const applications = useMemo(() => {
+    return (data?.applications || []).filter((a: any) => a.status !== 'Recycled');
+  }, [data]);
+
+  const activeVolunteers = useMemo(() => {
+    const apps = (data?.applications || []).filter((a: any) => a.status !== 'Recycled');
+    const users = data?.users || [];
+    
+    const roleVolunteers = users.filter((u: any) => u.role === 'VOLUNTEER');
+    const approvedApps = apps.filter((a: any) => a.status === 'Approved');
+    
+    const combined = [...roleVolunteers];
+    approvedApps.forEach((app: any) => {
+      if (!combined.some((v: any) => v.email?.toLowerCase() === app.email?.toLowerCase())) {
+        combined.push({
+          id: `app-${app.id}`,
+          username: app.name,
+          email: app.email,
+          city: app.city,
+          role: 'VOLUNTEER',
+          isFromApp: true
+        });
+      }
+    });
+    return combined;
+  }, [data]);
+
+  // Mutations
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) => updateVolunteerStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['volunteers'] });
+    }
+  });
 
   const updateStatus = async (app: any, status: string) => {
-    try {
-      await fetchAPI(`/api/users/volunteer/admin/${app.id}/`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status })
-      });
-      
-      // Create notification for the user
-      await fetchAPI('/api/chat/notifications/', {
-        method: 'POST',
-        body: JSON.stringify({
-          user: app.user_id, // Assuming backend provides user_id in application object
-          title: status === 'Approved' ? "Volunteer Application Approved! 🎉" : "Volunteer Application Status",
-          message: status === 'Approved' 
-            ? "Congratulations! Your application to become a volunteer has been approved. Welcome to the team!" 
-            : "Thank you for your interest. Unfortunately, your volunteer application has been rejected at this time.",
-          type: 'alert'
-        })
-      }).catch(err => console.warn("Failed to send notification:", err));
-
-      if (status === 'Approved') {
-        fetchData();
-      } else {
-        setApplications(prev => prev.map(v => v.id === app.id ? { ...v, status } : v));
-      }
-    } catch (err) {
-      console.error("Failed to update status", err);
-    }
+    statusMutation.mutate({ id: app.id, status });
   };
-
 
   const deleteApp = async (id: number) => {
     if (!window.confirm("Move this application to Recycle Bin?")) return;
-    try {
-      await fetchAPI(`/api/users/volunteer/admin/${id}/`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'Recycled' })
-      });
-      setApplications(prev => prev.filter(a => a.id !== id));
-    } catch (err) {
-      console.error("Failed to move to recycle bin", err);
-    }
+    statusMutation.mutate({ id, status: 'Recycled' });
   };
 
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
@@ -110,7 +71,7 @@ export default function Volunteers({ darkMode }: Props) {
   const tabActive = 'border-green-500 text-green-500';
   const tabInactive = 'border-transparent text-gray-500 hover:text-gray-700';
 
-  const filteredApps = applications.filter(v => {
+  const filteredApps = applications.filter((v: any) => {
     const g = searchQuery.toLowerCase();
     const l = localSearch.toLowerCase();
     
@@ -130,7 +91,7 @@ export default function Volunteers({ darkMode }: Props) {
     return matchesGlobal && matchesLocal && matchesFilter;
   });
   
-  const filteredActive = activeVolunteers.filter(v => {
+  const filteredActive = activeVolunteers.filter((v: any) => {
     const g = searchQuery.toLowerCase();
     const l = localSearch.toLowerCase();
     
@@ -203,7 +164,7 @@ export default function Volunteers({ darkMode }: Props) {
             filteredApps.length === 0 ? (
               <div className={`col-span-2 py-12 text-center ${textSub}`}>No applications found.</div>
             ) : (
-              filteredApps.map(v => (
+              filteredApps.map((v: any) => (
                 <div key={v.id} className={`rounded-2xl border ${darkMode ? 'border-gray-700 bg-gray-700/20' : 'border-gray-100 bg-gray-50/50'} p-5 transition-all hover:shadow-md`}>
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -245,7 +206,7 @@ export default function Volunteers({ darkMode }: Props) {
             filteredActive.length === 0 ? (
               <div className={`col-span-2 py-12 text-center ${textSub}`}>No active volunteers found.</div>
             ) : (
-              filteredActive.map(v => (
+              filteredActive.map((v: any) => (
                 <div key={v.id} className={`rounded-2xl border ${darkMode ? 'border-gray-700 bg-gray-700/20' : 'border-gray-100 bg-gray-50/50'} p-5 transition-all hover:shadow-md flex items-center gap-4`}>
                   <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-md flex-shrink-0">
                     {v.username.charAt(0).toUpperCase()}

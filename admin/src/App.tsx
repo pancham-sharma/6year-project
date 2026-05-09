@@ -19,6 +19,7 @@ import RecycleBin from './pages/RecycleBin';
 import { SearchProvider } from './context/SearchContext';
 import { ToastProvider } from './context/ToastContext';
 import { fetchAPI } from './utils/api';
+import QueryProvider from './providers/QueryProvider';
 
 const initialPageTitles: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -145,38 +146,40 @@ export default function App() {
   }
 
   return (
-    <ToastProvider>
-      <SearchProvider>
-        <div className={`flex h-screen overflow-hidden ${bg} transition-colors duration-300`}>
-          <Sidebar
-            active={activeSection}
-            onNavigate={setActiveSection}
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed(c => !c)}
-            darkMode={darkMode}
-            mobileOpen={mobileMenuOpen}
-            onMobileClose={() => setMobileMenuOpen(false)}
-          />
-
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <Topbar
+    <QueryProvider>
+      <ToastProvider>
+        <SearchProvider>
+          <div className={`flex h-screen overflow-hidden ${bg} transition-colors duration-300`}>
+            <Sidebar
+              active={activeSection}
+              onNavigate={setActiveSection}
+              collapsed={sidebarCollapsed}
+              onToggleCollapse={() => setSidebarCollapsed(c => !c)}
               darkMode={darkMode}
-              onToggleDark={() => setDarkMode(d => !d)}
-              onMobileMenuOpen={() => setMobileMenuOpen(true)}
-              pageTitle={pageTitles[activeSection]}
-              onLogout={handleLogout}
+              mobileOpen={mobileMenuOpen}
+              onMobileClose={() => setMobileMenuOpen(false)}
             />
 
-            <main className="flex-1 overflow-y-auto">
-              <div className={`p-4 lg:p-6 ${activeSection === 'messages' ? 'h-full flex flex-col' : ''}`}>
-                <div className={`fade-in ${activeSection === 'messages' ? 'flex-1 flex flex-col min-h-0' : ''}`} key={activeSection}>
-                  {renderPage()}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              <Topbar
+                darkMode={darkMode}
+                onToggleDark={() => setDarkMode(d => !d)}
+                onMobileMenuOpen={() => setMobileMenuOpen(true)}
+                pageTitle={pageTitles[activeSection]}
+                onLogout={handleLogout}
+              />
+
+              <main className="flex-1 overflow-y-auto">
+                <div className={`p-4 lg:p-6 ${activeSection === 'messages' ? 'h-full flex flex-col' : ''}`}>
+                  <div className={`fade-in ${activeSection === 'messages' ? 'flex-1 flex flex-col min-h-0' : ''}`} key={activeSection}>
+                    {renderPage()}
+                  </div>
                 </div>
-              </div>
-            </main>
+              </main>
+            </div>
           </div>
-        </div>
-      </SearchProvider>
-    </ToastProvider>
+        </SearchProvider>
+      </ToastProvider>
+    </QueryProvider>
   );
 }

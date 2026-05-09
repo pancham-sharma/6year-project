@@ -7,6 +7,7 @@ class Category(models.Model):
     image = models.ImageField(upload_to='category_images/', blank=True, null=True)
     impact_badge = models.CharField(max_length=100, blank=True, help_text="e.g. ₹500 feeds 5 people")
     icon_name = models.CharField(max_length=50, default='Heart', help_text="Lucide icon name")
+    unit_name = models.CharField(max_length=50, default='Units', help_text="e.g. Meals, Clothes, Trees")
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
@@ -41,6 +42,7 @@ class Donation(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['category']),
             models.Index(fields=['donor']),
+            models.Index(fields=['timestamp']),
         ]
 
     def save(self, *args, **kwargs):
@@ -50,6 +52,13 @@ class Donation(models.Model):
             if old_status != 'Completed' and self.status == 'Completed':
                 from inventory.models import InventoryItem
                 item, created = InventoryItem.objects.get_or_create(category=self.category)
+                # Try to get the real unit name from Category model
+                try:
+                    cat_obj = Category.objects.get(name__iexact=self.category)
+                    item.unit_name = cat_obj.unit_name
+                except Category.DoesNotExist:
+                    pass
+                
                 item.quantity += self.quantity
                 item.save()
         super().save(*args, **kwargs)
@@ -76,62 +85,7 @@ class PickupDetails(models.Model):
     def __str__(self):
         return f"Pickup for Donation {self.donation.id}"
 
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-@receiver(post_save, sender=Donation)
-def create_donation_notification(sender, instance, created, **kwargs):
-    if created:
-        from chat.models import Notification
-        from users.models import User
-        from django.db.models import Q
-        admins = User.objects.filter(Q(role='ADMIN') | Q(is_superuser=True))
-        for admin in admins:
-            Notification.objects.create(
-                user=admin,
-                title="New Donation Received",
-                message=f"{instance.donor.username} donated {instance.quantity_description} ({instance.category})"
-            )
-
-@receiver(post_save, sender=PickupDetails)
-def create_pickup_notification(sender, instance, created, **kwargs):
-    from datetime import date, timedelta
-    if instance.scheduled_date:
-        today = date.today()
-        end_of_week = today + timedelta(days=7)
-        if today <= instance.scheduled_date <= end_of_week:
-            from chat.models import Notification
-            from users.models import User
-            from django.db.models import Q
-            admins = User.objects.filter(Q(role='ADMIN') | Q(is_superuser=True))
-            for admin in admins:
-                # Check if a similar notification already exists for this pickup to avoid spam
-                exists = Notification.objects.filter(
-                    user=admin, 
-                    title="Upcoming Pickup Alert", 
-                    message__contains=f"donation #{instance.donation.id}"
-                ).exists()
-                if not exists:
-                    Notification.objects.create(
-                        user=admin,
-                        title="Upcoming Pickup Alert",
-                        message=f"Pickup scheduled for donation #{instance.donation.id} on {instance.scheduled_date} at {instance.scheduled_time}. This is scheduled for this week!"
-                    )
-
-    # Notify donor when a team is assigned
-    if instance.assigned_team and instance.donation.status == 'Scheduled':
-        from chat.models import Notification
-        exists = Notification.objects.filter(
-            user=instance.donation.donor,
-            title="Pickup Assigned! 🚚",
-            message__contains=f"#{instance.donation.id}"
-        ).exists()
-        
-        if not exists:
-            Notification.objects.create(
-                user=instance.donation.donor,
-                title="Pickup Assigned! 🚚",
-                message=f"Good news! Team {instance.assigned_team} has been assigned to pick up your donation #{instance.donation.id}. They will arrive as per your scheduled slot."
-            )
+# Signals moved to signals.py to prevent duplication and ensure proper targeting
 
 class DatabaseBackup(models.Model):
     file = models.FileField(upload_to='backups/')

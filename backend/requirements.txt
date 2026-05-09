@@ -18,3 +18,4 @@ daphne
 gunicorn
 uvicorn
 whitenoise
+google-auth

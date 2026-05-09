@@ -3,7 +3,7 @@ from .views import (
     RegisterView, ProfileView, LogoutView, UserListView,
     SocialAuthGoogleView, PasswordResetRequestView, PasswordResetConfirmView,
     VolunteerApplicationView, VolunteerApplicationAdminListView, VolunteerApplicationAdminDetailView,
-    ChangePasswordView,
+    ChangePasswordView, VerifyEmailView, ResendOTPView,
     TwoFactorSetupView, TwoFactorVerifyView, TwoFactorDisableView, CustomTokenObtainPairView, GetAdminIdView
 )
 from rest_framework_simplejwt.views import (
@@ -22,6 +22,8 @@ urlpatterns = [
     path('2fa/setup/', TwoFactorSetupView.as_view(), name='2fa_setup'),
     path('2fa/verify/', TwoFactorVerifyView.as_view(), name='2fa_verify'),
     path('2fa/disable/', TwoFactorDisableView.as_view(), name='2fa_disable'),
+    path('verify-email/', VerifyEmailView.as_view(), name='verify_email'),
+    path('resend-otp/', ResendOTPView.as_view(), name='resend_otp'),
     
     # Social Auth & Password Reset
     path('auth/google/', SocialAuthGoogleView.as_view(), name='auth_google'),

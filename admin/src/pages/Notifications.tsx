@@ -17,7 +17,7 @@ export default function Notifications({ darkMode }: Props) {
   const fetchNotifications = async () => {
     try {
       const res = await fetchAPI('/api/chat/notifications/');
-      const data = res.results || res || [];
+      const data = Array.isArray(res) ? res : (res.data || res.results || []);
       setNotifications(data.filter((n: any) => n.status !== 'Recycled'));
     } catch (err) {
       console.error("Failed to fetch notifications", err);

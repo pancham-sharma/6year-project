@@ -3,6 +3,7 @@ from django.db import models
 class InventoryItem(models.Model):
     category = models.CharField(max_length=50, unique=True)
     quantity = models.PositiveIntegerField(default=0)
+    unit_name = models.CharField(max_length=50, default='Units')
     distributed = models.PositiveIntegerField(default=0)
     last_updated = models.DateTimeField(auto_now=True)
 

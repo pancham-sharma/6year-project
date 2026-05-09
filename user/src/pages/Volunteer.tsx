@@ -26,8 +26,8 @@ export default function Volunteer() {
       try {
         const data = await fetchAPI('/api/users/volunteer/');
         const apps = data.results || data || [];
-        // Case-insensitive filter out 'Recycled' status
-        setPastApplications(apps.filter((app: any) => app.status.toLowerCase() !== 'recycled'));
+        // Case-insensitive filter out 'Recycled' status with safety check
+        setPastApplications(Array.isArray(apps) ? apps.filter((app: any) => app.status && app.status.toLowerCase() !== 'recycled') : []);
 
         // Get previous statuses from localStorage
         const prevStatuses = JSON.parse(localStorage.getItem('vol_app_statuses') || '{}');

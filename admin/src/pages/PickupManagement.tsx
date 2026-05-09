@@ -32,7 +32,8 @@ export default function PickupManagement({ darkMode }: Props) {
     const fetchPickups = async () => {
       try {
         const res = await fetchAPI('/api/donations/');
-        const data = (res.results || res).map((d: any) => ({
+        const rawData = Array.isArray(res) ? res : (res.data || res.results || []);
+        const data = rawData.map((d: any) => ({
           id: d.id,
           donorName: d.donor,
           status: d.status,

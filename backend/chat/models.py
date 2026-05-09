@@ -121,6 +121,9 @@ def broadcast_notification(sender, instance, created, **kwargs):
             channel_layer = get_channel_layer()
             if not channel_layer: return
 
+            if not instance.user:
+                return
+
             # Broadcast to user's private notify group
             async_to_sync(channel_layer.group_send)(
                 f"notify_{instance.user.id}",
@@ -137,7 +140,19 @@ def broadcast_notification(sender, instance, created, **kwargs):
             )
 
             # If user is admin, also broadcast to shared admin group
-            if instance.user.role == 'ADMIN' or instance.user.is_staff:
+            # BUT: Exclude personal user-centric notifications (like approvals/completions/rejections/tasks)
+            # so they don't clutter the admin notification bar of other staff.
+            personal_keywords = [
+                'approved', 'completed', 'scheduled', 'thank you', 'congratulations', 
+                'rejected', 'update', 'assigned', 'assignment', 'task', 'upcoming'
+            ]
+            title_lower = instance.title.lower()
+            is_personal = any(k in title_lower for k in personal_keywords)
+            
+            user_role = getattr(instance.user, 'role', '')
+            is_staff = getattr(instance.user, 'is_staff', False)
+
+            if (user_role == 'ADMIN' or is_staff) and not is_personal:
                 async_to_sync(channel_layer.group_send)(
                     "admin_notifications",
                     {
@@ -152,4 +167,4 @@ def broadcast_notification(sender, instance, created, **kwargs):
                     }
                 )
         except Exception as e:
-            print(f"WS Broadcast error: {e}")
+            print(f"Notification WS Broadcast error for user {getattr(instance.user, 'id', 'unknown')}: {e}")

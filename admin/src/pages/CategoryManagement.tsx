@@ -23,33 +23,8 @@ const iconList = [
   { name: 'LayoutGrid', icon: LayoutGrid }
 ];
 
-const getImageUrl = (path: any) => {
-  if (!path) return null;
-  if (typeof path !== 'string') return URL.createObjectURL(path);
-  if (path.startsWith('http') || path.startsWith('https')) {
-    // NUCLEAR FIX: Intercept and replace broken Vercel URLs
-    if (path.includes('pancham-sharma-6year-project.vercel.app')) {
-      const p = path.toLowerCase();
-      if (p.includes('food')) return '/images/stories-food.jpg';
-      if (p.includes('clothes')) return "https://images.unsplash.com/photo-1556906781-9a412961c28c?q=80&w=800";
-      if (p.includes('books') || p.includes('education')) return '/images/stories-education.jpg';
-      if (p.includes('money')) return "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=800";
-      if (p.includes('trees')) return '/images/stories-trees.jpg';
-      return '/images/hero.jpg'; // Generic local fallback
-    }
 
-    return path;
-  }
-  
-  // Use production backend URL if in production
-  const base = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://127.0.0.1:8000'
-    : 'https://donation-admin-panel.onrender.com';
 
-  if (path.startsWith('/media/')) return `${base}${path}`;
-  if (path.startsWith('/') || path.startsWith('images/')) return path; // Frontend asset
-  return `${base}/media/${path}`;
-};
 
 
 interface Category {
@@ -59,9 +34,15 @@ interface Category {
   image: string | File | null;
   impact_badge: string;
   icon_name: string;
+  unit_name: string;
   is_active: boolean;
   is_system?: boolean;
 }
+
+const iconMap: Record<string, any> = iconList.reduce((acc, item) => ({
+  ...acc,
+  [item.name.toLowerCase()]: item.icon
+}), {});
 
 export default function CategoryManagement({ darkMode }: { darkMode: boolean }) {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -73,12 +54,14 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
     image: null,
     impact_badge: '',
     icon_name: 'Heart',
+    unit_name: 'Units',
     is_active: true
   });
   const [saving, setSaving] = useState(false);
   const { searchQuery } = useSearch();
   const [localSearch, setLocalSearch] = useState('');
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchCategories();
@@ -92,19 +75,17 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
   }, [message]);
 
   const permanentCategories: Category[] = [
-    { id: 'p1', name: 'Food', description: 'Help feed families in need with nutritious meals', impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', image: "/images/stories-food.jpg", is_active: true, is_system: true },
-    { id: 'p2', name: 'Clothes', description: 'Provide warmth and dignity through clothing', impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', image: "https://images.unsplash.com/photo-1556906781-9a412961c28c?q=80&w=800", is_active: true, is_system: true },
-    { id: 'p3', name: 'Books', description: 'Empower minds through education materials', impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', image: "/images/stories-education.jpg", is_active: true, is_system: true },
-    { id: 'p4', name: 'Money', description: 'Your financial support drives all our programs', impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', image: "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=800", is_active: true, is_system: true },
-    { id: 'p5', name: 'Trees', description: 'Plant hope for a greener tomorrow', impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', image: "/images/stories-trees.jpg", is_active: true, is_system: true },
-
-
-
+    { id: 'p1', name: 'Food', description: 'Help feed families in need with nutritious meals', impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', unit_name: 'Meals', image: "https://i.pinimg.com/1200x/2b/b4/b0/2bb4b0e6331b1e738308549a500a49af.jpg", is_active: true, is_system: true },
+    { id: 'p2', name: 'Clothes', description: 'Provide warmth and dignity through clothing', impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', unit_name: 'Sets', image: "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg", is_active: true, is_system: true },
+    { id: 'p3', name: 'Books', description: 'Empower minds through education materials', impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', unit_name: 'Books', image: "category_images/download_9_IOLG5uL.jpeg", is_active: true, is_system: true },
+    { id: 'p4', name: 'Money', description: 'Your financial support drives all our programs', impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', unit_name: 'Donations', image: "category_images/download_9.jpeg", is_active: true, is_system: true },
+    { id: 'p5', name: 'Trees', description: 'Plant hope for a greener tomorrow', impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', unit_name: 'Trees', image: "category_images/nbl_Erinnerungsbaum.jpeg", is_active: true, is_system: true },
+    { id: 'p6', name: 'Gifts', description: 'Spread joy with thoughtful gifts', impact_badge: "₹300 brings a smile", icon_name: 'Gift', unit_name: 'Gifts', image: "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?q=80&w=800", is_active: true, is_system: true }
   ];
 
   const fetchCategories = async () => {
     try {
-      const data = await fetchAPI('/api/donations/categories/');
+      const data = await fetchAPI(`/api/donations/categories/?t=${new Date().getTime()}`);
       const res = Array.isArray(data) ? data : (data.results || []);
       
       // Merge logic: Use DB category if it exists (by name matching), otherwise use permanent default
@@ -132,9 +113,10 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
     setFormData({
       name: cat.name || '',
       description: cat.description || '',
-      image: null, // Reset image for upload
+      image: cat.image || null, // Preserve existing image URL
       impact_badge: cat.impact_badge || '',
       icon_name: cat.icon_name || 'Heart',
+      unit_name: cat.unit_name || 'Units',
       is_active: cat.is_active ?? true
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -148,6 +130,7 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
       image: null,
       impact_badge: '',
       icon_name: 'Heart',
+      unit_name: 'Units',
       is_active: true
     });
   };
@@ -155,17 +138,31 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
+    setErrors({});
+    
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim()) newErrors.name = 'This field is required';
+    if (!formData.description.trim()) newErrors.description = 'This field is required';
+    if (!formData.impact_badge.trim()) newErrors.impact_badge = 'This field is required';
+    if (!formData.unit_name?.trim()) newErrors.unit_name = 'This field is required';
+    if (!formData.image) newErrors.image = 'This field is required';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setMessage({ text: "Please fill all required fields", type: 'error' });
+      setSaving(false);
+      return;
+    }
+
     try {
-      if (!formData.name.trim() || !formData.icon_name.trim()) {
-        setMessage({ text: "Name and Icon are required", type: 'error' });
-        setSaving(false);
-        return;
-      }
+      const isNew = editingId === 'new' || (typeof editingId === 'string' && editingId.startsWith('p'));
+
       const data = new FormData();
       data.append('name', formData.name);
       data.append('description', formData.description);
       data.append('impact_badge', formData.impact_badge);
       data.append('icon_name', formData.icon_name);
+      data.append('unit_name', formData.unit_name);
       data.append('is_active', String(formData.is_active));
       
       if (formData.image instanceof File) {
@@ -179,7 +176,6 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
         data.append('image', fileToUpload);
       }
 
-      const isNew = editingId === 'new' || (typeof editingId === 'string' && editingId.startsWith('p'));
       const url = isNew ? '/api/donations/categories/' : `/api/donations/categories/${editingId}/`;
       const method = isNew ? 'POST' : 'PATCH';
 
@@ -188,7 +184,7 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
         body: data
       });
 
-      setMessage({ text: `Category ${editingId === 'new' ? 'created' : 'updated'} successfully!`, type: 'success' });
+      setMessage({ text: `Category is successfully ${editingId === 'new' ? 'created' : 'updated'}!`, type: 'success' });
       setEditingId(null);
       fetchCategories();
       // Dispatch event to update sidebar immediately
@@ -217,7 +213,20 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
   const cardClass = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
   const inputClass = `w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} focus:ring-2 focus:ring-green-500 outline-none transition-all`;
 
-  const filtered = categories.filter(c => {
+  // Deduplicate by name (prefer system/permanent versions)
+  const uniqueCategories = categories.reduce((acc: Category[], current) => {
+    const exists = acc.find(c => c.name.toLowerCase() === current.name.toLowerCase());
+    if (!exists) {
+      acc.push(current);
+    } else if (current.is_system && !exists.is_system) {
+      // Replace non-system with system version if duplicate name found
+      const index = acc.findIndex(c => c.name.toLowerCase() === current.name.toLowerCase());
+      acc[index] = current;
+    }
+    return acc;
+  }, []);
+
+  const filteredCategories = uniqueCategories.filter(c => {
     const g = searchQuery.toLowerCase();
     const l = localSearch.toLowerCase();
     
@@ -250,6 +259,12 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
 
   return (
     <div className="space-y-6">
+      {message && (
+        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md p-4 rounded-2xl flex items-center gap-3 animate-slide-up shadow-2xl border ${message.type === 'success' ? 'bg-green-500 text-white border-green-400' : 'bg-red-500 text-white border-red-400'}`}>
+          {message.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+          <p className="font-bold">{message.text}</p>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Donation Categories</h2>
@@ -275,12 +290,66 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
         {localSearch && <button onClick={() => setLocalSearch('')}><X size={13} className={darkMode ? 'text-gray-400' : 'text-gray-500'} /></button>}
       </div>
 
-      {message && (
-        <div className={`p-4 rounded-xl flex items-center gap-3 animate-fade-in ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-          {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-          <p className="text-sm font-medium">{message.text}</p>
-        </div>
-      )}
+      {/* Categories Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredCategories.map(cat => (
+          <div key={cat.id} className={`group relative p-5 rounded-2xl border transition-all duration-300 ${cardClass} hover:shadow-xl ${darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-white'}`}>
+            <div className="flex justify-between items-start mb-4">
+              <div className={`p-3 rounded-xl ${darkMode ? 'bg-green-500/10 text-green-400' : 'bg-green-50 text-green-600'}`}>
+                {(() => {
+                  const Icon = iconMap[cat.icon_name?.toLowerCase()] || Heart;
+                  return <Icon size={24} />;
+                })()}
+              </div>
+              <div className="flex gap-1">
+                <button 
+                  onClick={() => handleEdit(cat)}
+                  className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'}`}
+                >
+                  <Edit2 size={16} />
+                </button>
+                <button 
+                  onClick={() => !cat.is_system && handleDelete(cat.id!)}
+                  className={`p-2 rounded-lg transition-colors ${cat.is_system ? 'opacity-20 cursor-not-allowed' : darkMode ? 'hover:bg-red-500/10 text-gray-400 hover:text-red-400' : 'hover:bg-red-50 text-gray-500 hover:text-red-600'}`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <h4 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{cat.name}</h4>
+                {cat.is_system && (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-blue-500/10 text-blue-500 rounded-md font-bold uppercase tracking-wider">System</span>
+                )}
+              </div>
+              <p className={`text-xs line-clamp-2 leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{cat.description}</p>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleToggle(cat)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                    cat.is_active 
+                      ? 'bg-green-500/10 text-green-500' 
+                      : 'bg-gray-500/10 text-gray-500'
+                  }`}
+                >
+                  {cat.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
+                  {cat.is_active ? 'Visible' : 'Hidden'}
+                </button>
+              </div>
+              <span className={`text-[10px] font-medium px-2 py-1 rounded-md ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+                {cat.impact_badge}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+
 
       {/* Category Edit/Add Modal Overlay */}
       {editingId !== null && (
@@ -303,30 +372,57 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
                   <input 
                     type="text" 
                     value={formData.name} 
-                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    onChange={e => {
+                      setFormData({...formData, name: e.target.value});
+                      if (errors.name) setErrors(prev => ({...prev, name: ''}));
+                    }}
                     placeholder="e.g. Health & Medical"
-                    className={inputClass}
+                    className={`${inputClass} ${errors.name ? 'border-red-500 bg-red-500/5' : ''}`}
                   />
+                  {errors.name && <p className="text-[10px] text-red-500 mt-1 font-bold italic pl-1">{errors.name}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Description</label>
                   <textarea 
                     rows={3}
                     value={formData.description} 
-                    onChange={e => setFormData({...formData, description: e.target.value})}
+                    onChange={e => {
+                      setFormData({...formData, description: e.target.value});
+                      if (errors.description) setErrors(prev => ({...prev, description: ''}));
+                    }}
                     placeholder="Short description for the user..."
-                    className={inputClass}
+                    className={`${inputClass} ${errors.description ? 'border-red-500 bg-red-500/5' : ''}`}
                   />
+                  {errors.description && <p className="text-[10px] text-red-500 mt-1 font-bold italic pl-1">{errors.description}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Impact Badge Text</label>
                   <input 
                     type="text" 
                     value={formData.impact_badge} 
-                    onChange={e => setFormData({...formData, impact_badge: e.target.value})}
+                    onChange={e => {
+                      setFormData({...formData, impact_badge: e.target.value});
+                      if (errors.impact_badge) setErrors(prev => ({...prev, impact_badge: ''}));
+                    }}
                     placeholder="e.g. ₹1000 provides basic kit"
-                    className={inputClass}
+                    className={`${inputClass} ${errors.impact_badge ? 'border-red-500 bg-red-500/5' : ''}`}
                   />
+                  {errors.impact_badge && <p className="text-[10px] text-red-500 mt-1 font-bold italic pl-1">{errors.impact_badge}</p>}
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Display Unit (Backend Calculation)</label>
+                  <input 
+                    type="text" 
+                    value={formData.unit_name} 
+                    onChange={e => {
+                      setFormData({...formData, unit_name: e.target.value});
+                      if (errors.unit_name) setErrors(prev => ({...prev, unit_name: ''}));
+                    }}
+                    placeholder="e.g. Meals, Trees, Sets"
+                    className={`${inputClass} ${errors.unit_name ? 'border-red-500 bg-red-500/5' : ''}`}
+                  />
+                  {errors.unit_name && <p className="text-[10px] text-red-500 mt-1 font-bold italic pl-1">{errors.unit_name}</p>}
+                  <p className="mt-1 text-[10px] text-gray-400 italic">This unit will be used for inventory tracking.</p>
                 </div>
               </div>
 
@@ -350,11 +446,20 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Cover Image</label>
-                  <div className={`relative h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${darkMode ? 'border-gray-700 hover:border-green-500' : 'border-gray-200 hover:border-green-500'}`}>
+                  <div className={`relative h-24 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${
+                    errors.image ? 'border-red-500 bg-red-500/5' :
+                    darkMode ? 'border-gray-700 hover:border-green-500' : 'border-gray-200 hover:border-green-500'
+                  }`}>
                     <input 
                       type="file" 
                       accept="image/*"
-                      onChange={e => setFormData({...formData, image: e.target.files ? e.target.files[0] : null})}
+                      onChange={e => {
+                        const file = e.target.files ? e.target.files[0] : null;
+                        if (file) {
+                          setFormData({...formData, image: file});
+                          if (errors.image) setErrors(prev => ({...prev, image: ''}));
+                        }
+                      }}
                       className="absolute inset-0 opacity-0 cursor-pointer"
                     />
                     {formData.image ? (
@@ -368,6 +473,7 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
                       </>
                     )}
                   </div>
+                  {errors.image && <p className="text-[10px] text-red-500 mt-2 font-bold italic text-center">{errors.image}</p>}
                 </div>
                 <div className="flex items-center gap-3 pt-2">
                   <input 
@@ -402,88 +508,6 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filtered.map((cat) => {
-          const Icon = iconList.find(i => i.name.toLowerCase() === (cat.icon_name || '').toLowerCase())?.icon || LayoutGrid;
-          return (
-            <div key={cat.id} className={`group rounded-2xl border overflow-hidden shadow-sm transition-all hover:shadow-md ${cardClass}`}>
-              <div className="h-40 relative overflow-hidden bg-gray-100 dark:bg-gray-900">
-                {cat.image ? (
-                  <img 
-                    src={getImageUrl(cat.image) || ''} 
-                    alt={cat.name} 
-                    className="w-full h-full object-cover card-img-grayscale transition-all duration-500 group-hover:grayscale-0" 
-                    onError={(e) => {
-                      const name = cat.name.toLowerCase();
-                      if (name.includes('food')) e.currentTarget.src = "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=800";
-                      else if (name.includes('clothes')) e.currentTarget.src = "https://images.unsplash.com/photo-1532629345422-7515f3d16bb8?q=80&w=800";
-                      else if (name.includes('book')) e.currentTarget.src = "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=800";
-                      else if (name.includes('money')) e.currentTarget.src = "https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=800";
-                      else if (name.includes('tree')) e.currentTarget.src = "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=800";
-                      else e.currentTarget.src = 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=400';
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-300">
-                    <ImageIcon size={48} />
-                  </div>
-                )}
-                <div className="absolute top-3 right-3 flex gap-2 transition-all duration-300">
-                  <button 
-                    onClick={() => handleEdit(cat)}
-                    className="p-2 bg-white/90 dark:bg-gray-800/90 text-blue-600 rounded-lg shadow-lg hover:scale-110 transition-transform"
-                    title="Edit Category"
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  {!cat.is_system && (
-                    <button 
-                      onClick={() => handleDelete(cat.id as number)}
-                      className="p-2 bg-white/90 dark:bg-gray-800/90 text-red-600 rounded-lg shadow-lg hover:scale-110 transition-transform"
-                      title="Delete Category"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                  {cat.is_system && (
-                    <div className="p-2 bg-green-500/90 text-white rounded-lg shadow-lg text-[10px] font-bold px-3">
-                      SYSTEM
-                    </div>
-                  )}
-                </div>
-                {!cat.is_active && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <span className="px-3 py-1 bg-gray-800 text-white text-[10px] font-bold uppercase rounded-full tracking-widest">Hidden</span>
-                  </div>
-                )}
-              </div>
-              <div className="p-5 flex flex-col h-full">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 flex items-center justify-center">
-                    <Icon size={16} />
-                  </div>
-                  <h4 className={`font-bold truncate ${darkMode ? 'text-white' : 'text-gray-800'}`}>{cat.name}</h4>
-                </div>
-                <p className={`text-xs leading-relaxed mb-4 line-clamp-2 flex-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  {cat.description}
-                </p>
-                <div className="flex items-center justify-between mt-auto gap-2">
-                   <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[10px] font-bold rounded-lg uppercase truncate max-w-[100px]">
-                     {cat.impact_badge}
-                   </span>
-                   <button 
-                      onClick={() => handleToggle(cat)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${cat.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400 dark:bg-gray-700/50'}`}
-                    >
-                      {cat.is_active ? <Eye size={12}/> : <EyeOff size={12}/>}
-                      {cat.is_active ? 'Live' : 'Off'}
-                    </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

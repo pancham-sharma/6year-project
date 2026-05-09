@@ -1,8 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLocation } from 'react-router-dom';
-import { User, MapPin, Clock, Download, HandHeart, TreePine, Utensils, TrendingUp, CheckCircle, Package, Loader, Mail, Send, Truck, Calendar, LogOut, Users, GraduationCap, Megaphone, HeartPulse, Shirt, Apple, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { 
+  User, MapPin, Clock, Download, HandHeart, TreePine, Utensils, TrendingUp, 
+  CheckCircle, Package, Loader, Mail, Send, Truck, Calendar, LogOut, 
+  Users, GraduationCap, Megaphone, HeartPulse, Shirt, Apple, 
+  MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight
+} from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from '../utils/api';
+import { getUserDonations } from '../api/donations';
 
 export default function Dashboard() {
   const { dark, t, user: appUser, setUser: setAppUser, setNotifications, logout } = useApp();
@@ -12,14 +19,15 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'history' | 'profile' | 'addresses' | 'messages' | 'pickups' | 'volunteer'>('history');
   const [showDonationToast, setShowDonationToast] = useState(false);
   
-  const [loading, setLoading] = useState(true);
-  const [savingProfile, setSavingProfile] = useState(false);
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const limit = 5;
 
-  const [donations, setDonations] = useState<any[]>([]);
-  const [volunteerApps, setVolunteerApps] = useState<any[]>([]);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ first_name: '', last_name: '', email: '', phone_number: '', city: '' });
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
+  
   const [messages, setMessages] = useState<any[]>([]);
   const [replyText, setReplyText] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
@@ -27,6 +35,48 @@ export default function Dashboard() {
   const [editingMsgId, setEditingMsgId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState('');
   const [menuMsgId, setMenuMsgId] = useState<number | null>(null);
+
+  // Queries
+  const { data: donationData, isLoading: loadingDonations } = useQuery({
+    queryKey: ['user-donations', page],
+    queryFn: () => getUserDonations(page, limit),
+    enabled: !!appUser.id,
+  });
+
+  const { data: profileData } = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => fetchAPI('/api/users/profile/'),
+    enabled: !!appUser.id,
+  });
+
+  const { data: volunteerData } = useQuery({
+    queryKey: ['volunteer-apps'],
+    queryFn: () => fetchAPI('/api/users/volunteer/'),
+    enabled: !!appUser.id,
+  });
+
+  // Sync profile form when data loads
+  useEffect(() => {
+    if (profileData) {
+      setProfileForm({
+        first_name: profileData.first_name || '',
+        last_name: profileData.last_name || '',
+        email: profileData.email || '',
+        phone_number: profileData.phone_number || '',
+        city: profileData.city || ''
+      });
+      setAppUser({
+        id: profileData.id,
+        name: profileData.first_name
+          ? `${profileData.first_name} ${profileData.last_name || ''}`.trim()
+          : profileData.username || '',
+        email: profileData.email || '',
+        phone: profileData.phone_number || '',
+        city: profileData.city || '',
+        role: profileData.role || '',
+      });
+    }
+  }, [profileData, setAppUser]);
 
   useEffect(() => {
     if (location.state?.donated) {
@@ -39,98 +89,28 @@ export default function Dashboard() {
     }
   }, [location.state]);
 
+  // Legacy data loader for compatibility with parts not yet migrated
   const loadDashboardData = useCallback(async () => {
     try {
-      const [donsRes, notifRes, profRes, msgRes, volRes] = await Promise.all([
-        fetchAPI('/api/donations/').catch(() => []),
+      const [notifRes, msgRes] = await Promise.all([
         fetchAPI('/api/chat/notifications/').catch(() => []),
-        fetchAPI('/api/users/profile/').catch(() => null),
-        fetchAPI('/api/chat/messages/').catch(() => []),
-        fetchAPI('/api/users/volunteer/').catch(() => [])
+        fetchAPI('/api/chat/messages/').catch(() => [])
       ]);
       
-      setDonations(donsRes.results || donsRes || []);
-      const apps = volRes.results || volRes || [];
-      setVolunteerApps(apps.filter((a: any) => a.status.toLowerCase() !== 'recycled'));
       setNotifications(notifRes.results || notifRes || []);
-      const rawMsgs = (msgRes.results || msgRes || []).filter((m: any) => m.status !== 'Recycled');
-      
-      setMessages(prev => {
-        const existingIds = new Set(rawMsgs.map((m: any) => String(m.id)));
-        // Keep messages from previous state that aren't in the new fetch yet (e.g. just sent)
-        const unsynced = prev.filter(m => !existingIds.has(String(m.id)));
-        
-        // Combine and sort by timestamp
-        return [...rawMsgs, ...unsynced].sort((a, b) => 
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        );
-      });
-
-      // Identify admin ID from existing messages
-      if (!adminId) {
-        const firstAdminMsg = rawMsgs.find((m: any) => 
-          m.sender_username?.toLowerCase().includes('admin') || 
-          m.receiver_username?.toLowerCase().includes('admin') ||
-          m.sender_email?.toLowerCase().includes('admin')
-        );
-        if (firstAdminMsg) {
-          const possibleId = firstAdminMsg.sender_username?.toLowerCase().includes('admin') ? firstAdminMsg.sender : firstAdminMsg.receiver;
-          setAdminId(Number(possibleId));
-        }
-      }
-
-      // --- Volunteer Status Monitor ---
-      const prevStatuses = JSON.parse(localStorage.getItem('vol_app_statuses') || '{}');
-      const newStatuses: Record<string, string> = {};
-      
-      for (const app of apps) {
-        newStatuses[app.id] = app.status;
-        if (prevStatuses[app.id] !== app.status && prevStatuses[app.id] && app.status !== 'Pending') {
-          await fetchAPI('/api/chat/notifications/', {
-            method: 'POST',
-            body: JSON.stringify({
-              title: 'Volunteer Status Updated',
-              message: `Your application for ${app.volunteering_role} has been ${app.status.toLowerCase()}.`
-            })
-          }).catch(() => {});
-        }
-      }
-      localStorage.setItem('vol_app_statuses', JSON.stringify(newStatuses));
-
-      if (profRes) {
-        setProfileForm({
-          first_name: profRes.first_name || '',
-          last_name: profRes.last_name || '',
-          email: profRes.email || '',
-          phone_number: profRes.phone_number || '',
-          city: profRes.city || ''
-        });
-        setAppUser({
-          id: profRes.id,
-          name: profRes.first_name
-            ? `${profRes.first_name} ${profRes.last_name || ''}`.trim()
-            : profRes.username || '',
-          email: profRes.email || '',
-          phone: profRes.phone_number || '',
-          city: profRes.city || '',
-          role: profRes.role || '',
-        });
-      }
+      const msgData = msgRes.results || msgRes || [];
+      const rawMsgs = Array.isArray(msgData) ? msgData.filter((m: any) => m.status !== 'Recycled') : [];
+      setMessages(rawMsgs.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()));
     } catch (err) {
-      console.error("Failed to load dashboard data", err);
-    } finally {
-      setLoading(false);
+      console.error("Failed to load realtime dashboard data", err);
     }
-  }, [adminId, setDonations, setVolunteerApps, setNotifications, setMessages, setAdminId, setProfileForm, setAppUser, setLoading]);
+  }, [setNotifications, setMessages]);
 
   useEffect(() => {
     loadDashboardData();
     const interval = setInterval(() => {
-      // Reduce polling frequency for non-realtime tabs
-      if (activeTab === 'history' || activeTab === 'pickups') {
-         loadDashboardData();
-      }
-    }, 10000); 
+      if (activeTab === 'messages') loadDashboardData();
+    }, 10000);
     return () => clearInterval(interval);
   }, [activeTab, loadDashboardData]);
 
@@ -174,15 +154,15 @@ export default function Dashboard() {
       const data = JSON.parse(e.data);
       if (data.type === 'new_message') {
         const m = data.message;
-        setMessages(prev => {
+        setMessages((prev: any[]) => {
           // Check if this message (by ID or exact content) is already there
-          const isDuplicate = prev.some(existing => 
+          const isDuplicate = prev.some((existing: any) => 
             String(existing.id) === String(m.id) || 
             (existing.temp && existing.message_body === m.message_body && String(existing.sender) === String(m.sender))
           );
           if (isDuplicate) {
             // Replace the optimistic temp message with the real server message
-            return prev.map(existing => 
+            return prev.map((existing: any) => 
               (existing.temp && existing.message_body === m.message_body && String(existing.sender) === String(m.sender))
               ? m : existing
             );
@@ -191,10 +171,10 @@ export default function Dashboard() {
         });
       } else if (data.type === 'edit_message') {
         const m = data.message;
-        setMessages(prev => prev.map(msg => String(msg.id) === String(m.id) ? m : msg));
+        setMessages((prev: any[]) => prev.map((msg: any) => String(msg.id) === String(m.id) ? m : msg));
       } else if (data.type === 'delete_message') {
         const mid = data.message_id;
-        setMessages(prev => prev.map(msg => String(msg.id) === String(mid) ? { ...msg, message_body: '[Message Deleted]', isDeleted: true } : msg));
+        setMessages((prev: any[]) => prev.map((msg: any) => String(msg.id) === String(mid) ? { ...msg, message_body: '[Message Deleted]', isDeleted: true } : msg));
       }
     };
 
@@ -207,7 +187,7 @@ export default function Dashboard() {
     
     const newText = text.trim();
     // Optimistic local update
-    setMessages(prev => prev.map(msg => 
+    setMessages((prev: any[]) => prev.map((msg: any) => 
       String(msg.id) === String(msgId) ? { ...msg, message_body: newText, is_edited: true } : msg
     ));
 
@@ -288,7 +268,7 @@ export default function Dashboard() {
       sender_username: appUser.name,
       read: false
     };
-    setMessages(prev => [...prev, optimisticMsg]);
+    setMessages((prev: any[]) => [...prev, optimisticMsg]);
 
     // Try WebSocket first
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -312,13 +292,13 @@ export default function Dashboard() {
       });
       // The WebSocket will broadcast this back to us if connected, 
       // but adding/replacing optimistically for non-WS users
-      setMessages(prev => {
-        const isDuplicate = prev.some(m => 
+      setMessages((prev: any[]) => {
+        const isDuplicate = prev.some((m: any) => 
           String(m.id) === String(newMsg.id) || 
           (m.temp && m.message_body === newMsg.message_body)
         );
         if (isDuplicate) {
-          return prev.map(m => (m.temp && m.message_body === newMsg.message_body) ? newMsg : m);
+          return prev.map((m: any) => (m.temp && m.message_body === newMsg.message_body) ? newMsg : m);
         }
         return [...prev, newMsg];
       });
@@ -384,17 +364,36 @@ export default function Dashboard() {
   ];
 
   // Derived Stats
-  const activeDonations = donations.filter(d => ['Pending', 'Scheduled', 'Completed'].includes(d.status));
-  const totalDonations = activeDonations.length;
-  const foodMeals = activeDonations.filter(d => d.category === 'Food').length * 10;
-  const treesPlanted = activeDonations.filter(d => d.category === 'Environment').length * 5;
+  const safeDonations = useMemo(() => {
+    // Backend with CustomPagination returns { data: [...] }
+    // Legacy or unpaginated backend might return [...] directly
+    const data = donationData?.data || (Array.isArray(donationData) ? donationData : []);
+    return Array.isArray(data) ? data : [];
+  }, [donationData]);
+
+  const volunteerApps = useMemo(() => {
+    const apps = volunteerData?.results || volunteerData || [];
+    return Array.isArray(apps) ? apps.filter((a: any) => a.status && a.status.toLowerCase() !== 'recycled') : [];
+  }, [volunteerData]);
+  
+  const totalPages = donationData?.totalPages || 1;
+  const totalCount = donationData?.total || (Array.isArray(safeDonations) ? safeDonations.length : 0);
+
+  const totalDonations = totalCount; // Show overall total for impact
+  const foodMeals = totalDonations * 10;
+  const treesPlanted = totalDonations * 5;
   const familiesHelped = Math.floor(totalDonations * 2.5);
 
   // Extract unique addresses from pickup_details
-  const uniqueAddresses = Array.from(new Set(
-    donations.filter(d => d.pickup_details?.full_address)
-             .map(d => `${d.pickup_details.full_address}, ${d.pickup_details.city}, ${d.pickup_details.state} ${d.pickup_details.pincode}`)
-  ));
+  const uniqueAddresses = useMemo(() => {
+    if (!Array.isArray(safeDonations)) return [];
+    return Array.from(new Set(
+      safeDonations.filter((d: any) => d.pickup_details?.full_address)
+               .map((d: any) => `${d.pickup_details.full_address}, ${d.pickup_details.city}, ${d.pickup_details.state} ${d.pickup_details.pincode}`)
+    )) as string[];
+  }, [safeDonations]);
+
+  const loading = loadingDonations;
 
   return (
     <div className={`min-h-screen pt-24 pb-16 transition-colors duration-500 ${dark ? 'bg-[#0f172b]' : 'bg-gray-50'}`}>
@@ -418,10 +417,6 @@ export default function Dashboard() {
         {/* Impact Summary */}
         <div className={`rounded-3xl p-6 sm:p-8 mb-8 relative overflow-hidden text-white transition-all duration-500 ${dark ? 'bg-white/5 border border-white/10' : 'bg-[#0f172b] shadow-2xl shadow-slate-900/20'}`}>
           <div className="absolute inset-0 opacity-10 bg-gradient-to-br from-brand to-transparent" />
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white" />
-            <div className="absolute -bottom-10 -left-10 w-60 h-60 rounded-full bg-white" />
-          </div>
           <div className="relative z-10">
             <h2 className="text-xl font-bold mb-1">{t.dashboard.impact}</h2>
             <p className="text-white/80 text-sm mb-6">{t.dashboard.helped} <span className="text-2xl font-bold">{familiesHelped}</span> {t.dashboard.people}</p>
@@ -470,11 +465,11 @@ export default function Dashboard() {
                     <h3 className={`text-lg font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{t.dashboard.history}</h3>
                   </div>
                   <div className="space-y-4">
-                    {donations.length === 0 ? (
+                    {safeDonations.length === 0 ? (
                       <div className="text-center py-10">
                         <p className={`text-lg mb-2 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>No donations found in database.</p>
                       </div>
-                    ) : donations.filter(d => d.status !== 'Recycled').map(d => (
+                    ) : safeDonations.map((d: any) => (
                       <div key={d.id} className={`flex items-center gap-4 p-4 rounded-2xl transition-colors ${dark ? 'bg-slate-700/50 hover:bg-slate-700' : 'bg-gray-50 hover:bg-gray-100'}`}>
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                           d.category === 'Food' ? 'bg-orange-100 text-orange-600' :
@@ -513,6 +508,63 @@ export default function Dashboard() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="mt-8 flex items-center justify-between border-t border-gray-100 pt-6">
+                      <div className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Showing <span className="font-bold">{safeDonations.length}</span> of <span className="font-bold">{totalCount}</span> donations
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setPage(p => Math.max(1, p - 1))}
+                          disabled={page === 1}
+                          className={`p-2 rounded-xl transition-all ${
+                            page === 1 
+                              ? 'opacity-30 cursor-not-allowed' 
+                              : dark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          }`}
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        
+                        <div className="flex items-center gap-1">
+                          {[...Array(totalPages)].map((_, i) => {
+                            const p = i + 1;
+                            if (totalPages > 5 && p !== 1 && p !== totalPages && Math.abs(p - page) > 1) {
+                              if (Math.abs(p - page) === 2) return <span key={p} className="px-1 text-gray-400">...</span>;
+                              return null;
+                            }
+                            return (
+                              <button
+                                key={p}
+                                onClick={() => setPage(p)}
+                                className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
+                                  page === p
+                                    ? 'bg-[#0f172b] text-white shadow-lg'
+                                    : dark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                          disabled={page === totalPages}
+                          className={`p-2 rounded-xl transition-all ${
+                            page === totalPages 
+                              ? 'opacity-30 cursor-not-allowed' 
+                              : dark ? 'bg-white/5 hover:bg-white/10 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          }`}
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -521,9 +573,9 @@ export default function Dashboard() {
                 <div className="animate-fade-in">
                   <h3 className={`text-lg font-bold mb-6 ${dark ? 'text-white' : 'text-gray-900'}`}>Track Your Pickups</h3>
                   <div className="space-y-4">
-                    {donations.filter(d => ['Pending', 'Scheduled', 'Completed'].includes(d.status)).length === 0 ? (
+                    {(!Array.isArray(safeDonations) || safeDonations.filter((d: any) => ['Pending', 'Scheduled', 'Completed'].includes(d.status)).length === 0) ? (
                       <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>No active pickups at the moment.</p>
-                    ) : donations.filter(d => ['Pending', 'Scheduled', 'Completed'].includes(d.status)).map(d => (
+                    ) : safeDonations.filter((d: any) => ['Pending', 'Scheduled', 'Completed'].includes(d.status)).map((d: any) => (
                       <div key={d.id} className={`p-6 rounded-3xl border-2 transition-all ${d.status === 'Scheduled' ? 'border-blue-500 bg-blue-50/10' : dark ? 'border-slate-700 bg-slate-800/40' : 'border-gray-100 bg-gray-50/50'}`}>
                          <div className="flex justify-between items-start mb-4">
                            <div>
@@ -741,7 +793,7 @@ export default function Dashboard() {
                       <div className="h-full flex items-center justify-center">
                         <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>No messages yet. Send a message to start the conversation.</p>
                       </div>
-                    ) : messages.map(m => {
+                    ) : messages.map((m: any) => {
                       const isMe = String(m.sender) === String(appUser.id) || 
                                    String(m.sender_email) === String(appUser.email);
                       const isEditing = editingMsgId === m.id;

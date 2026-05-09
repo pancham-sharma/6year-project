@@ -6,7 +6,7 @@ const translations = {
     nav: { home: 'Home', categories: 'Categories', about: 'About', stories: 'Stories', volunteer: 'Volunteer', dashboard: 'Dashboard', login: 'Login', donate: 'Donate Now' },
     hero: { tagline: 'Your small contribution can change someone\'s life', sub: 'Join thousands of compassionate hearts making a difference every day', donateBtn: 'Donate Now', volunteerBtn: 'Join as Volunteer' },
     impact: { title: 'Our Impact So Far', meals: 'Meals Served', people: 'People Helped', trees: 'Trees Planted', donations: 'Donations Made' },
-    categories: { title: 'How Would You Like to Help?', sub: 'Choose a category that resonates with your heart', food: 'Food', clothes: 'Clothes', books: 'Books', money: 'Money', trees: 'Trees', foodDesc: 'Help feed families in need with nutritious meals', clothesDesc: 'Provide warmth and dignity through clothing', booksDesc: 'Empower minds through education materials', moneyDesc: 'Your financial support drives all our programs', treesDesc: 'Plant hope for a greener tomorrow', foodImpact: '₹500 feeds 5 people', clothesImpact: '10 clothes help 1 family', booksImpact: '5 books educate 1 child', moneyImpact: '₹1000 supports 1 family/month', treesImpact: '₹200 plants 1 tree' },
+    categories: { title: 'How Would You Like to Help?', sub: 'Choose a category that resonates with your heart', food: 'Food', clothes: 'Clothes', books: 'Books', money: 'Money', trees: 'Trees', gift: 'Gifts', foodDesc: 'Help feed families in need with nutritious meals', clothesDesc: 'Provide warmth and dignity through clothing', booksDesc: 'Empower minds through education materials', moneyDesc: 'Your financial support drives all our programs', treesDesc: 'Plant hope for a greener tomorrow', giftDesc: 'Spread joy with thoughtful gifts for children', foodImpact: '₹500 feeds 5 people', clothesImpact: '10 clothes help 1 family', booksImpact: '5 books educate 1 child', moneyImpact: '₹1000 supports 1 family/month', treesImpact: '₹200 plants 1 tree', giftImpact: '₹300 brings a smile to 1 child' },
     about: { title: 'About Seva Marg', mission: 'Our Mission', missionText: 'To bridge the gap between those who can give and those who need, creating a seamless channel of compassion and support.', vision: 'Our Vision', visionText: 'A world where no one goes hungry, every child has access to education, and communities thrive together in harmony.', story: 'Our Story', storyText: 'Seva Marg was born from a simple idea — that technology can amplify kindness. What started as a small group of friends collecting food for the homeless has grown into a movement touching thousands of lives across India.' },
     volunteer: { title: 'Become a Volunteer', sub: 'Join our family of changemakers', roles: 'Select Role', teaching: 'Teaching', distribution: 'Distribution', awareness: 'Awareness Campaigns', submit: 'Join Now' },
     dashboard: { title: 'Your Dashboard', welcome: 'Welcome back', impact: 'Your Impact Summary', helped: 'You\'ve helped', people: 'people so far!', history: 'Donation History', profile: 'Profile Details', addresses: 'Saved Addresses', receipts: 'Download Receipts', notifications: 'Notifications' },
@@ -20,7 +20,7 @@ const translations = {
     nav: { home: 'होम', categories: 'श्रेणियाँ', about: 'हमारे बारे में', stories: 'कहानियाँ', volunteer: 'स्वयंसेवक', dashboard: 'डैशबोर्ड', login: 'लॉगिन', donate: 'अभी दान करें' },
     hero: { tagline: 'आपका छोटा सा योगदान किसी की ज़िंदगी बदल सकता है', sub: 'हजारों दयालु दिलों के साथ जुड़ें जो हर दिन बदलाव ला रहे हैं', donateBtn: 'अभी दान करें', volunteerBtn: 'स्वयंसेवक बनें' },
     impact: { title: 'अब तक का हमारा प्रभाव', meals: 'भोजन परोसे गए', people: 'लोगों की मदद', trees: 'पेड़ लगाए', donations: 'दान किए गए' },
-    categories: { title: 'आप कैसे मदद करना चाहेंगे?', sub: 'वह श्रेणी चुनें जो आपके दिल को छूती है', food: 'भोजन दान', clothes: 'कपड़े दान', books: 'पुस्तकें और शिक्षा', money: 'आर्थिक दान', trees: 'वृक्षारोपण', foodDesc: 'जरूरतमंद परिवारों को पौष्टिक भोजन दें', clothesDesc: 'कपड़ों से गरमाहट और सम्मान दें', booksDesc: 'शिक्षा सामग्री से मन को सशक्त करें', moneyDesc: 'आपका आर्थिक सहयोग हमारे कार्यक्रमों को चलाता है', treesDesc: 'हरित कल के लिए उम्मीद लगाएँ', foodImpact: '₹500 से 5 लोगों का भोजन', clothesImpact: '10 कपड़ों से 1 परिवार की मदद', booksImpact: '5 पुस्तकों से 1 बच्चे की शिक्षा', moneyImpact: '₹1000 से 1 परिवार/माह', treesImpact: '₹200 से 1 पेड़' },
+    categories: { title: 'आप कैसे मदद करना चाहेंगे?', sub: 'वह श्रेणी चुनें जो आपके दिल को छूती है', food: 'भोजन दान', clothes: 'कपड़े दान', books: 'पुस्तकें और शिक्षा', money: 'आर्थिक दान', trees: 'वृक्षारोपण', gift: 'उपहार दान', foodDesc: 'जरूरतमंद परिवारों को पौष्टिक भोजन दें', clothesDesc: 'कपड़ों से गरमाहट और सम्मान दें', booksDesc: 'शिक्षा सामग्री से मन को सशक्त करें', moneyDesc: 'आपका आर्थिक सहयोग हमारे कार्यक्रमों को चलाता है', treesDesc: 'हरित कल के लिए उम्मीद लगाएँ', giftDesc: 'बच्चों के लिए उपहारों के साथ खुशियाँ फैलाएँ', foodImpact: '₹500 से 5 लोगों का भोजन', clothesImpact: '10 कपड़ों से 1 परिवार की मदद', booksImpact: '5 पुस्तकों से 1 बच्चे की शिक्षा', moneyImpact: '₹1000 से 1 परिवार/माह', treesImpact: '₹200 से 1 पेड़', giftImpact: '₹300 से 1 बच्चे के चेहरे पर मुस्कान' },
     about: { title: 'सेवा मार्ग के बारे में', mission: 'हमारा मिशन', missionText: 'देने वालों और जरूरतमंदों के बीच की दूरी को पाटना, करुणा और सहयोग का एक सहज माध्यम बनाना।', vision: 'हमारा विज़न', visionText: 'एक ऐसी दुनिया जहाँ कोई भूखा न रहे, हर बच्चे को शिक्षा मिले, और समुदाय मिलकर फलें-फूलें।', story: 'हमारी कहानी', storyText: 'सेवा मार्ग एक सरल विचार से जन्मा — कि तकनीक दयालुता को बढ़ा सकती है। दोस्तों के एक छोटे समूह से शुरू हुई यात्रा आज भारत भर में हजारों जीवन बदल रही है।' },
     volunteer: { title: 'स्वयंसेवक बनें', sub: 'बदलाव लाने वालों के परिवार से जुड़ें', roles: 'भूमिका चुनें', teaching: 'शिक्षण', distribution: 'वितरण', awareness: 'जागरूकता अभियान', submit: 'अभी जुड़ें' },
     dashboard: { title: 'आपका डैशबोर्ड', welcome: 'वापसी पर स्वागत', impact: 'आपका प्रभाव सारांश', helped: 'आपने अब तक', people: 'लोगों की मदद की!', history: 'दान इतिहास', profile: 'प्रोफ़ाइल विवरण', addresses: 'सहेजे गए पते', receipts: 'रसीदें डाउनलोड करें', notifications: 'सूचनाएँ' },
@@ -115,7 +115,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         // Use fetchAPI so expired tokens are silently auto-refreshed
         const data = await fetchAPI('/api/chat/notifications/');
-        const notifs = (data.results || data).map((n: any) => ({
+        const results = data.results || data || [];
+        
+        const notifs = Array.isArray(results) ? results.map((n: any) => ({
           id: n.id,
           title: n.title || '',
           text: n.message || n.text || n.title || '',
@@ -123,7 +125,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           read: n.read ?? false,
           message: n.message,
           timestamp: n.timestamp,
-        }));
+        })) : [];
         setNotifications(notifs);
       } catch (err) { console.error('Failed to load notifications', err); }
     };

@@ -8,6 +8,10 @@ class DatabaseBackupSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CategorySerializer(serializers.ModelSerializer):
+    description = serializers.CharField(required=True)
+    impact_badge = serializers.CharField(required=True)
+    # image is required only for new categories, but we'll enforce it here
+    
     class Meta:
         model = Category
         fields = '__all__'

@@ -31,7 +31,8 @@ export default function LocationTracking({ darkMode }: Props) {
     const fetchDonations = async () => {
       try {
         const res = await fetchAPI('/api/donations/');
-        setDonations(res.results || res || []);
+        const data = Array.isArray(res) ? res : (res.data || res.results || []);
+        setDonations(data);
       } catch (err) {
         console.error('Failed to fetch location data', err);
       } finally {
@@ -49,13 +50,13 @@ export default function LocationTracking({ darkMode }: Props) {
 
   const extractCity = (d: any) => d.pickup_details?.city || 'Unknown';
 
-  const citySummary = Object.entries(
+  const citySummary: [string, number][] = Object.entries(
     donations.reduce((acc, d) => {
       const city = extractCity(d);
       acc[city] = (acc[city] || 0) + 1;
       return acc;
     }, {} as Record<string, number>)
-  ).sort((a, b) => b[1] - a[1]);
+  ).sort((a: any, b: any) => b[1] - a[1]) as [string, number][];
 
   const combinedSearch = (searchQuery + ' ' + localSearch).trim().toLowerCase();
   const filteredDonations = donations.filter(d => {

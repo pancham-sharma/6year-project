@@ -1,17 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Trash2, RotateCcw, Loader, Search, Heart, Handshake, MessageSquare, Bell, CheckCircle, XCircle } from 'lucide-react';
-import { fetchAPI } from '../utils/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getRecycledItems, restoreItemAPI, deleteItemAPI } from '../api/recycled';
 
 interface Props { darkMode: boolean; }
 
 export default function RecycleBin({ darkMode }: Props) {
-  const [loading, setLoading] = useState(true);
-  const [donations, setDonations] = useState<any[]>([]);
-  const [applications, setApplications] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -19,113 +15,66 @@ export default function RecycleBin({ darkMode }: Props) {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const fetchRecycled = async () => {
-    setLoading(true);
-    try {
-      const [donRes, appRes, notifRes, msgRes] = await Promise.all([
-        fetchAPI('/api/donations/'),
-        fetchAPI('/api/users/volunteer/admin/list/'),
-        fetchAPI('/api/chat/notifications/'),
-        fetchAPI('/api/chat/messages/')
-      ]);
-      
-      const allDons = donRes.results || donRes || [];
-      const allApps = appRes.results || appRes || [];
-      const allNotifs = notifRes.results || notifRes || [];
-      const allMsgs = msgRes.results || msgRes || [];
-      
-      setDonations(allDons.filter((d: any) => d.status === 'Recycled'));
-      setApplications(allApps.filter((a: any) => a.status === 'Recycled'));
-      setNotifications(allNotifs.filter((n: any) => n.status === 'Recycled'));
-      setMessages(allMsgs.filter((m: any) => m.status === 'Recycled'));
-    } catch (err) {
-      console.error("Failed to fetch recycled items", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // React Query
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['recycled'],
+    queryFn: getRecycledItems,
+  });
 
-  useEffect(() => { fetchRecycled(); }, []);
+  const donations = useMemo(() => data?.donations || [], [data]);
+  const applications = useMemo(() => data?.applications || [], [data]);
+  const notifications = useMemo(() => data?.notifications || [], [data]);
+  const messages = useMemo(() => data?.messages || [], [data]);
+
+  // Mutations
+  const restoreMutation = useMutation({
+    mutationFn: ({ id, type }: { id: any; type: string }) => restoreItemAPI(id, type),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recycled'] });
+      showToast('Item restored successfully!', 'success');
+    },
+    onError: () => showToast('Failed to restore item.', 'error')
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ id, type }: { id: any; type: string }) => deleteItemAPI(id, type),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recycled'] });
+      showToast('Item permanently deleted.', 'success');
+    },
+    onError: () => showToast('Failed to delete item.', 'error')
+  });
 
   const restoreItem = async (id: any, type: 'donation' | 'application' | 'notification' | 'message') => {
-    const key = `restore-${type}-${id}`;
-    setActionLoading(prev => ({ ...prev, [key]: true }));
-    try {
-      let endpoint = '';
-      // Restore status differs per type
-      let restoreStatus = 'Pending';
-      if (type === 'donation')     { endpoint = `/api/donations/${id}/`; restoreStatus = 'Pending'; }
-      else if (type === 'application') { endpoint = `/api/users/volunteer/admin/${id}/`; restoreStatus = 'Pending'; }
-      else if (type === 'notification') { endpoint = `/api/chat/notifications/${id}/`; restoreStatus = 'Active'; }
-      else if (type === 'message')  { endpoint = `/api/chat/messages/${id}/`; restoreStatus = 'Active'; }
-        
-      await fetchAPI(endpoint, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: restoreStatus })
-      });
-      
-      if (type === 'donation')      setDonations(prev => prev.filter(d => d.id !== id));
-      else if (type === 'application') setApplications(prev => prev.filter(a => a.id !== id));
-      else if (type === 'notification') setNotifications(prev => prev.filter(n => n.id !== id));
-      else if (type === 'message')  setMessages(prev => prev.filter(m => m.id !== id));
-
-      showToast('Item restored successfully!', 'success');
-    } catch (err) {
-      console.error("Failed to restore item", err);
-      showToast('Failed to restore item.', 'error');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [key]: false }));
-    }
+    restoreMutation.mutate({ id, type });
   };
 
   const permanentDelete = async (id: any, type: 'donation' | 'application' | 'notification' | 'message') => {
     if (!window.confirm("PERMANENTLY DELETE this item? This cannot be undone.")) return;
-    const key = `delete-${type}-${id}`;
-    setActionLoading(prev => ({ ...prev, [key]: true }));
-    try {
-      let endpoint = '';
-      if (type === 'donation')      endpoint = `/api/donations/${id}/`;
-      else if (type === 'application') endpoint = `/api/users/volunteer/admin/${id}/`;
-      else if (type === 'notification') endpoint = `/api/chat/notifications/${id}/`;
-      else if (type === 'message')  endpoint = `/api/chat/messages/${id}/`;
-        
-      await fetchAPI(endpoint, { method: 'DELETE' });
-      
-      if (type === 'donation')      setDonations(prev => prev.filter(d => d.id !== id));
-      else if (type === 'application') setApplications(prev => prev.filter(a => a.id !== id));
-      else if (type === 'notification') setNotifications(prev => prev.filter(n => n.id !== id));
-      else if (type === 'message')  setMessages(prev => prev.filter(m => m.id !== id));
-
-      showToast('Item permanently deleted.', 'success');
-    } catch (err) {
-      console.error("Failed to delete item", err);
-      showToast('Failed to delete item.', 'error');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [key]: false }));
-    }
+    deleteMutation.mutate({ id, type });
   };
 
   // Helper: action buttons with loading state
   const ActionButtons = ({ id, type }: { id: any; type: 'donation' | 'application' | 'notification' | 'message' }) => {
-    const restoring = actionLoading[`restore-${type}-${id}`];
-    const deleting  = actionLoading[`delete-${type}-${id}`];
+    const isRestoring = restoreMutation.isPending && restoreMutation.variables?.id === id;
+    const isDeleting = deleteMutation.isPending && deleteMutation.variables?.id === id;
     return (
       <div className="flex items-center justify-end gap-2">
         <button
           title="Restore"
           onClick={() => restoreItem(id, type)}
-          disabled={restoring || deleting}
+          disabled={isRestoring || isDeleting}
           className="p-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-50 transition-all"
         >
-          {restoring ? <Loader size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+          {isRestoring ? <Loader size={14} className="animate-spin" /> : <RotateCcw size={14} />}
         </button>
         <button
           title="Delete Permanently"
           onClick={() => permanentDelete(id, type)}
-          disabled={restoring || deleting}
+          disabled={isRestoring || isDeleting}
           className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50 transition-all"
         >
-          {deleting ? <Loader size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          {isDeleting ? <Loader size={14} className="animate-spin" /> : <Trash2 size={14} />}
         </button>
       </div>
     );
@@ -136,10 +85,10 @@ export default function RecycleBin({ darkMode }: Props) {
   const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';
   const rowHover = darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50';
 
-  const filteredDonations = donations.filter(d => d.donor?.toLowerCase().includes(searchTerm.toLowerCase()) || d.id.toString().includes(searchTerm));
-  const filteredApps = applications.filter(a => a.name?.toLowerCase().includes(searchTerm.toLowerCase()) || a.email?.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredNotifs = notifications.filter(n => n.title?.toLowerCase().includes(searchTerm.toLowerCase()) || n.message?.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredMessages = messages.filter(m => m.message_body?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredDonations = donations.filter((d: any) => d.donor?.toLowerCase().includes(searchTerm.toLowerCase()) || d.id.toString().includes(searchTerm));
+  const filteredApps = applications.filter((a: any) => a.name?.toLowerCase().includes(searchTerm.toLowerCase()) || a.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredNotifs = notifications.filter((n: any) => n.title?.toLowerCase().includes(searchTerm.toLowerCase()) || n.message?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredMessages = messages.filter((m: any) => m.message_body?.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="space-y-6">
@@ -193,7 +142,7 @@ export default function RecycleBin({ darkMode }: Props) {
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                     {filteredDonations.length === 0 ? (
                       <tr><td colSpan={4} className={`py-8 text-center ${textSub}`}>No recycled donations found</td></tr>
-                    ) : filteredDonations.map(item => (
+                    ) : filteredDonations.map((item: any) => (
                       <tr key={item.id} className={`transition-colors ${rowHover}`}>
                         <td className="px-4 py-4">
                           <p className={`font-semibold ${textMain}`}>Donation #{item.id}</p>
@@ -227,7 +176,7 @@ export default function RecycleBin({ darkMode }: Props) {
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                     {filteredApps.length === 0 ? (
                       <tr><td colSpan={4} className={`py-8 text-center ${textSub}`}>No recycled applications found</td></tr>
-                    ) : filteredApps.map(item => (
+                    ) : filteredApps.map((item: any) => (
                       <tr key={item.id} className={`transition-colors ${rowHover}`}>
                         <td className="px-4 py-4">
                           <p className={`font-semibold ${textMain}`}>{item.name}</p>
@@ -260,7 +209,7 @@ export default function RecycleBin({ darkMode }: Props) {
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                     {filteredNotifs.length === 0 ? (
                       <tr><td colSpan={3} className={`py-8 text-center ${textSub}`}>No recycled notifications found</td></tr>
-                    ) : filteredNotifs.map(item => (
+                    ) : filteredNotifs.map((item: any) => (
                       <tr key={item.id} className={`transition-colors ${rowHover}`}>
                         <td className="px-4 py-4">
                           <p className={`font-semibold ${textMain}`}>{item.title}</p>
@@ -293,7 +242,7 @@ export default function RecycleBin({ darkMode }: Props) {
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                     {filteredMessages.length === 0 ? (
                       <tr><td colSpan={4} className={`py-8 text-center ${textSub}`}>No recycled messages found</td></tr>
-                    ) : filteredMessages.map(item => (
+                    ) : filteredMessages.map((item: any) => (
                       <tr key={item.id} className={`transition-colors ${rowHover}`}>
                         <td className="px-4 py-4">
                           <p className={`font-semibold ${textMain}`}>From: {item.sender_username}</p>

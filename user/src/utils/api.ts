@@ -68,10 +68,16 @@ export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Pro
   // ── Auto-refresh on 401 ──────────────────────────────────────────────────
   if (response.status === 401) {
 
-    // Exempt login and register from global 401 message
-    const isAuthEndpoint = endpoint.includes('login') || endpoint.includes('register');
+    // Exempt login, register and social auth from global 401 message
+    const isAuthEndpoint = endpoint.includes('login') || endpoint.includes('register') || endpoint.includes('auth');
     if (!localStorage.getItem('refresh_token') && !isAuthEndpoint) {
       throw new Error('Please Login First');
+    }
+
+    // For auth endpoints, don't try to refresh, just throw the error
+    if (isAuthEndpoint) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || errorData.error || 'Authentication failed');
     }
 
     if (!isRefreshing) {

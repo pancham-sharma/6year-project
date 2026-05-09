@@ -18,8 +18,31 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'password', 'confirm_password', 'first_name', 'last_name', 'role', 'phone_number', 'city']
         
     def validate_email(self, value):
+        import re
+        value = value.strip().lower()
+        # Strict Regex: requires @ and . with 2-6 char TLD
+        if not re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$", value):
+            raise serializers.ValidationError("Please enter a valid email address")
+        
+        # Blacklist common fake strings and disposable domains
+        prefix = value.split('@')[0]
+        domain = value.split('@')[1]
+        
+        DISPOSABLE = ['mailinator.com', 'tempmail.com', 'getnada.com', 'mail.ru']
+        if domain in DISPOSABLE:
+            raise serializers.ValidationError("Disposable emails are not allowed")
+
+        if any(keyword in prefix for keyword in ['test', 'fake', 'example', 'demo', 'asdf', 'admin']):
+            if prefix != 'admin': # Allow actual 'admin' but not 'test-admin'
+                raise serializers.ValidationError("Please use a real email address, not a test/fake one")
+
         if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("User already exists")
+            raise serializers.ValidationError("Email already exists")
+        return value
+
+    def validate_first_name(self, value):
+        if len(value.strip()) < 3:
+            raise serializers.ValidationError("Full name must be at least 3 characters")
         return value
 
     def validate(self, data):

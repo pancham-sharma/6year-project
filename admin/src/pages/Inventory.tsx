@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Package, TrendingDown, TrendingUp, Edit3, Save, X, Loader, Search } from 'lucide-react';
-import { fetchAPI } from '../utils/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getInventoryItems, getImpactMetrics, updateInventoryItem } from '../api/inventory';
 import { useSearch } from '../context/SearchContext';
 
 
@@ -8,54 +9,56 @@ interface Props { darkMode: boolean; }
 
 export default function Inventory({ darkMode }: Props) {
   const { searchQuery } = useSearch();
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [editId, setEditId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<any>({});
-  const [impactMetrics, setImpactMetrics] = useState<any[]>([]);
   const [distributeModal, setDistributeModal] = useState<any | null>(null);
   const [distAmount, setDistAmount] = useState('');
 
 
   const catColors: any = { Food: '#f59e0b', Clothes: '#8b5cf6', Books: '#3b82f6', Monetary: '#10b981', Environment: '#22c55e' };
   const catIcons: any = { Food: '🍲', Clothes: '👕', Books: '📚', Monetary: '💰', Environment: '🌱' };
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [invRes, impactRes] = await Promise.all([
-          fetchAPI('/api/inventory/items/').catch(() => []),
-          fetchAPI('/api/inventory/impact-metrics/').catch(() => [])
-        ]);
-        
-        const impactData = impactRes.results || impactRes || [];
-        setImpactMetrics(impactData);
+  
+  // React Query for Inventory Items
+  const { data: invData, isLoading: invLoading } = useQuery({
+    queryKey: ['inventory'],
+    queryFn: getInventoryItems,
+  });
 
-        const data = (invRes.results || invRes || []).map((item: any) => {
-          // Try to find a matching impact metric to use as 'distributed'
-          // e.g. "Meals Served" for Food
+  // React Query for Impact Metrics
+  const { data: impactData, isLoading: impactLoading } = useQuery({
+    queryKey: ['impact-metrics'],
+    queryFn: getImpactMetrics,
+  });
 
+  const inventory = useMemo(() => {
+    const raw = Array.isArray(invData) ? invData : (invData?.results || []);
+    return raw.map((item: any) => ({
+      id: item.id,
+      category: item.category,
+      totalReceived: item.quantity, 
+      distributed: item.distributed || 0, 
+      unit: item.category === 'Food' ? 'kg' : item.category === 'Monetary' ? 'INR' : 'units',
+      color: catColors[item.category] || '#9ca3af',
+      icon: catIcons[item.category] || '📦',
+      lastUpdated: new Date(item.last_updated).toLocaleDateString('en-IN')
+    }));
+  }, [invData]);
 
-          return {
-            id: item.id,
-            category: item.category,
-            totalReceived: item.quantity, 
-            distributed: item.distributed || 0, 
-            unit: item.category === 'Food' ? 'kg' : item.category === 'Monetary' ? 'INR' : 'units',
-            color: catColors[item.category] || '#9ca3af',
-            icon: catIcons[item.category] || '📦',
-            lastUpdated: new Date(item.last_updated).toLocaleDateString('en-IN')
-          };
-        });
+  const impactMetrics = useMemo(() => {
+    return Array.isArray(impactData) ? impactData : (impactData?.results || []);
+  }, [impactData]);
 
-        setInventory(data);
-      } catch (err) {
-        console.error("Failed to fetch inventory data", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  // Mutations
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => updateInventoryItem(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['impact-metrics'] });
+    }
+  });
+
+  const loading = invLoading || impactLoading;
 
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
@@ -67,7 +70,7 @@ export default function Inventory({ darkMode }: Props) {
   const editInputBg = darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'bg-gray-50 border-gray-300 text-gray-800';
 
   const combinedSearch = (searchQuery + ' ' + (editValues.search || '')).trim().toLowerCase();
-  const filtered = inventory.filter(i => 
+  const filtered = inventory.filter((i: any) => 
     !combinedSearch || 
     i.category.toLowerCase().includes(combinedSearch)
   );
@@ -78,30 +81,19 @@ export default function Inventory({ darkMode }: Props) {
     setEditValues({ totalReceived: item.totalReceived, distributed: item.distributed, id: item.id });
   };
 
-  const saveEdit = async (category: string) => {
-    try {
-      if (editValues.id) {
-        if (editValues.distributed > editValues.totalReceived) {
-          alert("Distributed quantity cannot exceed total received!");
-          return;
-        }
-        await fetchAPI(`/api/inventory/items/${editValues.id}/`, {
-          method: 'PATCH',
-          body: JSON.stringify({ 
-            quantity: editValues.totalReceived,
-            distributed: editValues.distributed
-          })
-        });
+  const saveEdit = async (_category: string) => {
+    if (editValues.id) {
+      if (editValues.distributed > editValues.totalReceived) {
+        alert("Distributed quantity cannot exceed total received!");
+        return;
       }
-      setInventory(prev => prev.map(i => i.category === category ? {
-        ...i,
-        totalReceived: editValues.totalReceived ?? i.totalReceived,
-        distributed: editValues.distributed ?? i.distributed,
-        lastUpdated: new Date().toLocaleDateString('en-IN'),
-      } : i));
-
-    } catch (err) {
-      console.error("Failed to update inventory", err);
+      updateMutation.mutate({ 
+        id: editValues.id, 
+        data: { 
+          quantity: editValues.totalReceived,
+          distributed: editValues.distributed
+        } 
+      });
     }
     setEditId(null);
   };
@@ -109,7 +101,7 @@ export default function Inventory({ darkMode }: Props) {
   const handleDistribute = async () => {
     if (!distributeModal || !distAmount || isNaN(+distAmount)) return;
     const amount = +distAmount;
-    const item = inventory.find(i => i.id === distributeModal.id);
+    const item = inventory.find((i: any) => i.id === distributeModal.id);
     if (!item) return;
 
     if (item.distributed + amount > item.totalReceived) {
@@ -117,28 +109,19 @@ export default function Inventory({ darkMode }: Props) {
       return;
     }
 
-    try {
-      await fetchAPI(`/api/inventory/items/${item.id}/`, {
-        method: 'PATCH',
-        body: JSON.stringify({ 
-          distributed: item.distributed + amount
-        })
-      });
-      setInventory(prev => prev.map(i => i.id === item.id ? {
-        ...i,
-        distributed: i.distributed + amount,
-        lastUpdated: new Date().toLocaleDateString('en-IN'),
-      } : i));
-      setDistributeModal(null);
-      setDistAmount('');
-    } catch (err) {
-      console.error("Failed to distribute items", err);
-    }
+    updateMutation.mutate({ 
+      id: item.id, 
+      data: { 
+        distributed: item.distributed + amount
+      } 
+    });
+    setDistributeModal(null);
+    setDistAmount('');
   };
 
 
-  const totalItems = inventory.reduce((s, i) => s + i.totalReceived, 0);
-  const totalDistributed = inventory.reduce((s, i) => s + i.distributed, 0);
+  const totalItems = inventory.reduce((s: number, i: any) => s + i.totalReceived, 0);
+  const totalDistributed = inventory.reduce((s: number, i: any) => s + i.distributed, 0);
   const totalRemaining = totalItems - totalDistributed;
 
   return (
@@ -181,7 +164,7 @@ export default function Inventory({ darkMode }: Props) {
            <div className="col-span-full flex justify-center py-10"><Loader className="animate-spin text-green-500" /></div>
         ) : filtered.length === 0 ? (
            <div className={`col-span-full text-center py-10 ${textSub}`}>No categories matching your search.</div>
-        ) : filtered.map(item => {
+        ) : filtered.map((item: any) => {
           const pct = item.totalReceived > 0 ? Math.round((item.distributed / item.totalReceived) * 100) : 0;
           const remaining = item.totalReceived - item.distributed;
           return (
@@ -238,7 +221,7 @@ export default function Inventory({ darkMode }: Props) {
                  <tr>
                    <td colSpan={8} className={`py-8 text-center ${textSub}`}>No matching inventory items.</td>
                  </tr>
-              ) : filtered.map(item => {
+              ) : filtered.map((item: any) => {
                 const pct = item.totalReceived > 0 ? Math.round((item.distributed / item.totalReceived) * 100) : 0;
                 const remaining = item.totalReceived - item.distributed;
                 const isEditing = editId === item.category;
@@ -306,7 +289,7 @@ export default function Inventory({ darkMode }: Props) {
         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {impactMetrics.length === 0 ? (
             <div className={`col-span-full py-4 text-center ${textSub}`}>No impact metrics found in database.</div>
-          ) : impactMetrics.map(m => (
+          ) : impactMetrics.map((m: any) => (
             <div key={m.id} className={`p-4 rounded-xl border ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-100'}`}>
                <p className={`text-xs font-semibold uppercase tracking-wide ${textSub} mb-1`}>{m.name}</p>
                <p className={`text-2xl font-bold ${textMain}`}>{m.value.toLocaleString()}</p>
