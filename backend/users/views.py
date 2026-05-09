@@ -226,36 +226,42 @@ class SocialAuthGoogleView(APIView):
             return Response({"error": "Firebase Admin SDK not installed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
-            # Initialize Firebase Admin if not already initialized
+            # Initialize Firebase Admin with strict project ID handling
             if not firebase_admin._apps:
                 from django.conf import settings
                 
-                cred_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
-                
-                try:
-                    # The most reliable way to initialize Firebase is to use the environment variable
-                    # or point it directly to the JSON file, which guarantees it parses the project_id.
+                project_id = os.getenv('FIREBASE_PROJECT_ID') or os.getenv('GOOGLE_CLOUD_PROJECT')
+                client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
+                private_key = os.getenv('FIREBASE_PRIVATE_KEY')
+
+                if project_id and client_email and private_key:
+                    print(f"📡 Initializing Firebase with Env: {project_id}")
+                    # Fix Render newline issue
+                    formatted_key = private_key.replace('\\n', '\n')
+                    cred = credentials.Certificate({
+                        "project_id": project_id,
+                        "client_email": client_email,
+                        "private_key": formatted_key,
+                        "type": "service_account",
+                        "token_uri": "https://oauth2.googleapis.com/token",
+                    })
+                    firebase_admin.initialize_app(cred)
+                else:
+                    # Fallback to local JSON if env not set
+                    cred_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
                     if os.path.exists(cred_path):
-                        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = cred_path
+                        print(f"📄 Initializing Firebase with JSON: {cred_path}")
                         cred = credentials.Certificate(cred_path)
                         firebase_admin.initialize_app(cred)
-                        print("Firebase initialized with local service account JSON.")
                     else:
-                        print("WARNING: firebase-service-account.json not found in backend directory.")
-                        # Attempt to initialize from environment variables if set in production
+                        print("⚠️ WARNING: No Firebase credentials found. Falling back to default.")
                         firebase_admin.initialize_app()
-                except Exception as e:
-                    print(f"Firebase Init Error: {e}")
-                    firebase_admin.initialize_app()
 
-            # Verify the Firebase ID token
-            # This is much more secure and robust than generic google-auth
-            try:
-                decoded_token = auth.verify_id_token(token)
-            except Exception as ve:
-                print(f"Firebase Token verification failed: {str(ve)}")
-                return Response({'error': f'Invalid Firebase token: {str(ve)}'}, status=status.HTTP_401_UNAUTHORIZED)
-
+            print("--- Django Google Auth Verification ---")
+            print("VERIFY TOKEN START")
+            decoded_token = auth.verify_id_token(token)
+            print(f"✅ Token Verified for: {decoded_token.get('email')}")
+            
             email = decoded_token.get('email')
             name = decoded_token.get('name', '')
             picture = decoded_token.get('picture', '')
@@ -264,26 +270,27 @@ class SocialAuthGoogleView(APIView):
                 return Response({"error": "Email not found in token"}, status=status.HTTP_400_BAD_REQUEST)
 
             # Create or get user
-            # Split name into first and last if possible
-            name_parts = name.split(' ', 1)
-            f_name = name_parts[0] if len(name_parts) > 0 else ''
-            l_name = name_parts[1] if len(name_parts) > 1 else ''
-
-            user, created = User.objects.get_or_create(
-                email=email,
-                defaults={
-                    'username': email.split('@')[0] + str(random.randint(100, 999)),
-                    'first_name': f_name,
-                    'last_name': l_name,
-                    'role': 'DONOR',
-                    'is_email_verified': True 
-                }
-            )
-
-            # If user exists but wasn't verified, mark as verified
-            if not user.is_email_verified:
-                user.is_email_verified = True
-                user.save()
+            user = User.objects.filter(email=email).first()
+            if not user:
+                print(f"👤 Creating new user for {email}")
+                username = email.split('@')[0] + str(random.randint(100, 999))
+                name_parts = name.split(' ', 1)
+                f_name = name_parts[0] if len(name_parts) > 0 else ''
+                l_name = name_parts[1] if len(name_parts) > 1 else ''
+                
+                user = User.objects.create(
+                    email=email,
+                    username=username,
+                    first_name=f_name,
+                    last_name=l_name,
+                    role='DONOR',
+                    is_email_verified=True 
+                )
+            else:
+                print(f"✨ Found existing user: {user.username}")
+                if not user.is_email_verified:
+                    user.is_email_verified = True
+                    user.save()
 
             # Generate tokens
             refresh = RefreshToken.for_user(user)
@@ -291,14 +298,20 @@ class SocialAuthGoogleView(APIView):
             return Response({
                 'access': str(refresh.access_token),
                 'refresh': str(refresh),
-                'user': UserSerializer(user).data
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'role': user.role,
+                    'profile_picture': picture or (user.profile_picture.url if user.profile_picture else None)
+                }
             })
 
         except Exception as e:
-            import traceback
-            print(f"Social Auth Error: {str(e)}")
-            traceback.print_exc()
-            return Response({"error": f"Internal Server Error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            print(f"❌ Google Auth Error: {str(e)}")
+            return Response({'error': f'Auth failed: {str(e)}'}, status=status.HTTP_401_UNAUTHORIZED)
 
 class PasswordResetRequestView(APIView):
     permission_classes = (permissions.AllowAny,)
