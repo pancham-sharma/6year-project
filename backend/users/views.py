@@ -32,46 +32,43 @@ import requests
 from django.core.mail import send_mail
 from .models import VolunteerApplication, EmailOTP
 
-def send_otp_email(email, otp_code, first_name="User"):
-    """Send OTP via Resend API"""
-    resend_api_key = os.getenv('RESEND_API_KEY')
-    
-    if not resend_api_key:
-        print(f"\n[WARNING] RESEND_API_KEY not found. SIMULATING EMAIL to: {email} | Code: {otp_code}\n")
-        return False
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 
+def send_otp_email(email, otp_code, first_name="User"):
+    """Send OTP via configured Email Backend (SMTP or Resend)"""
+    subject = "Verify your email - SevaMarg"
+    
+    html_message = f"""
+        <div style="font-family: sans-serif; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #4f46e5; text-align: center;">Verify Your Email</h2>
+            <p>Welcome to <strong>SevaMarg</strong>! Your verification code is:</p>
+            <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; margin: 20px 0;">
+                {otp_code}
+            </div>
+            <p style="color: #6b7280; font-size: 14px;">This code will expire in 5 minutes. If you didn't request this, please ignore this email.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="text-align: center; color: #9ca3af; font-size: 12px;">© 2024 SevaMarg Foundation</p>
+        </div>
+    """
+    plain_message = strip_tags(html_message)
+    
     try:
-        url = "https://api.resend.com/emails"
-        headers = {
-            "Authorization": f"Bearer {resend_api_key}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "from": "SevaMarg <onboarding@resend.dev>", # Default for free tier, change to your domain if verified
-            "to": [email],
-            "subject": "Verify your email - SevaMarg",
-            "html": f"""
-                <div style="font-family: sans-serif; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                    <h2 style="color: #4f46e5; text-align: center;">Verify Your Email</h2>
-                    <p>Welcome to <strong>SevaMarg</strong>! Your verification code is:</p>
-                    <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; margin: 20px 0;">
-                        {otp_code}
-                    </div>
-                    <p style="color: #6b7280; font-size: 14px;">This code will expire in 5 minutes. If you didn't request this, please ignore this email.</p>
-                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                    <p style="text-align: center; color: #9ca3af; font-size: 12px;">© 2024 SevaMarg Foundation</p>
-                </div>
-            """
-        }
-        response = requests.post(url, headers=headers, json=payload)
-        if response.status_code == 200 or response.status_code == 201:
-            print(f"Email sent successfully to {email}")
-            return True
-        else:
-            print(f"Resend API Error: {response.text}")
-            return False
+        send_mail(
+            subject,
+            plain_message,
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        print(f"✅ OTP Email sent successfully to {email}")
+        return True
     except Exception as e:
-        print(f"Failed to send email via Resend: {str(e)}")
+        print(f"❌ Failed to send OTP email to {email}: {str(e)}")
+        # Fallback log for local development
+        print(f"\n[DEVELOPMENT FALLBACK] To: {email} | OTP: {otp_code}\n")
         return False
 
 class RegisterView(generics.CreateAPIView):
