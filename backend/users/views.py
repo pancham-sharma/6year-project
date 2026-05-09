@@ -28,7 +28,6 @@ except ImportError:
 User = get_user_model()
 
 import random
-import requests
 from django.core.mail import send_mail
 from .models import VolunteerApplication, EmailOTP, PasswordResetOTP
 
