@@ -412,7 +412,13 @@ class PasswordResetRequestView(APIView):
                 PasswordResetOTP.objects.create(email=email, otp=otp_code)
                 
                 print(f"🔑 Password Reset Requested for {email}. OTP: {otp_code}")
-                send_password_reset_email(email, otp_code)
+                # Send email in a background thread to prevent API hang
+                import threading
+                email_thread = threading.Thread(
+                    target=send_password_reset_email,
+                    args=(email, otp_code)
+                )
+                email_thread.start()
 
             return Response({"message": "If an account with this email exists, a reset code has been sent."})
         except Exception as e:
