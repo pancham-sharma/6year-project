@@ -142,6 +142,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # File Storage
