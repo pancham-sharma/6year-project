@@ -291,6 +291,8 @@ class SocialAuthGoogleView(APIView):
 
     def post(self, request):
         token = request.data.get('token')
+        print(f"\n🔥 [FIREBASE] AUTH REQUEST START")
+        
         if not token:
             return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -298,22 +300,22 @@ class SocialAuthGoogleView(APIView):
             return Response({"error": "Firebase Admin SDK not installed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
-            # Initialize Firebase Admin with strict project ID handling
-            if not firebase_admin._apps:
-                from django.conf import settings
-                
-                 # --- Fail-Proof Firebase Initialization ---
-                project_id = os.getenv('FIREBASE_PROJECT_ID', 'donation-44db3').strip(' "')
-                client_email = os.getenv('FIREBASE_CLIENT_EMAIL', '').strip(' "')
-                private_key = os.getenv('FIREBASE_PRIVATE_KEY', '').strip(' "')
-                
-                print(f"📡 [DEBUG] Checking Env Vars...")
-                print(f"📡 [DEBUG] Project ID Found: {bool(project_id)} ('{project_id}')")
-                print(f"📡 [DEBUG] Client Email Found: {bool(client_email)}")
-                print(f"📡 [DEBUG] Private Key Found: {bool(private_key)}")
+            # --- Fail-Proof Firebase Initialization ---
+            project_id = os.getenv('FIREBASE_PROJECT_ID', 'donation-44db3').strip(' "')
+            client_email = os.getenv('FIREBASE_CLIENT_EMAIL', '').strip(' "')
+            private_key = os.getenv('FIREBASE_PRIVATE_KEY', '').strip(' "')
+            
+            print(f"📡 [DEBUG] Checking Env Vars...")
+            print(f"📡 [DEBUG] Project ID Found: {bool(project_id)} ('{project_id}')")
+            print(f"📡 [DEBUG] Client Email Found: {bool(client_email)}")
+            print(f"📡 [DEBUG] Private Key Found: {bool(private_key)}")
 
-                # Check if already initialized
-                if not firebase_admin._apps:
+            # FORCE RESET if broken
+            if not firebase_admin._apps:
+                print("🔥 [FIREBASE] No apps found. Initializing...")
+            else:
+                # If we are here but getting "Default Credentials" errors later, we should reset
+                print(f"🔥 [FIREBASE] Existing apps found: {firebase_admin._apps}")
                     # 1. Try Environment Variables First
                     if client_email and private_key:
                         try:
