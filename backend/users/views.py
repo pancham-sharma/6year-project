@@ -319,18 +319,25 @@ class SocialAuthGoogleView(APIView):
                             # Clean the private key thoroughly
                             raw_key = private_key.strip(' "\'').replace('\\n', '\n')
                             
-                            # Extract only the base64 content between headers if they exist
+                            # Extract only the base64 content
                             clean_body = raw_key.replace('-----BEGIN PRIVATE KEY-----', '')
                             clean_body = clean_body.replace('-----END PRIVATE KEY-----', '')
-                            # Remove all whitespace/newlines from the body to get pure base64
-                            pure_base64 = "".join(clean_body.split())
                             
-                            # Reconstruct PEM Sandwhich perfectly (64 chars per line)
+                            # BRUTE FORCE: Remove every char that isn't A-Z, a-z, 0-9, +, /, or =
+                            import re
+                            pure_base64 = re.sub(r'[^A-Za-z0-9+/=]', '', clean_body)
+                            
+                            # PEM keys should not have '=' in the middle.
+                            if '=' in pure_base64[:-2]:
+                                print("⚠️ Rogue '=' detected in key body. Cleaning...")
+                                pure_base64 = pure_base64.replace('=', '') + '=='
+                            
+                            # Reconstruct PEM perfectly
                             formatted_body = '\n'.join([pure_base64[i:i+64] for i in range(0, len(pure_base64), 64)])
                             final_pem = f"-----BEGIN PRIVATE KEY-----\n{formatted_body}\n-----END PRIVATE KEY-----\n"
                             
                             print(f"🛠️ PEM Reconstructed. Body length: {len(pure_base64)}")
-                            print(f"🔍 Key Preview: {final_pem[:30]}...[HIDDEN]...{final_pem[-30:].strip()}")
+                            print(f"📡 [DEBUG] Raw Key Length: {len(private_key)}")
 
                             cred = credentials.Certificate({
                                 "project_id": project_id,
