@@ -6,6 +6,9 @@ echo    Pushing Changes to GitHub
 echo ===================================
 echo.
 
+:: Ensure origin is correct
+git remote set-url origin https://github.com/pancham-sharma/6year-project.git
+
 :: Check for changes
 git status -s
 
@@ -21,7 +24,7 @@ echo [2/3] Committing changes...
 git commit -m "%msg%"
 
 echo [3/3] Pushing to GitHub...
-git push
+git push origin main
 
 echo.
 echo ===================================

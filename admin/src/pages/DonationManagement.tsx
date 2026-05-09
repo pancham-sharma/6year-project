@@ -236,10 +236,10 @@ export default function DonationManagement({ darkMode }: Props) {
                     <td className={`px-4 py-4 ${textSub}`}>
                       <div className="flex items-start gap-1"><MapPin size={12} className="mt-0.5" /> <span className="truncate max-w-[150px]">{d.address}</span></div>
                     </td>
-                    <td className="px-4 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${catColors[d.category] || 'bg-gray-100 text-gray-600'}`}>{d.category}</span>
+                    <td className="px-4 py-4 min-w-[120px]">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${catColors[d.category] || 'bg-gray-100 text-gray-600'}`}>{d.category}</span>
                     </td>
-                    <td className={`px-4 py-4 font-medium ${textMain}`}>{d.quantity}</td>
+                    <td className={`px-4 py-4 font-medium ${textMain} min-w-[150px]`}>{d.quantity}</td>
                     <td className={`px-4 py-4 ${textSub}`}>{d.date}</td>
                     <td className="px-4 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${statusColors[d.status] || 'bg-gray-100 text-gray-600'}`}>{d.status}</span>

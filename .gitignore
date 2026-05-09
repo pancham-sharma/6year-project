@@ -64,12 +64,22 @@ desktop.ini
 *.sublime-project
 *.sublime-workspace
 
-# Project Specific Waste
+# Project Specific Waste and Secrets
 run_all.bat
 sync_assets.bat
 PUSH_TO_GITHUB.bat
+PUSH.bat
+git_push.bat
 image.png
+firebase-service-account.json
+backend/firebase-service-account.json
 backend/category_images/
 *.bat
 tmp/
 temp/
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+*.env

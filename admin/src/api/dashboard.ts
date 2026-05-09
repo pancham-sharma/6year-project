@@ -7,8 +7,8 @@ export const getDashboardData = async () => {
     fetchAPI('/api/chat/notifications/').catch(() => [])
   ]);
   return {
-    donations: donsRes.results || donsRes || [],
-    inventory: invRes.results || invRes || [],
-    notifications: notifsRes.results || notifsRes || []
+    donations: donsRes.data || donsRes.results || donsRes || [],
+    inventory: invRes.data || invRes.results || invRes || [],
+    notifications: notifsRes.data || notifsRes.results || notifsRes || []
   };
 };

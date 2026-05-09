@@ -20,9 +20,9 @@ export default function Dashboard({ darkMode }: Props) {
     queryFn: getDashboardData,
   });
 
-  const donations = useMemo(() => data?.donations || [], [data]);
-  const inventory = useMemo(() => data?.inventory || [], [data]);
-  const notifications = useMemo(() => data?.notifications || [], [data]);
+  const donations = useMemo(() => Array.isArray(data?.donations) ? data.donations : [], [data]);
+  const inventory = useMemo(() => Array.isArray(data?.inventory) ? data.inventory : [], [data]);
+  const notifications = useMemo(() => Array.isArray(data?.notifications) ? data.notifications : [], [data]);
 
   // Styling Variables
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
