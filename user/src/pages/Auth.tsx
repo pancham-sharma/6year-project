@@ -572,6 +572,8 @@ export default function Auth() {
                 <Mail className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
                 <input 
                   type="email" 
+                  id="reset-email"
+                  name="reset-email"
                   placeholder="Enter your email" 
                   value={resetEmail} 
                   onChange={e => setResetEmail(e.target.value)} 
@@ -585,6 +587,8 @@ export default function Auth() {
                   <Shield className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
                   <input 
                     type="text" 
+                    id="reset-otp"
+                    name="reset-otp"
                     placeholder="Enter 6-digit Reset Code" 
                     value={resetOTP} 
                     onChange={e => setResetOTP(e.target.value)} 
@@ -597,6 +601,8 @@ export default function Auth() {
                   <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
                   <input 
                     type={showPass ? 'text' : 'password'} 
+                    id="new-password"
+                    name="new-password"
                     placeholder="New Password" 
                     value={form.password} 
                     onChange={e => setForm(p => ({ ...p, password: e.target.value }))} 
@@ -674,8 +680,15 @@ export default function Auth() {
           {!isLogin && (
             <div className="relative">
               <User className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
-              <input type="text" placeholder={t.auth.name} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                className={`w-full pl-10 pr-4 py-3 rounded-xl border-2 text-sm transition-colors ${dark ? 'bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-gray-50 border-gray-200 placeholder:text-gray-400 focus:border-primary-500 focus:bg-white'} outline-none`} />
+              <input 
+                type="text" 
+                id="full-name"
+                name="full-name"
+                placeholder={t.auth.name} 
+                value={form.name} 
+                onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                className={`w-full pl-10 pr-4 py-3 rounded-xl border-2 text-sm transition-colors ${dark ? 'bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-gray-50 border-gray-200 placeholder:text-gray-400 focus:border-primary-500 focus:bg-white'} outline-none`} 
+              />
             </div>
           )}
           <div className="relative group">
@@ -687,6 +700,8 @@ export default function Auth() {
             
             <input 
               type="email" 
+              id="email"
+              name="email"
               placeholder={t.auth.email} 
               value={form.email} 
               onChange={e => setForm(p => ({ ...p, email: e.target.value }))} 
@@ -727,9 +742,16 @@ export default function Auth() {
           )}
           <div className="relative">
             <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
-            <input type={showPass ? 'text' : 'password'} placeholder={isResetMode ? "New Password" : t.auth.password} value={form.password} 
-              onChange={e => { setForm(p => ({ ...p, password: e.target.value })); calculateStrength(e.target.value); }} required
-              className={`w-full pl-10 pr-10 py-3 rounded-xl border-2 text-sm transition-colors ${dark ? 'bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-gray-50 border-gray-200 placeholder:text-gray-400 focus:border-primary-500 focus:bg-white'} outline-none`} />
+            <input 
+              type={showPass ? 'text' : 'password'} 
+              id="password"
+              name="password"
+              placeholder={isResetMode ? "New Password" : t.auth.password} 
+              value={form.password} 
+              onChange={e => { setForm(p => ({ ...p, password: e.target.value })); calculateStrength(e.target.value); }} 
+              required
+              className={`w-full pl-10 pr-10 py-3 rounded-xl border-2 text-sm transition-colors ${dark ? 'bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-gray-50 border-gray-200 placeholder:text-gray-400 focus:border-primary-500 focus:bg-white'} outline-none`} 
+            />
             <button type="button" onClick={() => setShowPass(!showPass)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
               {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>

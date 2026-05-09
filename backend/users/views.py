@@ -314,7 +314,6 @@ class SocialAuthGoogleView(APIView):
                         formatted_key = f"-----BEGIN PRIVATE KEY-----\n{formatted_key}\n-----END PRIVATE KEY-----"
                     
                     try:
-                        # Use initialized app if it already exists
                         if not firebase_admin._apps:
                             cred = credentials.Certificate({
                                 "project_id": project_id,
@@ -324,24 +323,35 @@ class SocialAuthGoogleView(APIView):
                                 "token_uri": "https://oauth2.googleapis.com/token",
                             })
                             firebase_admin.initialize_app(cred, {
-                                'projectId': project_id,
+                                'projectId': project_id, # Explicitly set project ID here
                             })
+                            print("✅ Firebase initialized successfully with Environment Variables.")
                     except Exception as ce:
-                        print(f"❌ Firebase Certificate Error: {str(ce)}")
-                        if not firebase_admin._apps:
-                            firebase_admin.initialize_app()
-                else:
-                    # Fallback to local JSON if env not set
-                    cred_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
-                    if os.path.exists(cred_path):
-                        print(f"📄 Initializing Firebase with JSON: {cred_path}")
-                        if not firebase_admin._apps:
-                            cred = credentials.Certificate(cred_path)
-                            firebase_admin.initialize_app(cred)
-                    else:
-                        print("⚠️ WARNING: No Firebase credentials found. Falling back to default.")
-                        if not firebase_admin._apps:
-                            firebase_admin.initialize_app()
+                        print(f"❌ Firebase Env Init Error: {str(ce)}")
+                
+                # Secondary Fallback: Local JSON File
+                if not firebase_admin._apps:
+                    # Try multiple possible paths for the JSON file on Render
+                    possible_paths = [
+                        os.path.join(settings.BASE_DIR, 'firebase-service-account.json'),
+                        os.path.join(settings.BASE_DIR, 'backend', 'firebase-service-account.json'),
+                        '/opt/render/project/src/backend/firebase-service-account.json'
+                    ]
+                    for cred_path in possible_paths:
+                        if os.path.exists(cred_path):
+                            print(f"📄 Initializing Firebase with JSON: {cred_path}")
+                            try:
+                                cred = credentials.Certificate(cred_path)
+                                firebase_admin.initialize_app(cred, {'projectId': project_id})
+                                print("✅ Firebase initialized successfully with JSON file.")
+                                break
+                            except Exception as json_e:
+                                print(f"⚠️ JSON Init failed for {cred_path}: {str(json_e)}")
+                
+                # Final Fallback: Default initialization
+                if not firebase_admin._apps:
+                    print("⚠️ WARNING: No Firebase credentials found. Using default initialization.")
+                    firebase_admin.initialize_app(options={'projectId': project_id})
 
             print("--- Django Google Auth Verification ---")
             print("VERIFY TOKEN START")
