@@ -119,7 +119,13 @@ class RegisterView(generics.CreateAPIView):
                     print(f"🔢 New User OTP Generated: {otp_code}")
                     
                     # Send Email (Safe Call)
-                    send_otp_email(user.email, otp_code, user.first_name)
+                    # Send OTP in background
+                    import threading
+                    email_thread = threading.Thread(
+                        target=send_otp_email,
+                        args=(user.email, otp_code, user.first_name)
+                    )
+                    email_thread.start()
                 except Exception as inner_e:
                     print(f"⚠️ Registration completed but OTP failed: {str(inner_e)}")
                 
@@ -214,12 +220,13 @@ class ResendOTPView(APIView):
             otp_code = str(random.randint(100000, 999999))
             EmailOTP.objects.create(user=user, otp=otp_code)
             
-            # Send Real Email via Resend
-            email_sent = send_otp_email(user.email, otp_code, user.first_name)
-            
-            if not email_sent:
-                # Fallback to simulation
-                print(f"\n[EMAIL RESEND SIMULATION] To: {user.email} | Code: {otp_code}\n")
+            # Send OTP in background
+            import threading
+            email_thread = threading.Thread(
+                target=send_otp_email,
+                args=(user.email, otp_code, user.first_name)
+            )
+            email_thread.start()
             
             return Response({"success": True, "message": "New OTP sent to your email."})
             
@@ -266,42 +273,46 @@ class SocialAuthGoogleView(APIView):
             if not firebase_admin._apps:
                 from django.conf import settings
                 
-                project_id = (os.getenv('FIREBASE_PROJECT_ID') or os.getenv('GOOGLE_CLOUD_PROJECT', '')).strip(' "')
+                # Get Project ID from multiple possible sources
+                project_id = (os.getenv('FIREBASE_PROJECT_ID') or os.getenv('GOOGLE_CLOUD_PROJECT') or 'donation-44db3').strip(' "')
                 client_email = (os.getenv('FIREBASE_CLIENT_EMAIL') or '').strip(' "')
                 private_key = (os.getenv('FIREBASE_PRIVATE_KEY') or '').strip(' "')
 
                 if project_id and client_email and private_key:
-                    print(f"📡 Initializing Firebase with Env: {project_id}")
-                    # Fix Render newline issue and handle escaped newlines
+                    print(f"📡 Initializing Firebase for Project: {project_id}")
                     formatted_key = private_key.replace('\\n', '\n')
-                    
-                    # Ensure it has the correct PEM headers
                     if '-----BEGIN PRIVATE KEY-----' not in formatted_key:
                         formatted_key = f"-----BEGIN PRIVATE KEY-----\n{formatted_key}\n-----END PRIVATE KEY-----"
                     
                     try:
-                        cred = credentials.Certificate({
-                            "project_id": project_id,
-                            "client_email": client_email,
-                            "private_key": formatted_key,
-                            "type": "service_account",
-                            "token_uri": "https://oauth2.googleapis.com/token",
-                        })
-                        firebase_admin.initialize_app(cred)
+                        # Use initialized app if it already exists
+                        if not firebase_admin._apps:
+                            cred = credentials.Certificate({
+                                "project_id": project_id,
+                                "client_email": client_email,
+                                "private_key": formatted_key,
+                                "type": "service_account",
+                                "token_uri": "https://oauth2.googleapis.com/token",
+                            })
+                            firebase_admin.initialize_app(cred, {
+                                'projectId': project_id,
+                            })
                     except Exception as ce:
-                        print(f"❌ Certificate Error: {str(ce)}")
-                        # Last ditch attempt with default if env fails
-                        firebase_admin.initialize_app()
+                        print(f"❌ Firebase Certificate Error: {str(ce)}")
+                        if not firebase_admin._apps:
+                            firebase_admin.initialize_app()
                 else:
                     # Fallback to local JSON if env not set
                     cred_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
                     if os.path.exists(cred_path):
                         print(f"📄 Initializing Firebase with JSON: {cred_path}")
-                        cred = credentials.Certificate(cred_path)
-                        firebase_admin.initialize_app(cred)
+                        if not firebase_admin._apps:
+                            cred = credentials.Certificate(cred_path)
+                            firebase_admin.initialize_app(cred)
                     else:
                         print("⚠️ WARNING: No Firebase credentials found. Falling back to default.")
-                        firebase_admin.initialize_app()
+                        if not firebase_admin._apps:
+                            firebase_admin.initialize_app()
 
             print("--- Django Google Auth Verification ---")
             print("VERIFY TOKEN START")
