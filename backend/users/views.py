@@ -78,67 +78,51 @@ class RegisterView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         email = request.data.get('email', '').strip().lower()
-        print(f"--- Registration Flow Start for {email} ---")
+        print(f"--- Registration Attempt for {email} ---")
         
         if not email:
             return Response({"success": False, "message": "Email is required"}, status=400)
 
-        # Check if user already exists (Case-Insensitive)
+        # Check if user already exists
         existing_user = User.objects.filter(email__iexact=email).first()
         if existing_user:
-            print(f"🔍 Duplicate Check: User {email} already exists. Verified: {existing_user.is_email_verified}")
+            print(f"🔍 User {email} already exists. Verified: {existing_user.is_email_verified}")
             if not existing_user.is_email_verified:
-                print(f"📧 Unverified user detected. Resending OTP...")
-                EmailOTP.objects.filter(user=existing_user).delete()
-                otp_code = str(random.randint(100000, 999999))
-                EmailOTP.objects.create(user=existing_user, otp=otp_code)
-                
-                print(f"🔢 New OTP Generated: {otp_code}")
-                send_otp_email(existing_user.email, otp_code, existing_user.first_name)
-                
+                # DO NOT generate OTP automatically anymore
                 return Response({
                     "success": False,
-                    "message": "Account already exists but email is not verified. A new OTP has been sent to your email.",
+                    "message": "Account already exists but email is not verified. Please verify your email or click resend OTP.",
                     "email_unverified": True,
                     "email": existing_user.email
-                }, status=status.HTTP_200_OK)
+                }, status=status.HTTP_200_OK) # Return 200 so frontend knows user exists but needs verification
             else:
-                print(f"🚫 Registration Blocked: User {email} is already verified.")
                 return Response({
                     "success": False,
-                    "message": "User already exists with this email. Please login instead."
+                    "message": "User already exists. Please login instead."
                 }, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             print(f"👤 Creating new user profile for {email}")
             user = serializer.save()
-            # Generate 6-digit OTP
+            
+            # Generate OTP ONLY for new registration
             otp_code = str(random.randint(100000, 999999))
             EmailOTP.objects.create(user=user, otp=otp_code)
-            print(f"🔢 Initial OTP Generated: {otp_code}")
+            print(f"🔢 New User OTP Generated: {otp_code}")
             
             # Send Email
             send_otp_email(user.email, otp_code, user.first_name)
             
             return Response({
                 "success": True,
-                "message": "Registration successful! Verification code has been sent to your email. Please verify before logging in.",
+                "message": "Verification code has been sent to your email. Please verify before logging in.",
                 "email": user.email
             }, status=status.HTTP_201_CREATED)
         
-        # Flatten first error message
-        msg = "Validation error"
-        if serializer.errors:
-            first_field = next(iter(serializer.errors))
-            msg = serializer.errors[first_field][0]
-            if isinstance(msg, dict):
-                msg = next(iter(msg.values()))[0]
-        
-        print(f"❌ Registration Validation Failed: {msg}")
         return Response({
             "success": False,
-            "message": msg
+            "message": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
 class VerifyEmailView(APIView):

@@ -291,18 +291,19 @@ export default function Auth() {
           })
         });
         
-        setLoading(false);
         if (res.email_unverified) {
-          // Account exists but not verified - message updated to user request
-          setSuccessMsg("Account already exists but email is not verified. A new OTP has been sent to your email.");
+          // Account exists but not verified
+          setSuccessMsg("Account already exists but email is not verified. Please verify your email or click resend OTP.");
+          setLoading(false);
+          // Stay on page so they can decide what to do
+          return;
         } else {
           setSuccessMsg("Verification OTP has been sent to your email. Please verify before logging in.");
+          setTimeout(() => {
+            setShowOTP(true);
+            setSuccessMsg('');
+          }, 1500);
         }
-        
-        setTimeout(() => {
-          setShowOTP(true);
-          setSuccessMsg('');
-        }, 1500);
         return;
       }
 
@@ -344,10 +345,6 @@ export default function Auth() {
       if (isLogin) {
         if (msg.toLowerCase().includes('verification required') || msg.includes('403')) {
           msg = "Your email is not verified. Please verify your email first.";
-          setTimeout(() => {
-            setErrorMsg('');
-            setShowOTP(true);
-          }, 1500);
         } else if (msg.toLowerCase().includes('no active account') || msg.includes('401')) {
           msg = "User not found";
         } else if (msg.toLowerCase().includes('password')) {
