@@ -1,14 +1,11 @@
 import { fetchAPI } from '../utils/api';
 
 export const getDashboardData = async () => {
-  const [donsRes, invRes, notifsRes] = await Promise.all([
-    fetchAPI('/api/donations/').catch(() => []),
-    fetchAPI('/api/inventory/items/').catch(() => []),
-    fetchAPI('/api/chat/notifications/').catch(() => [])
-  ]);
+  const data = await fetchAPI('/api/donations/dashboard-summary/');
   return {
-    donations: donsRes.data || donsRes.results || donsRes || [],
-    inventory: invRes.data || invRes.results || invRes || [],
-    notifications: notifsRes.data || notifsRes.results || notifsRes || []
+    donations: data.recent_donations || [],
+    inventory: data.inventory || [],
+    stats: data.stats || {},
+    categories: data.categories || []
   };
 };

@@ -178,9 +178,6 @@ export default function Messages({ darkMode }: Props) {
           }
           // Clear state after use
           (window as any)._navState = null;
-        } else if (formattedConvs.length > 0 && !activeId) {
-          const firstId = formattedConvs[0].id;
-          setActiveId(firstId);
         }
       } catch (err) {
         console.error("Failed to load messages", err);

@@ -27,7 +27,8 @@ export const getDonations = async (
   page: number = 1,
   limit: number = 10,
   search: string = '',
-  category: string = ''
+  category: string = '',
+  status: string = ''
 ): Promise<PaginatedDonations> => {
   const queryParams = new URLSearchParams({
     page: page.toString(),
@@ -36,11 +37,13 @@ export const getDonations = async (
   
   if (search) queryParams.append('search', search);
   if (category && category !== 'All') queryParams.append('category', category);
+  if (status && status !== 'All') queryParams.append('status', status);
 
   const response = await fetchAPI(`/api/donations/?${queryParams.toString()}`);
+  const rawData = Array.isArray(response) ? response : (response.results || response.data || []);
   
   // Map backend fields to frontend structure
-  const formattedData = response.data.map((d: any) => ({
+  const formattedData = rawData.map((d: any) => ({
     id: d.id.toString(),
     donorName: d.donor,
     contact: d.donor_phone || 'N/A',

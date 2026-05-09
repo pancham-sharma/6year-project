@@ -22,9 +22,9 @@ export default function Reports({ darkMode }: Props) {
           fetchAPI('/api/inventory/items/').catch(() => []),
           fetchAPI('/api/users/list/').catch(() => [])
         ]);
-        setDonations(donsRes.results || donsRes || []);
-        setInventory(invRes.results || invRes || []);
-        setUsers(usersRes.results || usersRes || []);
+        setDonations(Array.isArray(donsRes) ? donsRes : (donsRes?.results || []));
+        setInventory(Array.isArray(invRes) ? invRes : (invRes?.results || []));
+        setUsers(Array.isArray(usersRes) ? usersRes : (usersRes?.results || []));
       } catch (err) {
         console.error("Analytics fetch error:", err);
       } finally {

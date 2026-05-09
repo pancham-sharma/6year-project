@@ -9,7 +9,12 @@ class CustomPagination(PageNumberPagination):
     def get_paginated_response(self, data):
         return Response({
             'data': data,
-            'total': self.page.paginator.count,
-            'page': self.page.number,
-            'totalPages': self.page.paginator.num_pages
+            'meta': {
+                'total': self.page.paginator.count,
+                'page': self.page.number,
+                'totalPages': self.page.paginator.num_pages,
+                'hasNext': self.get_next_link() is not None,
+                'hasPrev': self.get_previous_link() is not None,
+                'limit': self.get_page_size(self.request)
+            }
         })

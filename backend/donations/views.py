@@ -180,34 +180,34 @@ class DonationViewSet(viewsets.ModelViewSet):
 class DataManagementViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAdminUser]
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def backup(self, request):
         try:
             timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"backup_{timestamp}.json"
+            
+            # Directory for backups in media root
             backup_dir = os.path.join(settings.MEDIA_ROOT, 'backups')
             if not os.path.exists(backup_dir):
-                os.makedirs(backup_dir)
+                os.makedirs(backup_dir, exist_ok=True)
             
             filepath = os.path.join(backup_dir, filename)
             
-            # Exclude large/system tables that often cause dumpdata errors or bloat
-            # and target specifically our local apps for a cleaner backup.
-            exclude_apps = ['contenttypes', 'auth.Permission', 'sessions', 'admin.LogEntry']
-            
+            # Perform the data dump
+            # We specify the apps we want; excluding system apps we aren't dumping anyway
             with open(filepath, 'w', encoding='utf-8') as f:
                 call_command('dumpdata', 
                             'users', 'donations', 'inventory', 'chat',
-                            exclude=exclude_apps,
                             indent=2, 
                             stdout=f)
             
             size_bytes = os.path.getsize(filepath)
             size_str = f"{size_bytes / 1024:.2f} KB" if size_bytes < 1024 * 1024 else f"{size_bytes / (1024 * 1024):.2f} MB"
             
-            # Use only the filename here, as upload_to='backups/' will handle the prefix
+            # Create the backup record
+            # file=... should be the relative path inside MEDIA_ROOT
             backup = DatabaseBackup.objects.create(
-                file=filename,
+                file=f"backups/{filename}",
                 size=size_str,
                 backup_type='json'
             )

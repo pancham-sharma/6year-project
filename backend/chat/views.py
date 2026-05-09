@@ -29,8 +29,12 @@ class MessageViewSet(viewsets.ModelViewSet):
         if not other_user_id:
             return Response({"error": "other_user_id is required"}, status=400)
         
-        # Mark all messages from other_user to me as read
-        Message.objects.filter(sender_id=other_user_id, receiver=request.user, read=False).update(read=True)
+        # If user is admin, mark all unread messages from other_user as read
+        if request.user.is_staff or getattr(request.user, 'role', '') == 'ADMIN':
+            Message.objects.filter(sender_id=other_user_id, read=False).update(read=True)
+        else:
+            # Regular user marks messages sent specifically to them
+            Message.objects.filter(sender_id=other_user_id, receiver=request.user, read=False).update(read=True)
         return Response({"status": "success"})
 
 class NotificationViewSet(viewsets.ModelViewSet):

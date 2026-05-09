@@ -28,6 +28,7 @@ const categoryColors: string[] = [
 declare const L: any;
 
 const MapEffect = ({ coords, onSelect, dark, mapRef }: any) => {
+  // Initialization & Cleanup
   useEffect(() => {
     if (typeof L === 'undefined') return;
     
@@ -47,12 +48,24 @@ const MapEffect = ({ coords, onSelect, dark, mapRef }: any) => {
       mapRef.marker = L.marker([0, 0]).addTo(map);
     }
 
-    if (coords && mapRef.marker) {
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []); // Run once on mount/unmount
+
+  // Handle Coordinate Updates
+  useEffect(() => {
+    if (coords && mapRef.current && mapRef.marker) {
       mapRef.marker.setLatLng([coords.lat, coords.lon]);
       mapRef.current.setView([coords.lat, coords.lon], 15);
     }
-    
-    // Update theme if it changes
+  }, [coords]);
+
+  // Handle Theme Updates
+  useEffect(() => {
     if (mapRef.current) {
        mapRef.current.eachLayer((layer: any) => {
          if (layer._url) mapRef.current.removeLayer(layer);
@@ -63,8 +76,7 @@ const MapEffect = ({ coords, onSelect, dark, mapRef }: any) => {
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(mapRef.current);
     }
-
-  }, [coords, dark]);
+  }, [dark]);
 
   return null;
 };

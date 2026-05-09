@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -6,23 +6,20 @@ import {
 import { Heart, DollarSign, Clock, CheckCircle2, TrendingUp, ArrowUpRight, Loader } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getDashboardData } from '../api/dashboard';
-import { useSearch } from '../context/SearchContext';
 
 interface Props { darkMode: boolean; }
 
 export default function Dashboard({ darkMode }: Props) {
-  const { searchQuery } = useSearch();
-  const [localSearch, setLocalSearch] = useState('');
-
   // React Query for Dashboard Data
   const { data, isLoading: loading } = useQuery({
     queryKey: ['dashboard-data'],
     queryFn: getDashboardData,
+    staleTime: 1000 * 60 * 5,
   });
 
   const donations = useMemo(() => Array.isArray(data?.donations) ? data.donations : [], [data]);
   const inventory = useMemo(() => Array.isArray(data?.inventory) ? data.inventory : [], [data]);
-  const notifications = useMemo(() => Array.isArray(data?.notifications) ? data.notifications : [], [data]);
+  const notifications: any[] = []; // Notifications now handled separately or via another stream
 
   // Styling Variables
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
@@ -44,16 +41,13 @@ export default function Dashboard({ darkMode }: Props) {
   };
 
   // Compute Metrics dynamically from Donations Table
-  const totalDonations = donations.length;
-  const totalMonetary = donations.filter((d: any) => d.category === 'Monetary').length * 100; // Assuming 100 avg
-  const pendingPickups = donations.filter((d: any) => d.status === 'Pending' || d.status === 'Scheduled').length;
-  const completedDonations = donations.filter((d: any) => d.status === 'Completed').length;
+  // (Using server-side stats now)
 
   const summaryCards = [
-    { label: 'Total Donations', value: totalDonations.toLocaleString('en-IN'), icon: Heart, bg: 'from-green-400 to-emerald-500', sub: 'Updated live', trend: 'up' },
-    { label: 'Monetary Contributions', value: `₹${totalMonetary.toLocaleString('en-IN')}`, icon: DollarSign, bg: 'from-blue-400 to-indigo-500', sub: 'Estimated', trend: 'up' },
-    { label: 'Pending Pickups', value: pendingPickups, icon: Clock, bg: 'from-amber-400 to-orange-500', sub: 'Needs attention', trend: 'neutral' },
-    { label: 'Completed Donations', value: completedDonations, icon: CheckCircle2, bg: 'from-violet-400 to-purple-500', sub: 'Successfully delivered', trend: 'up' },
+    { label: 'Total Donations', value: data?.stats?.total_donations?.toLocaleString('en-IN') || 0, icon: Heart, bg: 'from-green-400 to-emerald-500', sub: 'Updated live', trend: 'up' },
+    { label: 'Total Users', value: data?.stats?.total_users?.toLocaleString('en-IN') || 0, icon: DollarSign, bg: 'from-blue-400 to-indigo-500', sub: 'Est. Community Size', trend: 'up' },
+    { label: 'Pending Pickups', value: data?.stats?.pending_donations || 0, icon: Clock, bg: 'from-amber-400 to-orange-500', sub: 'Needs attention', trend: 'neutral' },
+    { label: 'Active Volunteers', value: data?.stats?.active_volunteers || 0, icon: CheckCircle2, bg: 'from-violet-400 to-purple-500', sub: 'Ready for action', trend: 'up' },
   ];
 
   // Category Pie Data derived from real donations
@@ -293,10 +287,6 @@ export default function Dashboard({ darkMode }: Props) {
       <div className={`rounded-2xl border shadow-sm ${card}`}>
         <div className={`px-5 py-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'} flex items-center justify-between flex-wrap gap-3`}>
           <h2 className={`font-bold text-base ${textMain}`}>Recent Donations</h2>
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm ${darkMode ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-gray-50 border-gray-200 text-gray-700'} w-full sm:w-64 transition-all`}>
-            <span className="text-gray-400">🔍</span>
-            <input className="bg-transparent outline-none w-full text-xs" placeholder="Filter recent donations..." value={localSearch} onChange={e => setLocalSearch(e.target.value)} />
-          </div>
 
         </div>
         <div className="overflow-x-auto">
@@ -313,10 +303,7 @@ export default function Dashboard({ darkMode }: Props) {
                  <tr>
                    <td colSpan={6} className={`py-8 text-center ${textSub}`}>No donations stored yet.</td>
                  </tr>
-              ) : donations.filter((d: any) => {
-                  const q = (searchQuery + ' ' + localSearch).trim().toLowerCase();
-                  return !q || d.donor.toLowerCase().includes(q) || d.id.toString().includes(q) || d.category.toLowerCase().includes(q);
-                }).slice(0, 5).map((d: any) => (
+              ) : donations.slice(0, 5).map((d: any) => (
 
                 <tr key={d.id} className={`transition-colors ${darkMode ? 'divide-gray-700 hover:bg-gray-700/40' : 'hover:bg-gray-50'}`}>
                   <td className={`px-5 py-3.5 font-mono font-medium text-green-600`}>#{d.id}</td>

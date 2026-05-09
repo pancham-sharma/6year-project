@@ -81,16 +81,15 @@ export default function Navbar() {
                   className="flex items-center gap-2 group p-1 rounded-full transition-all duration-300 hover:bg-gray-100 dark:hover:bg-white/10"
                 >
                   <div className="relative">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black text-white shadow-[0_8px_20px_-4px_rgba(24,226,153,0.4)] transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 overflow-hidden ${!user.image ? 'bg-gradient-to-br from-[#18E299] to-[#0fa76e]' : ''}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-md transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-3 overflow-hidden ${!user.image ? 'bg-slate-800 dark:bg-slate-700' : ''}`}>
                       {user.image ? (
                         <img src={user.image} alt="Profile" className="w-full h-full object-cover" />
                       ) : (
                         user.name ? user.name.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : <User className="w-4 h-4" />)
                       )}
                     </div>
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full shadow-sm"></div>
                   </div>
-                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${profileOpen ? 'rotate-180' : ''} ${dark ? 'text-slate-400' : 'text-slate-600'}`} />
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${profileOpen ? 'rotate-180' : ''} ${dark ? 'text-slate-400' : 'text-slate-600'}`} />
                 </button>
 
                 {/* Profile Dropdown */}

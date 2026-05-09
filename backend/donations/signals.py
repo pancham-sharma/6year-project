@@ -4,6 +4,10 @@ from .models import Donation, PickupDetails
 from inventory.models import InventoryItem
 from chat.models import Notification
 import re
+from io import BytesIO
+from django.core.files.base import ContentFile
+from PIL import Image
+import os
 
 @receiver(post_save, sender=Donation)
 def handle_donation_notification(sender, instance, created, **kwargs):
@@ -90,3 +94,37 @@ def handle_pickup_notification(sender, instance, created, **kwargs):
     #                     title="Upcoming Pickup Alert",
     #                     message=f"Action Required: Pickup scheduled for donation #{instance.donation.id} on {instance.scheduled_date}."
     #                 )
+@receiver(post_save, sender=Donation)
+def optimize_donation_image(sender, instance, **kwargs):
+    """
+    Automatically converts donation images to WebP and compresses them.
+    """
+    if not instance.image:
+        return
+
+    # To avoid recursion, check if the image is already in WebP format
+    if instance.image.name.lower().endswith('.webp'):
+        return
+
+    try:
+        # Open the image using Pillow
+        img = Image.open(instance.image.path)
+        
+        # Prepare the output stream
+        output = BytesIO()
+        
+        # Convert to WebP with compression
+        img.save(output, format='WEBP', quality=80)
+        output.seek(0)
+        
+        # Rename the file extension to .webp
+        new_name = os.path.splitext(instance.image.name)[0] + '.webp'
+        
+        # Save the new image (using save=False to prevent recursion)
+        instance.image.save(new_name, ContentFile(output.read()), save=False)
+        
+        # Update the model instance directly
+        Donation.objects.filter(pk=instance.pk).update(image=instance.image)
+        
+    except Exception as e:
+        print(f"Image optimization failed: {e}")

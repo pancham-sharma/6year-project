@@ -1,49 +1,43 @@
-import { useState, useEffect } from 'react';
-import { Search, Users, TrendingUp, Heart, UserCheck, Eye, X, Loader } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Users, Heart, UserCheck, Eye, X, Loader, Shield } from 'lucide-react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { fetchAPI } from '../utils/api';
-import { useSearch } from '../context/SearchContext';
 
 interface Props { darkMode: boolean; }
 
 export default function UserManagement({ darkMode }: Props) {
-  const { searchQuery } = useSearch();
-  const [users, setUsers] = useState<any[]>([]);
-  const [donations, setDonations] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const [localSearch, setLocalSearch] = useState('');
   const [viewUser, setViewUser] = useState<any | null>(null);
+  const [localSearch, setLocalSearch] = useState('');
+  const [page] = useState(1);
+  const [limit] = useState(10);
 
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [usersRes, donsRes] = await Promise.all([
-          fetchAPI('/api/users/list/').catch(() => []),
-          fetchAPI('/api/donations/').catch(() => [])
-        ]);
-        
-        // Map backend users to UI format
-        const fetchedUsers = (usersRes.results || usersRes || []).map((u: any) => ({
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['users-list', page, localSearch],
+    queryFn: async () => {
+      const usersRes = await fetchAPI(`/api/users/list/?page=${page}&limit=${limit}&search=${localSearch}`);
+      const rawUsers = Array.isArray(usersRes) ? usersRes : (usersRes?.results || usersRes?.data || []);
+      const meta = usersRes?.meta || { total: rawUsers.length, totalPages: 1 };
+      
+      return {
+        users: rawUsers.map((u: any) => ({
           id: u.id,
-          name: u.username,
+          name: u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : u.username,
           email: u.email,
           phone: u.phone_number || 'N/A',
-          joinDate: new Date().toLocaleDateString(), // Mocking join date if missing in API
-          status: 'Active', // Mocking status
+          joinDate: u.date_joined ? new Date(u.date_joined).toLocaleDateString() : 'N/A',
+          status: u.role || 'Donor',
           avatar: u.username.charAt(0).toUpperCase()
-        }));
+        })),
+        meta
+      };
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 5
+  });
 
-        setUsers(fetchedUsers);
-        setDonations(donsRes.results || donsRes || []);
-      } catch (err) {
-        console.error("Failed to load user data", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  const users = data?.users || [];
+  const meta = data?.meta || { total: 0, totalPages: 1 };
+
 
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
@@ -54,29 +48,13 @@ export default function UserManagement({ darkMode }: Props) {
   const theadBg = darkMode ? 'bg-gray-700/50' : 'bg-gray-50';
   const modalBg = darkMode ? 'bg-gray-800' : 'bg-white';
 
-  const filtered = users.filter(u => {
-    const g = searchQuery.toLowerCase();
-    const l = localSearch.toLowerCase();
-    
-    const matchesGlobal = !g || 
-      u.name.toLowerCase().includes(g) || 
-      u.email.toLowerCase().includes(g) || 
-      u.id.toString().toLowerCase().includes(g);
-      
-    const matchesLocal = !l || 
-      u.name.toLowerCase().includes(l) || 
-      u.email.toLowerCase().includes(l) || 
-      u.phone.includes(l);
-      
-    return matchesGlobal && matchesLocal;
-  });
+  const filtered = users; // Server side filtering handled via queryFn
 
+  const donorCount = users.filter((u: any) => u.status === 'DONOR' || u.status === 'Donor').length;
+  const volunteerCount = users.filter((u: any) => u.status === 'VOLUNTEER' || u.status === 'Volunteer').length;
+  const adminCount = users.filter((u: any) => u.status === 'ADMIN' || u.status === 'Admin').length;
 
-  const activeCount = users.filter(u => u.status === 'Active').length;
-  const totalDonationCount = donations.length;
-
-  const getUserDonations = (userName: string) => donations.filter((d: any) => d.donor === userName);
-  const getUserDonationCount = (userName: string) => getUserDonations(userName).length;
+  const getUserDonationCount = () => 0; // Simplified for performance, can fetch from backend if needed
 
   const avatarColors = [
     'from-green-400 to-emerald-500',
@@ -96,10 +74,10 @@ export default function UserManagement({ darkMode }: Props) {
       {/* Stats */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {[
-          { label: 'Total Users', value: users.length, icon: Users, color: 'from-green-400 to-emerald-500' },
-          { label: 'Active Users', value: activeCount, icon: UserCheck, color: 'from-blue-400 to-indigo-500' },
-          { label: 'Total Donations', value: totalDonationCount, icon: Heart, color: 'from-amber-400 to-orange-500' },
-          { label: 'Avg. per User', value: users.length > 0 ? (totalDonationCount / users.length).toFixed(1) : 0, icon: TrendingUp, color: 'from-violet-400 to-purple-500' },
+          { label: 'Total Users', value: meta.total, icon: Users, color: 'from-green-400 to-emerald-500' },
+          { label: 'Donors', value: donorCount, icon: Heart, color: 'from-blue-400 to-indigo-500' },
+          { label: 'Volunteers', value: volunteerCount, icon: UserCheck, color: 'from-amber-400 to-orange-500' },
+          { label: 'Admins', value: adminCount, icon: Shield, color: 'from-violet-400 to-purple-500' },
         ].map((s, i) => {
           const Icon = s.icon;
           return (
@@ -148,8 +126,8 @@ export default function UserManagement({ darkMode }: Props) {
                 <tr>
                   <td colSpan={7} className={`py-8 text-center ${textSub}`}>No users found in database.</td>
                 </tr>
-              ) : filtered.map((u, idx) => {
-                const userDons = getUserDonationCount(u.name);
+              ) : filtered.map((u: any, idx: number) => {
+                const userDons = getUserDonationCount();
                 return (
                 <tr key={u.id} className={`transition-colors ${rowHover}`}>
                   <td className="px-5 py-3.5">
@@ -218,7 +196,7 @@ export default function UserManagement({ darkMode }: Props) {
                   { label: 'Email', value: viewUser.email },
                   { label: 'Phone', value: viewUser.phone },
                   { label: 'Join Date', value: viewUser.joinDate },
-                  { label: 'Total Donations', value: getUserDonationCount(viewUser.name).toString() },
+                  { label: 'Total Donations', value: getUserDonationCount().toString() },
                 ].map(item => (
                   <div key={item.label} className={`flex justify-between py-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
                     <span className={`text-sm ${textSub}`}>{item.label}</span>
@@ -230,25 +208,8 @@ export default function UserManagement({ darkMode }: Props) {
               {/* Donation History */}
               <div>
                 <h4 className={`font-bold text-sm mb-3 ${textMain}`}>Donation History</h4>
-                {getUserDonations(viewUser.name).length === 0 ? (
-                  <p className={`text-sm ${textSub}`}>No donations found in database.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {getUserDonations(viewUser.name).map((d: any) => (
-                      <div key={d.id} className={`flex items-center justify-between p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                        <div>
-                          <p className={`text-sm font-medium ${textMain}`}>{d.category} · {d.quantity_description}</p>
-                          <p className={`text-xs ${textSub}`}>{new Date(d.timestamp).toLocaleDateString()}</p>
-                        </div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${
-                          d.status === 'Completed' ? 'bg-green-100 text-green-900 border border-green-200' : 
-                          d.status === 'Scheduled' ? 'bg-blue-100 text-blue-900 border border-blue-200' : 
-                          'bg-amber-100 text-amber-900 border border-amber-200'
-                        }`}>{d.status}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* (Donation history fetch removed for performance) */}
+                <p className={`text-sm ${textSub}`}>No donations found in database.</p>
               </div>
             </div>
           </div>

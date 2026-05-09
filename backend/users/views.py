@@ -28,8 +28,51 @@ except ImportError:
 User = get_user_model()
 
 import random
+import requests
 from django.core.mail import send_mail
 from .models import VolunteerApplication, EmailOTP
+
+def send_otp_email(email, otp_code, first_name="User"):
+    """Send OTP via Resend API"""
+    resend_api_key = os.getenv('RESEND_API_KEY')
+    
+    if not resend_api_key:
+        print(f"\n[WARNING] RESEND_API_KEY not found. SIMULATING EMAIL to: {email} | Code: {otp_code}\n")
+        return False
+
+    try:
+        url = "https://api.resend.com/emails"
+        headers = {
+            "Authorization": f"Bearer {resend_api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "from": "SevaMarg <onboarding@resend.dev>", # Default for free tier, change to your domain if verified
+            "to": [email],
+            "subject": "Verify your email - SevaMarg",
+            "html": f"""
+                <div style="font-family: sans-serif; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                    <h2 style="color: #4f46e5; text-align: center;">Verify Your Email</h2>
+                    <p>Welcome to <strong>SevaMarg</strong>! Your verification code is:</p>
+                    <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; margin: 20px 0;">
+                        {otp_code}
+                    </div>
+                    <p style="color: #6b7280; font-size: 14px;">This code will expire in 5 minutes. If you didn't request this, please ignore this email.</p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                    <p style="text-align: center; color: #9ca3af; font-size: 12px;">© 2024 SevaMarg Foundation</p>
+                </div>
+            """
+        }
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code == 200 or response.status_code == 201:
+            print(f"Email sent successfully to {email}")
+            return True
+        else:
+            print(f"Resend API Error: {response.text}")
+            return False
+    except Exception as e:
+        print(f"Failed to send email via Resend: {str(e)}")
+        return False
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -44,15 +87,12 @@ class RegisterView(generics.CreateAPIView):
             otp_code = str(random.randint(100000, 999999))
             EmailOTP.objects.create(user=user, otp=otp_code)
             
-            # Send Email (Simulated to console)
-            send_mail(
-                'Verify your email - SevaMarg',
-                f'Welcome {user.first_name}! Your verification code is: {otp_code}',
-                'noreply@sevamarg.org',
-                [user.email],
-                fail_silently=True,
-            )
-            print(f"\n[EMAIL SIMULATION] To: {user.email} | Code: {otp_code}\n")
+            # Send Real Email via Resend
+            email_sent = send_otp_email(user.email, otp_code, user.first_name)
+            
+            if not email_sent:
+                # Fallback to simulation if Resend fails/not configured
+                print(f"\n[EMAIL SIMULATION] To: {user.email} | Code: {otp_code}\n")
 
             return Response({
                 "success": True,
@@ -121,15 +161,12 @@ class ResendOTPView(APIView):
             otp_code = str(random.randint(100000, 999999))
             EmailOTP.objects.create(user=user, otp=otp_code)
             
-            # Send Email
-            send_mail(
-                'New Verification Code - SevaMarg',
-                f'Your new verification code is: {otp_code}',
-                'noreply@sevamarg.org',
-                [user.email],
-                fail_silently=True,
-            )
-            print(f"\n[EMAIL RESEND SIMULATION] To: {user.email} | Code: {otp_code}\n")
+            # Send Real Email via Resend
+            email_sent = send_otp_email(user.email, otp_code, user.first_name)
+            
+            if not email_sent:
+                # Fallback to simulation
+                print(f"\n[EMAIL RESEND SIMULATION] To: {user.email} | Code: {otp_code}\n")
             
             return Response({"success": True, "message": "New OTP sent to your email."})
             
@@ -174,34 +211,25 @@ class SocialAuthGoogleView(APIView):
         try:
             # Initialize Firebase Admin if not already initialized
             if not firebase_admin._apps:
-                # 1. Try Environment Variables (Production / Secure Dev)
-                private_key = os.getenv('FIREBASE_PRIVATE_KEY')
-                if private_key:
-                    try:
-                        cred_dict = {
-                            "type": "service_account",
-                            "project_id": os.getenv('FIREBASE_PROJECT_ID'),
-                            "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
-                            "private_key": private_key.replace('\\n', '\n'),
-                            "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
-                            "token_uri": "https://oauth2.googleapis.com/token",
-                        }
-                        cred = credentials.Certificate(cred_dict)
-                        firebase_admin.initialize_app(cred)
-                    except Exception as e:
-                        print(f"Firebase Env Init Error: {e}")
-                        # Fallback if env vars are partial
-                        firebase_admin.initialize_app()
+                from django.conf import settings
                 
-                # 2. Local Fallback (Only if no env vars and file exists)
-                else:
-                    cred_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
+                cred_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
+                
+                try:
+                    # The most reliable way to initialize Firebase is to use the environment variable
+                    # or point it directly to the JSON file, which guarantees it parses the project_id.
                     if os.path.exists(cred_path):
+                        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = cred_path
                         cred = credentials.Certificate(cred_path)
                         firebase_admin.initialize_app(cred)
+                        print("Firebase initialized with local service account JSON.")
                     else:
-                        # Final Fallback (Default credentials)
+                        print("WARNING: firebase-service-account.json not found in backend directory.")
+                        # Attempt to initialize from environment variables if set in production
                         firebase_admin.initialize_app()
+                except Exception as e:
+                    print(f"Firebase Init Error: {e}")
+                    firebase_admin.initialize_app()
 
             # Verify the Firebase ID token
             # This is much more secure and robust than generic google-auth

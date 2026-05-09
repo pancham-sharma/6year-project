@@ -7,29 +7,22 @@ import { fetchAPI, API_BASE_URL } from '../utils/api';
 const getImageUrl = (path: string) => {
   if (!path) return '/images/hero.jpg';
   
-  // NUCLEAR FIX: Intercept and replace broken Vercel URLs (MUST BE FIRST)
   if (path.includes('pancham-sharma-6year-project.vercel.app')) {
     const p = path.toLowerCase();
     if (p.includes('food')) return '/images/stories-food.jpg';
-    if (p.includes('clothes')) return "https://images.unsplash.com/photo-1556906781-9a412961c28c?q=80&w=800";
+    if (p.includes('clothes')) return "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg";
     if (p.includes('books') || p.includes('education')) return '/images/stories-education.jpg';
     if (p.includes('money')) return "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=800";
     if (p.includes('trees')) return '/images/stories-trees.jpg';
     return '/images/hero.jpg'; 
   }
 
-  if (path.startsWith('http') || path.startsWith('https')) return path;
+  if (path.startsWith('http')) return path;
 
-
-
-
-  // Use production backend URL if in production
   const base = API_BASE_URL || 'http://127.0.0.1:8000';
-  
   if (path.startsWith('/media/')) return `${base}${path}`;
-  if (path.startsWith('/') || path.startsWith('images/')) return path; // Frontend asset
+  if (path.startsWith('/') || path.startsWith('images/')) return path;
   return `${base}/media/${path}`;
-
 };
 
 const iconMap: Record<string, any> = {
@@ -60,11 +53,11 @@ export default function Home() {
   });
 
   const permanentCategories = [
-    { id: 'p1', key: 'food', name: t.categories.food, description: t.categories.foodDesc, impact_badge: t.categories.foodImpact, icon_name: 'Utensils', image: "https://i.pinimg.com/1200x/2b/b4/b0/2bb4b0e6331b1e738308549a500a49af.jpg" },
+    { id: 'p1', key: 'food', name: t.categories.food, description: t.categories.foodDesc, impact_badge: t.categories.foodImpact, icon_name: 'Utensils', image: "/images/stories-food.jpg" },
     { id: 'p2', key: 'clothes', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: t.categories.clothesImpact, icon_name: 'Shirt', image: "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg" },
-    { id: 'p3', key: 'books', name: t.categories.books, description: t.categories.booksDesc, impact_badge: t.categories.booksImpact, icon_name: 'BookOpen', image: "category_images/download_9_IOLG5uL.jpeg" },
-    { id: 'p4', key: 'money', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: t.categories.moneyImpact, icon_name: 'Banknote', image: "category_images/download_9.jpeg" },
-    { id: 'p5', key: 'trees', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: t.categories.treesImpact, icon_name: 'Sprout', image: "category_images/nbl_Erinnerungsbaum.jpeg" },
+    { id: 'p3', key: 'books', name: t.categories.books, description: t.categories.booksDesc, impact_badge: t.categories.booksImpact, icon_name: 'BookOpen', image: "/images/stories-education.jpg" },
+    { id: 'p4', key: 'money', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: t.categories.moneyImpact, icon_name: 'Banknote', image: "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=800" },
+    { id: 'p5', key: 'trees', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: t.categories.treesImpact, icon_name: 'Sprout', image: "/images/stories-trees.jpg" },
     { id: 'p6', key: 'gift', name: t.categories.gift, description: t.categories.giftDesc, impact_badge: t.categories.giftImpact, icon_name: 'Gift', image: "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?q=80&w=800" },
   ];
 
@@ -120,11 +113,8 @@ export default function Home() {
             return {
               ...p,
               ...dbVersion,
-              name: p.name,
-              description: dbVersion.description || p.description,
-              image: (dbVersion.image && !dbVersion.image.includes('pancham-sharma-6year-project.vercel.app'))
-                ? getImageUrl(dbVersion.image)
-                : p.image
+              // If the DB has a valid image, use it via getImageUrl, else p.image
+              image: dbVersion.image ? getImageUrl(dbVersion.image) : p.image
             };
           }
           return p;
@@ -140,7 +130,10 @@ export default function Home() {
           )
         );
 
-        setCategories([...updatedPermanent, ...onlyDynamic]);
+        const allCategories = [...updatedPermanent, ...onlyDynamic];
+        const visibleCategories = allCategories.filter(cat => cat.is_active !== false);
+
+        setCategories(visibleCategories);
       } catch (err) {
         console.error("Failed to load categories", err);
         setCategories(permanentCategories);
@@ -209,11 +202,11 @@ export default function Home() {
                       className="w-full h-full object-cover card-img-grayscale"
                       onError={(e) => {
                         const name = cat.name.toLowerCase();
-                        if (name.includes('food')) e.currentTarget.src = "https://i.pinimg.com/1200x/2b/b4/b0/2bb4b0e6331b1e738308549a500a49af.jpg";
+                        if (name.includes('food')) e.currentTarget.src = "/images/stories-food.jpg";
                         else if (name.includes('clothes')) e.currentTarget.src = "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg";
-                        else if (name.includes('book') || name.includes('education')) e.currentTarget.src = getImageUrl("category_images/download_9_IOLG5uL.jpeg");
-                        else if (name.includes('money')) e.currentTarget.src = getImageUrl("category_images/download_9.jpeg");
-                        else if (name.includes('tree')) e.currentTarget.src = getImageUrl("category_images/nbl_Erinnerungsbaum.jpeg");
+                        else if (name.includes('book') || name.includes('education')) e.currentTarget.src = "/images/stories-education.jpg";
+                        else if (name.includes('money')) e.currentTarget.src = "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?q=80&w=800";
+                        else if (name.includes('tree') || name.includes('environment')) e.currentTarget.src = "/images/stories-trees.jpg";
                         else if (name.includes('gift')) e.currentTarget.src = "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?q=80&w=800";
                         else e.currentTarget.src = '/images/hero.jpg';
                       }}

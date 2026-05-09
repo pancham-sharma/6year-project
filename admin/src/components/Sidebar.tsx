@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Heart, Package, MapPin, Truck,
-  Users, MessageSquare, Bell, BarChart3, Settings, ChevronLeft,
+  Users, MessageSquare, Bell, BarChart3, Settings, ChevronLeft, ArrowLeft,
   Utensils, Shirt, BookOpen, Coins, Leaf, X, Handshake, LayoutGrid, Banknote, Sprout, HandHeart, TreePine, Gift, ShoppingBag, GraduationCap
 } from 'lucide-react';
 import { useSearch } from '../context/SearchContext';
@@ -185,18 +185,27 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
   const sidebarContent = (
     <div className={`flex flex-col h-full transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'} ${bg} border-r`}>
       <div className={`flex items-center gap-3 px-4 py-5 border-b ${divider}`}>
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-md">
+        <button 
+          onClick={() => collapsed && onToggleCollapse()}
+          className={`w-9 h-9 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-md transition-transform ${collapsed ? 'hover:scale-110 active:scale-95 cursor-pointer' : 'cursor-default'}`}
+        >
           <Heart size={18} className="text-white" />
-        </div>
+        </button>
         {!collapsed && (
-          <div>
+          <div className="flex-1">
             <div className={`font-bold text-base leading-tight ${darkMode ? 'text-white' : 'text-gray-800'}`}>Seva Marg</div>
             <div className="text-xs text-green-500 font-medium">Admin Panel</div>
           </div>
         )}
-        <button onClick={onToggleCollapse} className={`ml-auto p-1 rounded-lg transition-colors hidden lg:flex ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-400'}`}>
-          <ChevronLeft size={16} className={`transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
-        </button>
+        {!collapsed && (
+          <button 
+            onClick={() => onToggleCollapse()} 
+            title="Close Sidebar"
+            className={`p-1.5 rounded-lg transition-all hidden lg:flex ${darkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-400'}`}
+          >
+            <ArrowLeft size={18} />
+          </button>
+        )}
         <button onClick={onMobileClose} className={`ml-auto p-1 rounded-lg lg:hidden ${darkMode ? 'text-gray-400' : 'text-gray-400'}`}>
           <X size={16} />
         </button>

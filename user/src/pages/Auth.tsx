@@ -49,8 +49,48 @@ export default function Auth() {
   // OTP Verification States
   const [showOTP, setShowOTP] = useState(false);
   const [otp, setOtp] = useState('');
+  const [otpArray, setOtpArray] = useState(['', '', '', '', '', '']);
   const [resendTimer, setResendTimer] = useState(0);
   const [verifying, setVerifying] = useState(false);
+
+  const handleOtpChange = (value: string, index: number) => {
+    if (isNaN(Number(value)) && value !== "") return;
+    const newOtp = [...otpArray];
+    newOtp[index] = value.substring(value.length - 1);
+    setOtpArray(newOtp);
+    setOtp(newOtp.join(''));
+
+    // Auto-focus next
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      nextInput?.focus();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key === 'Backspace' && !otpArray[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      prevInput?.focus();
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const data = e.clipboardData.getData('text').substring(0, 6);
+    if (!/^\d+$/.test(data)) return;
+    
+    const newOtp = [...otpArray];
+    data.split('').forEach((char, i) => {
+      if (i < 6) newOtp[i] = char;
+    });
+    setOtpArray(newOtp);
+    setOtp(newOtp.join(''));
+    
+    // Focus last or next empty
+    const focusIndex = Math.min(data.length, 5);
+    setTimeout(() => {
+      document.getElementById(`otp-${focusIndex}`)?.focus();
+    }, 0);
+  };
 
   // Strict Email Regex
   const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
@@ -383,46 +423,60 @@ export default function Auth() {
         </div>
 
         {showOTP ? (
-          <form onSubmit={handleVerifyOTP} className="space-y-6 animate-scale-in">
-            <div className="relative">
-              <Shield className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
-              <input 
-                type="text" 
-                maxLength={6} 
-                placeholder="000000" 
-                value={otp} 
-                autoFocus
-                onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-                className={`w-full pl-10 pr-4 py-4 rounded-xl border-2 text-center text-2xl font-mono tracking-[0.5em] transition-all outline-none ${dark ? 'bg-slate-700 border-slate-600 text-white focus:border-primary-500' : 'bg-gray-50 border-gray-200 focus:border-primary-500 focus:bg-white'}`}
-              />
+          <form onSubmit={handleVerifyOTP} className="space-y-8 animate-scale-in">
+            <div className="flex justify-between gap-2" onPaste={handlePaste}>
+              {otpArray.map((digit, index) => (
+                <input
+                  key={index}
+                  id={`otp-${index}`}
+                  type="text"
+                  maxLength={1}
+                  value={digit}
+                  autoFocus={index === 0}
+                  onChange={e => handleOtpChange(e.target.value, index)}
+                  onKeyDown={e => handleKeyDown(e, index)}
+                  className={`w-12 h-14 text-center text-2xl font-bold rounded-xl border-2 transition-all outline-none ${
+                    dark 
+                      ? 'bg-slate-700 border-slate-600 text-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/20' 
+                      : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-primary-500 focus:bg-white focus:ring-4 focus:ring-primary-500/10'
+                  }`}
+                />
+              ))}
             </div>
             
             <button 
               type="submit" 
               disabled={verifying || otp.length !== 6} 
-              className={`w-full flex justify-center py-4 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50 ${dark ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}
+              className={`w-full flex justify-center py-4 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50 shadow-lg ${
+                otp.length === 6 && !verifying 
+                  ? (dark ? 'bg-primary-500 text-white shadow-primary-500/20' : 'bg-primary-600 text-white shadow-primary-600/20')
+                  : (dark ? 'bg-slate-700 text-slate-400' : 'bg-gray-200 text-gray-400')
+              }`}
             >
               {verifying ? <Loader className="w-5 h-5 animate-spin" /> : "Verify & Continue"}
             </button>
 
-            <div className="text-center">
+            <div className="text-center space-y-4">
+              <div className="flex items-center justify-center gap-2">
+                <span className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Didn't receive code?</span>
+                <button 
+                  type="button" 
+                  onClick={handleResendOTP} 
+                  disabled={resendTimer > 0}
+                  className={`text-sm font-bold transition-colors ${resendTimer > 0 ? 'text-gray-500 cursor-not-allowed' : 'text-primary-500 hover:text-primary-600'}`}
+                >
+                  {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend Now"}
+                </button>
+              </div>
+
               <button 
                 type="button" 
-                onClick={handleResendOTP} 
-                disabled={resendTimer > 0}
-                className={`text-sm font-semibold transition-colors ${resendTimer > 0 ? 'text-gray-500' : 'text-primary-500 hover:text-primary-600'}`}
+                onClick={() => setShowOTP(false)}
+                className={`text-xs font-medium underline underline-offset-4 transition-colors ${dark ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-500'}`}
               >
-                {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : "Resend Code"}
+                Change email address
               </button>
             </div>
-
-            <button 
-              type="button" 
-              onClick={() => setShowOTP(false)}
-              className={`w-full text-xs font-medium ${dark ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-500'}`}
-            >
-              Back to registration
-            </button>
           </form>
         ) : (
           <>

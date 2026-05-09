@@ -75,9 +75,10 @@ export default function DonationManagement({ darkMode }: Props) {
     isPlaceholderData,
     refetch 
   } = useQuery({
-    queryKey: ['donations', page, limit, debouncedSearch, filterCat],
-    queryFn: () => getDonations(page, limit, debouncedSearch, filterCat),
+    queryKey: ['donations', page, limit, debouncedSearch, filterCat, filterStatus],
+    queryFn: () => getDonations(page, limit, debouncedSearch, filterCat, filterStatus),
     placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
   useEffect(() => {
@@ -87,7 +88,7 @@ export default function DonationManagement({ darkMode }: Props) {
   }, [isError, showToast]);
 
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= (data?.totalPages || 1)) {
+    if (newPage >= 1 && newPage <= (data?.meta?.totalPages || 1)) {
       setPage(newPage);
     }
   };
@@ -154,6 +155,7 @@ export default function DonationManagement({ darkMode }: Props) {
   const rowHover = darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50';
   const selectBg = darkMode ? 'bg-gray-700 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700';
   const modalBg = darkMode ? 'bg-gray-800' : 'bg-white';
+  const greenText = darkMode ? 'text-green-400' : 'text-green-600';
 
   return (
     <div className="space-y-5">
@@ -215,15 +217,20 @@ export default function DonationManagement({ darkMode }: Props) {
             </thead>
             <tbody className={`divide-y ${divider}`}>
               {isLoading ? (
-                // Skeleton Loader
-                Array.from({ length: limit }).map((_, i) => (
+                Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {Array.from({ length: 9 }).map((_, j) => (
-                      <td key={j} className="px-4 py-4"><div className={`h-4 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
-                    ))}
+                    <td className="px-5 py-4"><div className={`h-4 w-12 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
+                    <td className="px-4 py-4"><div className={`h-4 w-32 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
+                    <td className="px-4 py-4"><div className={`h-4 w-24 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
+                    <td className="px-4 py-4"><div className={`h-4 w-40 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
+                    <td className="px-4 py-4"><div className={`h-6 w-20 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
+                    <td className="px-4 py-4"><div className={`h-4 w-28 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
+                    <td className="px-4 py-4"><div className={`h-4 w-20 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
+                    <td className="px-4 py-4"><div className={`h-6 w-16 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
+                    <td className="px-4 py-4"><div className={`h-8 w-16 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
                   </tr>
                 ))
-              ) : data?.data.length === 0 ? (
+              ) : data?.data?.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -274,37 +281,38 @@ export default function DonationManagement({ darkMode }: Props) {
         </div>
 
         {/* Pagination Footer */}
-        {data && data.totalPages > 1 && (
-          <div className={`px-4 py-4 border-t ${divider} flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50/50 dark:bg-gray-800/50`}>
-            <p className={`text-xs ${textSub}`}>
-              Showing <span className="font-bold text-green-500">{(page - 1) * limit + 1}</span> to <span className="font-bold text-green-500">{Math.min(page * limit, data.total)}</span> of <span className="font-bold">{data.total}</span> entries
-            </p>
-            
-            <div className="flex items-center gap-1">
-              <button 
+        {data && (
+          <div className={`px-5 py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-4 ${divider}`}>
+            <div className={`text-xs font-medium ${textSub}`}>
+              Showing <span className={textMain}>{((page - 1) * limit) + 1}</span> to <span className={textMain}>{Math.min(page * limit, data?.meta?.total || 0)}</span> of <span className={textMain}>{data?.meta?.total || 0}</span> results
+            </div>
+            <div className="flex items-center gap-2">
+              <button
                 onClick={() => handlePageChange(page - 1)}
-                disabled={page === 1}
-                className={`p-2 rounded-lg border transition-all ${page === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-50 hover:text-green-600'}`}
+                disabled={page === 1 || isPlaceholderData}
+                className={`p-2 rounded-xl border transition-all disabled:opacity-30 disabled:cursor-not-allowed ${darkMode ? 'hover:bg-gray-700 border-gray-700 text-gray-400' : 'hover:bg-gray-50 border-gray-200 text-gray-600'}`}
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={18} />
               </button>
-              
-              <div className="flex items-center gap-1">
-                {Array.from({ length: Math.min(5, data.totalPages) }).map((_, i) => {
-                  let pageNum = page;
-                  if (page <= 3) pageNum = i + 1;
-                  else if (page >= data.totalPages - 2) pageNum = data.totalPages - 4 + i;
-                  else pageNum = page - 2 + i;
-                  
-                  if (pageNum <= 0 || pageNum > data.totalPages) return null;
-
+              <div className="flex items-center gap-1.5 mx-2">
+                {Array.from({ length: data?.meta?.totalPages || 1 }).map((_, i) => {
+                  const p = i + 1;
+                  // Only show 5 pages around current page
+                  if (data?.meta?.totalPages > 7 && (p < page - 2 || p > page + 2) && p !== 1 && p !== data?.meta?.totalPages) {
+                    if (p === 2 || p === data?.meta?.totalPages - 1) return <span key={p} className={textSub}>...</span>;
+                    return null;
+                  }
                   return (
                     <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${page === pageNum ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'border hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
+                        page === p 
+                          ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' 
+                          : `${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`
+                      }`}
                     >
-                      {pageNum}
+                      {p}
                     </button>
                   );
                 })}
