@@ -8,7 +8,7 @@
  * redirect to /auth — permanently stopping 401 spam.
  */
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? '' : 'https://donation-admin-panel.onrender.com');
 
 function onRefreshed(newToken: string) {
   refreshSubscribers.forEach(cb => cb(newToken));
