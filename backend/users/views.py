@@ -315,10 +315,25 @@ class SocialAuthGoogleView(APIView):
                     if client_email and private_key:
                         try:
                             print("🔐 Attempting Firebase Init via Environment Variables...")
-                            formatted_key = private_key.replace('\\n', '\n')
+                            
+                            # Clean the private key thoroughly
+                            raw_key = private_key.strip(' "')
+                            # Fix literal \n strings to actual newlines
+                            formatted_key = raw_key.replace('\\n', '\n')
+                            
+                            # Ensure the key has the correct PEM headers
                             if '-----BEGIN PRIVATE KEY-----' not in formatted_key:
                                 formatted_key = f"-----BEGIN PRIVATE KEY-----\n{formatted_key}\n-----END PRIVATE KEY-----"
                             
+                            # Final safety check: if it looks like one long line, split it (common in Render)
+                            if '\n' not in formatted_key.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '').strip():
+                                # Try to reconstruct if it's just one long base64 string
+                                print("🛠️ Reconstructing single-line Private Key...")
+                                body = formatted_key.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '').strip()
+                                # Add newlines every 64 chars as per PEM standard
+                                body = '\n'.join([body[i:i+64] for i in range(0, len(body), 64)])
+                                formatted_key = f"-----BEGIN PRIVATE KEY-----\n{body}\n-----END PRIVATE KEY-----\n"
+
                             cred = credentials.Certificate({
                                 "project_id": project_id,
                                 "client_email": client_email,
@@ -329,7 +344,8 @@ class SocialAuthGoogleView(APIView):
                             firebase_admin.initialize_app(cred)
                             print("✅ Firebase initialized successfully via ENV.")
                         except Exception as e:
-                            print(f"⚠️ Firebase ENV Init Failed: {str(e)}")
+                            print(f"❌ Firebase ENV Init Failed: {str(e)}")
+                            print(f"DEBUG: Key length: {len(private_key)} | Starts with: {private_key[:30]}...")
 
                     # 2. Try JSON File Fallback (Checking multiple Render paths)
                     if not firebase_admin._apps:
