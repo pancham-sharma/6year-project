@@ -19,3 +19,4 @@ gunicorn
 uvicorn
 whitenoise
 google-auth
+firebase-admin
