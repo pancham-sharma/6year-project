@@ -430,6 +430,8 @@ class PasswordResetRequestView(APIView):
                     args=(email, otp_code)
                 )
                 email_thread.start()
+            else:
+                print(f"❌ Reset Failed: No user found with email {email}")
 
             return Response({"message": "If an account with this email exists, a reset code has been sent."})
         except Exception as e:
