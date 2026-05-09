@@ -396,60 +396,68 @@ class PasswordResetRequestView(APIView):
     permission_classes = (permissions.AllowAny,)
 
     def post(self, request):
-        email = request.data.get('email', '').strip().lower()
-        if not email:
-            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            email = request.data.get('email', '').strip().lower()
+            if not email:
+                return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if user exists (Silent fail for security)
-        user_exists = User.objects.filter(email__iexact=email).exists()
-        
-        # Always generate and send (even if user doesn't exist, we send to the provided email to prevent timing attacks/leaks)
-        # But actually, if user doesn't exist, we don't NEED to send, but we return 200.
-        
-        if user_exists:
-            # Clean up old tokens for this email
-            PasswordResetOTP.objects.filter(email__iexact=email).delete()
+            # Check if user exists (Silent fail for security)
+            user_exists = User.objects.filter(email__iexact=email).exists()
             
-            otp_code = str(random.randint(100000, 999999))
-            PasswordResetOTP.objects.create(email=email, otp=otp_code)
-            
-            print(f"🔑 Password Reset Requested for {email}. OTP: {otp_code}")
-            send_password_reset_email(email, otp_code)
+            if user_exists:
+                # Clean up old tokens for this email
+                PasswordResetOTP.objects.filter(email__iexact=email).delete()
+                
+                otp_code = str(random.randint(100000, 999999))
+                PasswordResetOTP.objects.create(email=email, otp=otp_code)
+                
+                print(f"🔑 Password Reset Requested for {email}. OTP: {otp_code}")
+                send_password_reset_email(email, otp_code)
 
-        return Response({"message": "If an account with this email exists, a reset code has been sent."})
+            return Response({"message": "If an account with this email exists, a reset code has been sent."})
+        except Exception as e:
+            print(f"❌ Forgot Password API Error: {str(e)}")
+            return Response({
+                "message": "If an account with this email exists, a reset code has been sent.",
+                "debug": "System is safe, check logs for details."
+            }, status=status.HTTP_200_OK) # Return 200 even on error to prevent timing attacks and crashes
 
 class PasswordResetConfirmView(APIView):
     permission_classes = (permissions.AllowAny,)
 
     def post(self, request):
-        email = request.data.get('email', '').strip().lower()
-        otp = request.data.get('otp', '').strip()
-        new_password = request.data.get('password', '').strip()
+        try:
+            email = request.data.get('email', '').strip().lower()
+            otp = request.data.get('otp', '').strip()
+            new_password = request.data.get('password', '').strip()
 
-        if not all([email, otp, new_password]):
-            return Response({"error": "Email, OTP, and new password are required."}, status=status.HTTP_400_BAD_REQUEST)
+            if not all([email, otp, new_password]):
+                return Response({"error": "Email, OTP, and new password are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        reset_obj = PasswordResetOTP.objects.filter(email__iexact=email, otp=otp, is_used=False).first()
+            reset_obj = PasswordResetOTP.objects.filter(email__iexact=email, otp=otp, is_used=False).first()
 
-        if not reset_obj or reset_obj.is_expired():
-            return Response({"error": "Invalid or expired reset code."}, status=status.HTTP_400_BAD_REQUEST)
+            if not reset_obj or reset_obj.is_expired():
+                return Response({"error": "Invalid or expired reset code."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Update User Password
-        user = User.objects.filter(email__iexact=email).first()
-        if user:
-            user.set_password(new_password)
-            user.save()
+            # Update User Password
+            user = User.objects.filter(email__iexact=email).first()
+            if user:
+                user.set_password(new_password)
+                user.save()
+                
+                # Mark token as used
+                reset_obj.is_used = True
+                reset_obj.save()
+                # Clean up
+                reset_obj.delete()
+                
+                print(f"✅ Password successfully reset for {email}")
+                return Response({"success": True, "message": "Password successfully reset. You can now login."})
             
-            # Mark token as used
-            reset_obj.is_used = True
-            reset_obj.save()
-            # Clean up
-            reset_obj.delete()
-            
-            print(f"✅ Password successfully reset for {email}")
-            return Response({"success": True, "message": "Password successfully reset. You can now login."})
-        
-        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"❌ Password Reset Confirm Error: {str(e)}")
+            return Response({"error": "An unexpected error occurred during password reset."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class VolunteerApplicationView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
