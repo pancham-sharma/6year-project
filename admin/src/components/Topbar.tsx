@@ -1,6 +1,5 @@
 import { Bell, Search, Moon, Sun, Menu, Loader } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useState, useEffect } from 'react';
 import { fetchAPI, getWSUrl } from '../utils/api';
 import { useSearch } from '../context/SearchContext';
 

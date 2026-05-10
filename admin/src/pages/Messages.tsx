@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Send, Paperclip, Search, Info, Heart, X, Loader, Check, CheckCheck, Trash2, Edit2, ChevronDown } from 'lucide-react';
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Send, Paperclip, Search, Info, Heart, X, Loader, Check, CheckCheck, Trash2, Edit2 } from 'lucide-react';
+import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { getConversations, getMessages, markChatAsRead } from '../api/chat';
 
 import { fetchAPI, getWSUrl } from '../utils/api';

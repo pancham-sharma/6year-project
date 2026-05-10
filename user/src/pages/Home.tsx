@@ -110,10 +110,19 @@ export default function Home() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const defaultCategories = useMemo(() => [
+    { id: 'p1', key: 'food', name: t.categories.food, description: t.categories.foodDesc, impact_badge: t.categories.foodImpact, icon_name: 'Utensils', image: "/images/stories-food.jpg", is_active: true },
+    { id: 'p2', key: 'clothes', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: t.categories.clothesImpact, icon_name: 'Shirt', image: "/images/cat-clothes.jpg", is_active: true },
+    { id: 'p3', key: 'books', name: t.categories.books, description: t.categories.booksDesc, impact_badge: t.categories.booksImpact, icon_name: 'BookOpen', image: "/images/cat-books.jpg", is_active: true },
+    { id: 'p4', key: 'money', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: t.categories.moneyImpact, icon_name: 'Banknote', image: "/images/cat-money.jpg", is_active: true },
+    { id: 'p5', key: 'trees', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: t.categories.treesImpact, icon_name: 'Sprout', image: "/images/stories-trees.jpg", is_active: true },
+  ], [t]);
+
   const { data: categoriesDataRaw, isLoading: loadingCats } = useQuery({
     queryKey: ['categories'],
     queryFn: () => fetchAPI('/api/donations/categories/'),
     staleTime: 10 * 60 * 1000,
+    placeholderData: defaultCategories
   });
 
   const stats = useMemo(() => ({
@@ -132,13 +141,19 @@ export default function Home() {
     const raw = Array.isArray(categoriesDataRaw) ? categoriesDataRaw : (categoriesDataRaw?.results || []);
     
     // Filter out inactive and deduplicate by name
-    return raw.reduce((acc: any[], current: any) => {
-      if (current.is_active && !acc.find(c => c.name.toLowerCase() === current.name.toLowerCase())) {
+    const unique = raw.reduce((acc: any[], current: any) => {
+      if (current.is_active !== false && !acc.find(c => c.name.toLowerCase() === current.name.toLowerCase())) {
         acc.push(current);
       }
       return acc;
     }, []);
-  }, [categoriesDataRaw]);
+
+    // Merge logic: Ensure default categories have their descriptions/images if not in DB
+    return defaultCategories.map(def => {
+      const dbMatch = unique.find(u => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase());
+      return dbMatch ? { ...def, ...dbMatch, image: dbMatch.image ? getImageUrl(dbMatch.image) : def.image } : def;
+    }).concat(unique.filter(u => !defaultCategories.some(def => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase())));
+  }, [categoriesDataRaw, defaultCategories]);
 
   return (
     <div className={`min-h-screen ${dark ? 'bg-near-black text-white' : 'bg-white text-near-black'}`}>
