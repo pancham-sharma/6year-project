@@ -55,7 +55,7 @@ export default function Categories() {
 
 
 
-  const { data: categoryData, isLoading } = useQuery({
+  const { data: categoryData } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
     staleTime: 1000 * 60 * 5, // 5 minutes
