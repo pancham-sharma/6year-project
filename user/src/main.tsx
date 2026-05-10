@@ -9,8 +9,11 @@ createRoot(document.getElementById("root")!).render(
   </StrictMode>
 );
 
+// Force unregister existing service workers to clear broken cache
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed: ', err));
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    for (const registration of registrations) {
+      registration.unregister();
+    }
   });
 }
