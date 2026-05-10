@@ -8,7 +8,7 @@ import {
   MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchAPI } from '../utils/api';
+import { fetchAPI, getWSUrl } from '../utils/api';
 import { getUserDonations } from '../api/donations';
 import { DonationItem } from '../components/dashboard/DonationItem';
 
@@ -159,15 +159,7 @@ export default function Dashboard() {
     const token = localStorage.getItem('access_token');
     if (!token) return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-    const host = apiBase 
-      ? apiBase.replace(/^https?:\/\//, '') 
-      : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-          ? `${window.location.hostname}:8000` 
-          : window.location.host);
-    
-    const wsUrl = `${protocol}://${host}/ws/chat/?token=${token}`;
+    const wsUrl = getWSUrl('/ws/chat/');
     
     if (import.meta.env.DEV) console.log("User connecting to WebSocket...");
     const newWs = new WebSocket(wsUrl);

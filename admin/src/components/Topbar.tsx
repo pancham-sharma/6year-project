@@ -1,6 +1,7 @@
 import { Bell, Search, Moon, Sun, Menu, Loader } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { fetchAPI } from '../utils/api';
+import { useState, useEffect } from 'react';
+import { fetchAPI, getWSUrl } from '../utils/api';
 import { useSearch } from '../context/SearchContext';
 
 interface TopbarProps {
@@ -50,19 +51,7 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
     
     // WebSocket for Real-Time Notifications
     const setupWS = () => {
-      const token = localStorage.getItem('access_token');
-      if (!token) return;
-
-      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-      const host = apiBase 
-        ? apiBase.replace(/^https?:\/\//, '') 
-        : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? `${window.location.hostname}:8000` 
-            : window.location.host);
-      const wsUrl = `${protocol}://${host}/ws/notifications/?token=${token}`;
-
-      
+      const wsUrl = getWSUrl('/ws/notifications/');
       const ws = new WebSocket(wsUrl);
 
       ws.onmessage = (e) => {

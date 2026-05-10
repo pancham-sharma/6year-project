@@ -3,7 +3,7 @@ import { Send, Paperclip, Search, Info, Heart, X, Loader, Check, CheckCheck, Tra
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getConversations, getMessages, markChatAsRead } from '../api/chat';
 
-import { fetchAPI } from '../utils/api';
+import { fetchAPI, getWSUrl } from '../utils/api';
 import { useSearch } from '../context/SearchContext';
 
 
@@ -68,14 +68,7 @@ export default function Messages({ darkMode }: Props) {
     const token = localStorage.getItem('access_token');
     if (!token || !myId) return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-    const host = apiBase 
-      ? apiBase.replace(/^https?:\/\//, '') 
-      : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-          ? `${window.location.hostname}:8000` 
-          : window.location.host);
-    const wsUrl = `${protocol}://${host}/ws/chat/?token=${token}`;
+    const wsUrl = getWSUrl('/ws/chat/');
 
     
     if (import.meta.env.DEV) console.log("Connecting to WebSocket...");

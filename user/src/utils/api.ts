@@ -15,6 +15,20 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (
     : 'https://donation-admin-panel.onrender.com'
 );
 
+export const getWSUrl = (path: string) => {
+  const token = localStorage.getItem('access_token');
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  
+  // If we have a hardcoded API_BASE_URL, use its host
+  const host = API_BASE_URL 
+    ? API_BASE_URL.replace(/^https?:\/\//, '') 
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `${window.location.hostname}:8000` 
+        : 'donation-admin-panel.onrender.com'); // Default to production backend
+
+  return `${protocol}://${host}${path}${path.includes('?') ? '&' : '?'}token=${token}`;
+};
+
 function onRefreshed(newToken: string) {
   refreshSubscribers.forEach(cb => cb(newToken));
   refreshSubscribers = [];
