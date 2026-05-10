@@ -98,10 +98,17 @@ class SocialAuthGoogleView(APIView):
             return Response({"error": "No token provided"}, status=400)
 
         initialize_firebase()
-        if not firebase_admin._apps:
-            return Response({"error": "Firebase not initialized"}, status=500)
+        if not firebase_admin or not firebase_admin._apps:
+            return Response({"error": "Firebase Admin SDK not initialized. Check server environment variables."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
+            # Check if auth module is available
+            if 'auth' not in globals() and 'auth' not in locals():
+                 # Re-try import if it somehow failed initially
+                 try:
+                     from firebase_admin import auth
+                 except ImportError:
+                     return Response({"error": "Firebase Auth module not available"}, status=500)
             # Allow for 60 seconds of clock skew to prevent "token used too early" errors
             decoded_token = auth.verify_id_token(token, clock_skew_seconds=60)
             email = decoded_token.get('email')
@@ -119,25 +126,39 @@ class SocialAuthGoogleView(APIView):
 
             if not user:
                 username = email.split('@')[0] + str(random.randint(100, 999))
-                user = User.objects.create(
-                    email=email,
-                    username=username,
-                    first_name=first_name,
-                    last_name=last_name,
-                    profile_picture=picture,
-                    firebase_uid=uid,
-                    is_email_verified=True
-                )
+                try:
+                    user = User.objects.create(
+                        email=email,
+                        username=username,
+                        first_name=first_name,
+                        last_name=last_name,
+                        firebase_uid=uid,
+                        is_email_verified=True
+                    )
+                    # Handle profile picture separately if it's a URL
+                    if picture:
+                        # For now, just save the URL string to the field; 
+                        # Django's ImageField can store a string, but validation might fail later.
+                        # Ideally, we'd have a separate URLField or download the image.
+                        user.profile_picture = picture 
+                        user.save()
+                except Exception as db_err:
+                    print(f"❌ Database User Creation Failed: {str(db_err)}")
+                    return Response({"error": f"Database error: {str(db_err)}"}, status=500)
             else:
-                user.firebase_uid = uid
-                user.is_email_verified = True
-                if not user.first_name:
-                    user.first_name = first_name
-                if not user.last_name:
-                    user.last_name = last_name
-                if not user.profile_picture:
-                    user.profile_picture = picture
-                user.save()
+                try:
+                    user.firebase_uid = uid
+                    user.is_email_verified = True
+                    if not user.first_name:
+                        user.first_name = first_name
+                    if not user.last_name:
+                        user.last_name = last_name
+                    if not user.profile_picture and picture:
+                        user.profile_picture = picture
+                    user.save()
+                except Exception as db_err:
+                    print(f"❌ Database User Update Failed: {str(db_err)}")
+                    return Response({"error": f"Database update error: {str(db_err)}"}, status=500)
 
             refresh = RefreshToken.for_user(user)
             return Response({
@@ -161,10 +182,17 @@ class FirebaseAuthView(APIView):
             return Response({"error": "Token required"}, status=status.HTTP_400_BAD_REQUEST)
 
         initialize_firebase()
-        if not firebase_admin._apps:
-            return Response({"error": "Firebase not initialized"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if not firebase_admin or not firebase_admin._apps:
+            return Response({"error": "Firebase Admin SDK not initialized. Check server environment variables."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
+            # Check if auth module is available
+            if 'auth' not in globals() and 'auth' not in locals():
+                 # Re-try import if it somehow failed initially
+                 try:
+                     from firebase_admin import auth
+                 except ImportError:
+                     return Response({"error": "Firebase Auth module not available"}, status=500)
             # Allow for clock skew
             decoded_token = auth.verify_id_token(token, clock_skew_seconds=60)
             email = decoded_token.get("email")
@@ -177,16 +205,24 @@ class FirebaseAuthView(APIView):
             user = User.objects.filter(email=email).first()
             if not user:
                 username = email.split('@')[0] + str(random.randint(100, 999))
-                user = User.objects.create(
-                    email=email,
-                    username=username,
-                    firebase_uid=uid,
-                    is_email_verified=True
-                )
+                try:
+                    user = User.objects.create(
+                        email=email,
+                        username=username,
+                        firebase_uid=uid,
+                        is_email_verified=True
+                    )
+                except Exception as db_err:
+                    print(f"❌ Database User Creation Failed (Dedicated): {str(db_err)}")
+                    return Response({"error": f"Database error: {str(db_err)}"}, status=500)
             else:
-                user.firebase_uid = uid
-                user.is_email_verified = True
-                user.save()
+                try:
+                    user.firebase_uid = uid
+                    user.is_email_verified = True
+                    user.save()
+                except Exception as db_err:
+                    print(f"❌ Database User Update Failed (Dedicated): {str(db_err)}")
+                    return Response({"error": f"Database update error: {str(db_err)}"}, status=500)
 
             refresh = RefreshToken.for_user(user)
             return Response({

@@ -3,9 +3,6 @@ const CACHE_NAME = 'ecolink-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/src/main.tsx',
-  '/src/App.tsx',
-  '/src/index.css',
 ];
 
 self.addEventListener('install', (event) => {
