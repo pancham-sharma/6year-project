@@ -55,7 +55,7 @@ export default function Categories() {
   
   const permanentCategories = [
     { id: 'p1', key: 'food', name: t.categories.food, description: t.categories.foodDesc, impact_badge: t.categories.foodImpact, icon_name: 'Utensils', image: "/images/stories-food.jpg" },
-    { id: 'p2', key: 'clothes', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: t.categories.clothesImpact, icon_name: 'Shirt', image: "/images/0c5951d6535588129d8cb0deaabb35d0.jpg" },
+    { id: 'p2', key: 'clothes', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: t.categories.clothesImpact, icon_name: 'Shirt', image: "/images/0c5951d6535588129d8cb0deaabb35d0 (1).jpg" },
     { id: 'p3', key: 'books', name: t.categories.books, description: t.categories.booksDesc, impact_badge: t.categories.booksImpact, icon_name: 'BookOpen', image: "/images/stories-education.jpg" },
     { id: 'p4', key: 'money', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: t.categories.moneyImpact, icon_name: 'Banknote', image: "/images/download_9.jpeg" },
     { id: 'p5', key: 'trees', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: t.categories.treesImpact, icon_name: 'Sprout', image: "/images/stories-trees.jpg" },
