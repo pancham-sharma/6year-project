@@ -163,19 +163,8 @@ export default function Categories() {
                 </div>
               </div>
             );
-          }) : [1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className={`card-modern animate-pulse ${dark ? 'bg-white/5 border-white/10' : 'bg-white shadow-2xl shadow-black/5'}`}>
-              <div className="h-52 bg-gray-200 dark:bg-gray-800" />
-              <div className="p-8 flex flex-col items-center">
-                <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-800 mb-4" />
-                <div className="h-6 w-32 bg-gray-200 dark:bg-gray-800 rounded mb-4" />
-                <div className="h-4 w-full bg-gray-200 dark:bg-gray-800 rounded mb-2" />
-                <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-800 rounded mb-6" />
-                <div className="h-8 w-40 bg-gray-200 dark:bg-gray-800 rounded-full mb-8" />
-                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 rounded" />
-              </div>
-            </div>
-          ))}
+          })
+          }
         </div>
       </div>
     </div>

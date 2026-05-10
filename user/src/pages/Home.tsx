@@ -118,7 +118,7 @@ export default function Home() {
     { id: 'p5', key: 'trees', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: t.categories.treesImpact, icon_name: 'Sprout', image: "/images/stories-trees.jpg", is_active: true },
   ], [t]);
 
-  const { data: categoriesDataRaw, isLoading: loadingCats } = useQuery({
+  const { data: categoriesDataRaw } = useQuery({
     queryKey: ['categories'],
     queryFn: () => fetchAPI('/api/donations/categories/'),
     staleTime: 10 * 60 * 1000,

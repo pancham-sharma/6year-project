@@ -30,10 +30,10 @@ export const DonationItem = React.memo(({ donation: d, dark, onDownload }: Donat
             <CheckCircle className="w-3 h-3" />{d.status === 'Scheduled' ? 'Approved' : d.status}
           </span>
         </div>
-        <p className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'} mt-1`}>#DON-{d.id} • {new Date(d.timestamp).toLocaleDateString()} • {d.quantity_description}</p>
-        <div className={`mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-tighter ${dark ? 'text-brand' : 'text-primary-600'}`}>
-          <span className="opacity-60">Impact:</span>
-          <span>{d.category === 'Food' ? '10 Meals provided' : d.category === 'Environment' ? '5 Trees planted' : 'Supporting local families'}</span>
+        <p className={`text-xs ${dark ? 'text-slate-400' : 'text-gray-400'} mt-1`}>#DON-{d.id} • {new Date(d.timestamp).toLocaleDateString()} • {d.quantity_description}</p>
+        <div className={`mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-tighter ${dark ? 'text-brand-light' : 'text-primary-600'}`}>
+          <span className={dark ? 'text-slate-400/80' : 'opacity-60'}>Impact:</span>
+          <span className={dark ? 'text-white' : ''}>{d.category === 'Food' ? '10 Meals provided' : d.category === 'Environment' ? '5 Trees planted' : 'Supporting local families'}</span>
         </div>
       </div>
       <div className="flex items-center gap-2">
