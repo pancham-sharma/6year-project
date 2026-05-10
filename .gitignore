@@ -71,8 +71,8 @@ PUSH_TO_GITHUB.bat
 PUSH.bat
 git_push.bat
 # Firebase
-firebase-service-account.json
-backend/firebase-service-account.json
+firebase-service-account*.json
+backend/firebase-service-account*.json
 *.firebase.json
 .firebase/
 firebase-debug.log*

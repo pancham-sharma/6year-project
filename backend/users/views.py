@@ -8,65 +8,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 import os
 import random
 from django.conf import settings
-try:
-    import firebase_admin
-    from firebase_admin import auth, credentials
-except ImportError:
-    firebase_admin = None
+from .firebase_admin_config import *
 
 User = get_user_model()
-
-def initialize_firebase():
-    """Fail-proof Firebase initialization with improved logging and key handling"""
-    if not firebase_admin:
-        print("❌ Firebase Admin SDK not installed")
-        return
-    if firebase_admin._apps:
-        return
-
-    project_id = os.getenv('FIREBASE_PROJECT_ID', 'donation-44db3').strip(' "')
-    client_email = os.getenv('FIREBASE_CLIENT_EMAIL', '').strip(' "')
-    private_key = os.getenv('FIREBASE_PRIVATE_KEY', '').strip(' "')
-
-    if client_email and private_key:
-        try:
-            # Handle double-escaped or literal \n characters
-            raw_key = private_key.replace('\\n', '\n')
-            
-            # Remove existing headers if present to re-standardize
-            raw_key = raw_key.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '').strip()
-            
-            # Re-format as multi-line base64 if it's a single long string
-            if '\n' not in raw_key:
-                clean_key = "".join(raw_key.split())
-                raw_key = '\n'.join([clean_key[i:i+64] for i in range(0, len(clean_key), 64)])
-            
-            # Re-add standard headers
-            final_key = f"-----BEGIN PRIVATE KEY-----\n{raw_key}\n-----END PRIVATE KEY-----\n"
-            
-            cred = credentials.Certificate({
-                "project_id": project_id,
-                "client_email": client_email,
-                "private_key": final_key,
-                "type": "service_account",
-                "token_uri": "https://oauth2.googleapis.com/token",
-            })
-            firebase_admin.initialize_app(cred)
-            print(f"✅ Firebase initialized successfully for project: {project_id}")
-            return
-        except Exception as e:
-            print(f"❌ Firebase ENV Init Failed: {str(e)}")
-            # Log the error but continue to JSON fallback
-
-    # JSON Fallback
-    json_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
-    if os.path.exists(json_path):
-        try:
-            cred = credentials.Certificate(json_path)
-            firebase_admin.initialize_app(cred)
-            print("✅ Firebase initialized via JSON")
-        except Exception as e:
-            print(f"❌ Firebase JSON Init Failed: {str(e)}")
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -97,18 +41,10 @@ class SocialAuthGoogleView(APIView):
         if not token:
             return Response({"error": "No token provided"}, status=400)
 
-        initialize_firebase()
         if not firebase_admin or not firebase_admin._apps:
             return Response({"error": "Firebase Admin SDK not initialized. Check server environment variables."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
-            # Check if auth module is available
-            if 'auth' not in globals() and 'auth' not in locals():
-                 # Re-try import if it somehow failed initially
-                 try:
-                     from firebase_admin import auth
-                 except ImportError:
-                     return Response({"error": "Firebase Auth module not available"}, status=500)
             # Allow for 60 seconds of clock skew to prevent "token used too early" errors
             decoded_token = auth.verify_id_token(token, clock_skew_seconds=60)
             email = decoded_token.get('email')
@@ -181,18 +117,10 @@ class FirebaseAuthView(APIView):
         if not token:
             return Response({"error": "Token required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        initialize_firebase()
         if not firebase_admin or not firebase_admin._apps:
             return Response({"error": "Firebase Admin SDK not initialized. Check server environment variables."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         try:
-            # Check if auth module is available
-            if 'auth' not in globals() and 'auth' not in locals():
-                 # Re-try import if it somehow failed initially
-                 try:
-                     from firebase_admin import auth
-                 except ImportError:
-                     return Response({"error": "Firebase Auth module not available"}, status=500)
             # Allow for clock skew
             decoded_token = auth.verify_id_token(token, clock_skew_seconds=60)
             email = decoded_token.get("email")

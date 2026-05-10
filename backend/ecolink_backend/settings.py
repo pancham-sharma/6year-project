@@ -26,6 +26,14 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_ALL_ORIGINS = True # Temporary to solve CORB
 CORS_ALLOW_CREDENTIALS = True
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://donation-admin-panel.onrender.com",
+    "https://sewa-marg.vercel.app",
+    "https://admin-panel-blush-ten.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
 # Production Security Settings
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
