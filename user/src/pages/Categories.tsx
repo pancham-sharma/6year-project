@@ -82,10 +82,10 @@ export default function Categories() {
       }, []);
 
       // Merge logic: Use DB version of categories if they exist, otherwise fallback to default images/descriptions
-      const merged = defaultCategories.map((def: Category) => {
+      const merged = defaultCategories.map((def: any) => {
         const dbMatch = unique.find((u: any) => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase());
         return dbMatch ? { ...def, ...dbMatch, image: dbMatch.image ? getImageUrl(dbMatch.image) : def.image } : def;
-      }).concat(unique.filter((u: any) => !defaultCategories.some((def: Category) => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase())));
+      }).concat(unique.filter((u: any) => !defaultCategories.some((def: any) => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase())));
 
       setCategories(merged);
     }
