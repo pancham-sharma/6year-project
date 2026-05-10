@@ -17,10 +17,10 @@ const CATEGORIES = ['Food', 'Clothes', 'Books', 'Monetary', 'Environment'];
 const STATUSES = ['Pending', 'Scheduled', 'Completed', 'Cancelled'];
 
 const statusColors: Record<string, string> = {
-  Completed: 'text-green-600 dark:text-green-400',
-  Scheduled: 'text-blue-600 dark:text-blue-400',
-  Pending: 'text-indigo-600 dark:text-indigo-400',
-  Cancelled: 'text-red-600 dark:text-red-400',
+  Completed: 'text-green-700 dark:text-green-400 font-extrabold',
+  Scheduled: 'text-blue-700 dark:text-blue-400 font-extrabold',
+  Pending: 'text-indigo-700 dark:text-indigo-400 font-extrabold',
+  Cancelled: 'text-red-700 dark:text-red-400 font-extrabold',
 };
 
 const getStatusColor = (status: string) => {
@@ -29,11 +29,11 @@ const getStatusColor = (status: string) => {
 };
 
 const catColors: Record<string, string> = {
-  Food: 'text-orange-600 dark:text-orange-300',
-  Clothes: 'text-purple-600 dark:text-purple-300',
-  Books: 'text-blue-600 dark:text-blue-300',
-  Monetary: 'text-emerald-600 dark:text-emerald-300',
-  Environment: 'text-green-600 dark:text-green-300',
+  Food: 'text-orange-700 dark:text-orange-300 font-extrabold',
+  Clothes: 'text-purple-700 dark:text-purple-300 font-extrabold',
+  Books: 'text-blue-700 dark:text-blue-300 font-extrabold',
+  Monetary: 'text-emerald-700 dark:text-emerald-300 font-extrabold',
+  Environment: 'text-green-700 dark:text-green-300 font-extrabold',
 };
 
 const getCatColor = (cat: string) => {
@@ -47,7 +47,7 @@ export default function DonationManagement({ darkMode }: Props) {
   
   // State for filters and pagination
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(5); // Default to 5 so paging shows up easier
   const [filterCat, setFilterCat] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
@@ -207,7 +207,7 @@ export default function DonationManagement({ darkMode }: Props) {
           <table className="w-full text-sm text-left">
             <thead>
               <tr className={theadBg}>
-                {['ID', 'Donor Name', 'Contact', 'Address', 'Category', 'Quantity', 'Date', 'Status', 'Actions'].map(h => (
+                {['ID', 'Donor Name', 'Email', 'Contact', 'Address', 'Category', 'Quantity', 'Date', 'Status', 'Actions'].map(h => (
                   <th key={h} className={`px-4 py-4 text-xs font-bold uppercase tracking-wider ${textSub}`}>{h}</th>
                 ))}
               </tr>
@@ -236,6 +236,7 @@ export default function DonationManagement({ darkMode }: Props) {
                   <tr key={d.id} className={`transition-colors ${rowHover} ${isPlaceholderData ? 'opacity-50' : ''}`}>
                     <td className={`px-5 py-3.5 font-mono text-xs font-bold ${greenText}`}>#{d.id}</td>
                     <td className={`px-4 py-4 font-medium ${textMain}`}>{d.donorName}</td>
+                    <td className={`px-4 py-4 text-[11px] font-medium ${textSub} max-w-[150px] truncate`}>{d.donorEmail}</td>
                     <td className={`px-4 py-4 ${textSub}`}>
                       <div className="flex items-center gap-1.5"><Phone size={12} /> {d.contact}</div>
                     </td>
@@ -243,12 +244,19 @@ export default function DonationManagement({ darkMode }: Props) {
                       <div className="flex items-start gap-1"><MapPin size={12} className="mt-0.5" /> <span className="truncate max-w-[150px]">{d.address}</span></div>
                     </td>
                     <td className="px-4 py-4 min-w-[120px]">
-                      <span style={{ backgroundColor: 'var(--color-gray-100)' }} className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${getCatColor(d.category)}`}>{d.category}</span>
+                      <span style={{ backgroundColor: 'var(--color-gray-100)' }} className={`px-2.5 py-1 rounded-full text-[10px] uppercase whitespace-nowrap inline-block ${getCatColor(d.category)}`}>{d.category}</span>
                     </td>
-                    <td className={`px-4 py-4 font-medium ${textMain} min-w-[150px]`}>{d.quantity} {d.unit || 'Units'}</td>
+                    <td className={`px-4 py-4 font-medium ${textMain} min-w-[200px]`}>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[13px] leading-tight break-words">{d.quantity}</span>
+                        {!d.quantity?.toLowerCase().includes('unit') && (
+                          <span className={`text-[10px] uppercase font-bold tracking-wider ${textSub}`}>{d.unit || 'Units'}</span>
+                        )}
+                      </div>
+                    </td>
                     <td className={`px-4 py-4 ${textSub}`}>{d.date}</td>
                     <td className="px-4 py-4">
-                      <span style={{ backgroundColor: 'var(--color-gray-100)' }} className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${getStatusColor(d.status)}`}>{d.status}</span>
+                      <span style={{ backgroundColor: 'var(--color-gray-100)' }} className={`px-2.5 py-1 rounded-full text-[10px] uppercase ${getStatusColor(d.status)}`}>{d.status}</span>
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-2">
@@ -271,9 +279,21 @@ export default function DonationManagement({ darkMode }: Props) {
 
         {/* Pagination Footer */}
         {data && (
-          <div className={`px-5 py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-4 ${divider}`}>
-            <div className={`text-xs font-medium ${textSub}`}>
-              Showing <span className={textMain}>{((page - 1) * limit) + 1}</span> to <span className={textMain}>{Math.min(page * limit, data?.meta?.total || 0)}</span> of <span className={textMain}>{data?.meta?.total || 0}</span> results
+          <div className={`px-5 py-4 border-t flex flex-col lg:flex-row items-center justify-between gap-4 ${divider}`}>
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className={`text-xs font-medium ${textSub}`}>
+                Showing <span className={textMain}>{((page - 1) * limit) + 1}</span> to <span className={textMain}>{Math.min(page * limit, data?.meta?.total || 0)}</span> of <span className={textMain}>{data?.meta?.total || 0}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-bold uppercase ${textSub}`}>Show</span>
+                <select 
+                  value={limit} 
+                  onChange={e => setLimit(Number(e.target.value))}
+                  className={`text-xs px-2 py-1 rounded-lg border outline-none ${selectBg}`}
+                >
+                  {[5, 10, 20, 50].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <button

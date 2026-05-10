@@ -41,13 +41,14 @@ class PickupDetailsSerializer(serializers.ModelSerializer):
 class DonationSerializer(serializers.ModelSerializer):
     pickup_details = PickupDetailsSerializer(required=False)
     donor = serializers.ReadOnlyField(source='donor.username')
+    donor_email = serializers.ReadOnlyField(source='donor.email')
     donor_phone = serializers.ReadOnlyField(source='donor.phone_number')
     image = serializers.SerializerMethodField()
 
     class Meta:
         model = Donation
-        fields = ['id', 'donor', 'donor_phone', 'category', 'quantity_description', 'quantity', 'unit', 'image', 'status', 'timestamp', 'pickup_details']
-        read_only_fields = ['timestamp', 'donor', 'donor_phone']
+        fields = ['id', 'donor', 'donor_email', 'donor_phone', 'category', 'quantity_description', 'quantity', 'unit', 'image', 'status', 'timestamp', 'pickup_details']
+        read_only_fields = ['timestamp', 'donor', 'donor_email', 'donor_phone']
 
     def get_image(self, obj):
         if not obj.image: return None

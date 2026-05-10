@@ -3,11 +3,13 @@ import { fetchAPI } from '../utils/api';
 export interface Donation {
   id: string;
   donorName: string;
+  donorEmail: string;
   contact: string;
   address: string;
   city: string;
   category: string;
   quantity: string;
+  unit: string;
   date: string;
   status: string;
   scheduled_time: string;
@@ -49,11 +51,13 @@ export const getDonations = async (
   const formattedData = rawData.map((d: any) => ({
     id: d.id.toString(),
     donorName: d.donor,
+    donorEmail: d.donor_email || 'N/A',
     contact: d.donor_phone || 'N/A',
     address: d.pickup_details ? d.pickup_details.full_address : 'N/A',
     city: d.pickup_details ? d.pickup_details.city : 'N/A',
     category: d.category,
     quantity: d.quantity_description,
+    unit: d.unit || 'Units',
     date: new Date(d.timestamp).toLocaleDateString(),
     status: d.status,
     scheduled_time: d.pickup_details ? d.pickup_details.scheduled_time : '',
