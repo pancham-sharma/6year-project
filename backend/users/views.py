@@ -261,7 +261,10 @@ class CustomTokenObtainPairView(APIView):
         user = authenticate(username=username, password=password)
         if user:
             if not user.is_email_verified:
-                return Response({"error": "Email not verified"}, status=403)
+                return Response({
+                    "error": "Email not verified",
+                    "detail": "Please verify your email before logging in. If you used Google Login, this should be automatic."
+                }, status=403)
             refresh = RefreshToken.for_user(user)
             return Response({
                 'access': str(refresh.access_token),
