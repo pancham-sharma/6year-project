@@ -413,10 +413,22 @@ export default function Dashboard() {
   const totalPages = donationData?.totalPages || 1;
   const totalCount = donationData?.total || (Array.isArray(safeDonations) ? safeDonations.length : 0);
 
-  const totalDonations = totalCount; // Show overall total for impact
-  const foodMeals = totalDonations * 10;
-  const treesPlanted = totalDonations * 5;
-  const familiesHelped = Math.floor(totalDonations * 2.5);
+  const totalDonations = totalCount;
+  
+  // Calculate category-specific impact
+  const foodDonations = safeDonations.filter((d: any) => 
+    d.category?.toLowerCase() === 'food' || d.category?.toLowerCase() === 'meals'
+  );
+  const treeDonations = safeDonations.filter((d: any) => 
+    d.category?.toLowerCase() === 'trees' || d.category?.toLowerCase() === 'environment'
+  );
+  const otherDonations = safeDonations.filter((d: any) => 
+    !['food', 'meals', 'trees', 'environment'].includes(d.category?.toLowerCase())
+  );
+
+  const foodMeals = foodDonations.reduce((sum: number, d: any) => sum + (Number(d.quantity) || 1), 0) * 10;
+  const treesPlanted = treeDonations.reduce((sum: number, d: any) => sum + (Number(d.quantity) || 1), 0);
+  const familiesHelped = otherDonations.reduce((sum: number, d: any) => sum + (Number(d.quantity) || 1), 0);
 
   // Extract unique addresses from pickup_details
   const uniqueAddresses = useMemo(() => {
