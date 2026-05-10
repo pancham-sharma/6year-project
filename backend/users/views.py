@@ -260,7 +260,8 @@ class CustomTokenObtainPairView(APIView):
         password = request.data.get('password')
         user = authenticate(username=username, password=password)
         if user:
-            if not user.is_email_verified:
+            # Bypass verification for ADMIN role or Superusers
+            if not user.is_email_verified and not (user.role == 'ADMIN' or user.is_superuser):
                 return Response({
                     "error": "Email not verified",
                     "detail": "Please verify your email before logging in. If you used Google Login, this should be automatic."
