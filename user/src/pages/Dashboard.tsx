@@ -430,13 +430,22 @@ export default function Dashboard() {
   const treesPlanted = treeDonations.reduce((sum: number, d: any) => sum + (Number(d.quantity) || 1), 0);
   const familiesHelped = otherDonations.reduce((sum: number, d: any) => sum + (Number(d.quantity) || 1), 0);
 
-  // Extract unique addresses from pickup_details
+  // Extract unique addresses for display
   const uniqueAddresses = useMemo(() => {
     if (!Array.isArray(safeDonations)) return [];
-    return Array.from(new Set(
-      safeDonations.filter((d: any) => d.pickup_details?.full_address)
-               .map((d: any) => `${d.pickup_details.full_address}, ${d.pickup_details.city}, ${d.pickup_details.state} ${d.pickup_details.pincode}`)
-    )) as string[];
+    const seen = new Set();
+    const result: any[] = [];
+    
+    safeDonations.forEach((d: any) => {
+      const p = d.pickup_details;
+      if (!p || !p.full_address) return;
+      const key = `${p.full_address}-${p.city}-${p.state}-${p.pincode}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(p);
+      }
+    });
+    return result;
   }, [safeDonations]);
 
   const loading = loadingDonations;
@@ -784,7 +793,9 @@ export default function Dashboard() {
                           <span className={`font-semibold text-sm ${dark ? 'text-white' : 'text-gray-900'}`}>{i === 0 ? 'Primary Address' : 'Past Address'}</span>
                           {i === 0 && <span className="px-2 py-0.5 bg-primary-100 text-primary-700 text-xs rounded-full font-medium">Default</span>}
                         </div>
-                        <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{addr}</p>
+                        <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {addr.full_address}, {addr.city}, {addr.state} {addr.pincode}
+                        </p>
                       </div>
                     ))}
                   </div>

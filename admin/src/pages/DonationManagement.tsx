@@ -17,28 +17,28 @@ const CATEGORIES = ['Food', 'Clothes', 'Books', 'Monetary', 'Environment'];
 const STATUSES = ['Pending', 'Scheduled', 'Completed', 'Cancelled'];
 
 const statusColors: Record<string, string> = {
-  Completed: 'bg-green-100 text-green-900 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-none',
-  Scheduled: 'bg-blue-100 text-blue-900 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-none',
-  Pending: 'bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-none',
-  Cancelled: 'bg-red-100 text-red-900 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-none',
+  Completed: 'text-green-600 dark:text-green-400',
+  Scheduled: 'text-blue-600 dark:text-blue-400',
+  Pending: 'text-indigo-600 dark:text-indigo-400',
+  Cancelled: 'text-red-600 dark:text-red-400',
 };
 
 const getStatusColor = (status: string) => {
   const s = status?.charAt(0).toUpperCase() + status?.slice(1).toLowerCase();
-  return statusColors[s] || 'bg-gray-100 text-gray-800 border border-gray-200';
+  return statusColors[s] || 'text-gray-600';
 };
 
 const catColors: Record<string, string> = {
-  Food: 'bg-orange-50 text-orange-800 border border-orange-100 dark:bg-orange-900/20 dark:text-orange-300 dark:border-none',
-  Clothes: 'bg-purple-50 text-purple-900 border border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-none',
-  Books: 'bg-blue-50 text-blue-900 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-none',
-  Monetary: 'bg-emerald-50 text-emerald-900 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-none',
-  Environment: 'bg-green-50 text-green-900 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-none',
+  Food: 'text-orange-600 dark:text-orange-300',
+  Clothes: 'text-purple-600 dark:text-purple-300',
+  Books: 'text-blue-600 dark:text-blue-300',
+  Monetary: 'text-emerald-600 dark:text-emerald-300',
+  Environment: 'text-green-600 dark:text-green-300',
 };
 
 const getCatColor = (cat: string) => {
   const c = cat?.charAt(0).toUpperCase() + cat?.slice(1).toLowerCase();
-  return catColors[c] || 'bg-gray-100 text-gray-800 border border-gray-200';
+  return catColors[c] || 'text-gray-600';
 };
 
 export default function DonationManagement({ darkMode }: Props) {
@@ -243,12 +243,12 @@ export default function DonationManagement({ darkMode }: Props) {
                       <div className="flex items-start gap-1"><MapPin size={12} className="mt-0.5" /> <span className="truncate max-w-[150px]">{d.address}</span></div>
                     </td>
                     <td className="px-4 py-4 min-w-[120px]">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${getCatColor(d.category)}`}>{d.category}</span>
+                      <span style={{ backgroundColor: 'var(--color-gray-100)' }} className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${getCatColor(d.category)}`}>{d.category}</span>
                     </td>
                     <td className={`px-4 py-4 font-medium ${textMain} min-w-[150px]`}>{d.quantity} {d.unit || 'Units'}</td>
                     <td className={`px-4 py-4 ${textSub}`}>{d.date}</td>
                     <td className="px-4 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${getStatusColor(d.status)}`}>{d.status}</span>
+                      <span style={{ backgroundColor: 'var(--color-gray-100)' }} className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${getStatusColor(d.status)}`}>{d.status}</span>
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-2">

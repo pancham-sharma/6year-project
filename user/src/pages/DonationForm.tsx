@@ -149,6 +149,24 @@ export default function DonationForm() {
     const dbOnly = Array.isArray(data) ? data.filter((c: any) => 
       !defaults.some(def => def.name.toLowerCase() === c.name.toLowerCase())
     ) : [];
+  
+  // Extract unique addresses from history for auto-fill
+  const uniqueAddresses = useMemo(() => {
+    if (!Array.isArray(existingDonations)) return [];
+    const seen = new Set();
+    const result: any[] = [];
+    
+    existingDonations.forEach((d: any) => {
+      const p = d.pickup_details;
+      if (!p || !p.full_address) return;
+      const key = `${p.full_address}-${p.city}-${p.state}-${p.pincode}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(p);
+      }
+    });
+    return result;
+  }, [existingDonations]);
 
     const forbidden = ['money', 'trees'];
     const all = [...merged, ...dbOnly].filter(c => 
@@ -514,6 +532,43 @@ export default function DonationForm() {
           {/* Step 2: Location & Contact */}
           {step === 2 && (
             <div className="space-y-6 animate-fade-in">
+              {/* Saved Addresses Section */}
+              {uniqueAddresses.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className={`text-sm font-bold flex items-center gap-2 ${dark ? 'text-white' : 'text-slate-900'}`}>
+                    <Clock className="w-4 h-4 text-brand" /> Saved Addresses
+                  </h3>
+                  <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                    {uniqueAddresses.map((addr, i) => (
+                      <button 
+                        key={i}
+                        onClick={() => {
+                          setForm(prev => ({
+                            ...prev,
+                            address: addr.full_address || '',
+                            city: addr.city || '',
+                            state: addr.state || '',
+                            pincode: addr.pincode || '',
+                            landmark: addr.landmark || '',
+                            useCurrentLocation: false
+                          }));
+                          // If coordinates exist from previous donation, we could set mapCoords here too if available
+                        }}
+                        className={`flex-shrink-0 p-4 rounded-2xl border-2 text-left transition-all max-w-[240px] ${dark ? 'bg-slate-700/50 border-slate-700 hover:border-brand/50' : 'bg-gray-50 border-gray-100 hover:border-slate-300'}`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <MapPin className="w-3.5 h-3.5 text-brand" />
+                          <span className={`text-[11px] font-bold uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-slate-500'}`}>Address {i + 1}</span>
+                        </div>
+                        <p className={`text-xs font-medium line-clamp-2 leading-relaxed ${dark ? 'text-white' : 'text-slate-900'}`}>
+                          {addr.full_address}, {addr.city}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Location Choice */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button 
