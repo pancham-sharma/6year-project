@@ -16,6 +16,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import EmailVerified from './pages/EmailVerified';
 import ForgotPassword from './pages/ForgotPassword';
 import PasswordResetSuccess from './pages/PasswordResetSuccess';
+import Stories from './pages/Stories';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -50,6 +51,7 @@ function AppContent() {
           <Route path="/categories" element={<Categories />} />
           <Route path="/about" element={<About />} />
           <Route path="/volunteer" element={<Volunteer />} />
+          <Route path="/stories" element={<Stories />} />
 
           {/* Protected Routes */}
           <Route path="/donate" element={

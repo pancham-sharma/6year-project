@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-default-key-for-dev')
-DEBUG = env('DEBUG', default=True)
+DEBUG = env.bool('DEBUG', default=False)
 
 ALLOWED_HOSTS = ['donation-admin-panel.onrender.com', 'sewa-marg.vercel.app', 'admin-panel-blush-ten.vercel.app', 'localhost', '127.0.0.1', '*']
 

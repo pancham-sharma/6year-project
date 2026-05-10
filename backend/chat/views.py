@@ -12,25 +12,29 @@ class MessageViewSet(viewsets.ModelViewSet):
     pagination_class = CustomPagination
 
     def get_queryset(self):
-        user = self.request.user
-        queryset = Message.objects.select_related('sender', 'receiver')
-        
-        other_user_id = self.request.query_params.get('other_user_id')
-        if other_user_id:
-            queryset = queryset.filter(
-                (Q(sender=user) & Q(receiver_id=other_user_id)) |
-                (Q(sender_id=other_user_id) & Q(receiver=user))
-            )
-        elif user.is_staff or getattr(user, 'role', None) == 'ADMIN':
-            # Admins can see all messages involving any admin or staff member
-            queryset = queryset.filter(
-                Q(sender__is_staff=True) | Q(receiver__is_staff=True) |
-                Q(sender__role='ADMIN') | Q(receiver__role='ADMIN')
-            ).distinct()
-        else:
-            queryset = queryset.filter(Q(sender=user) | Q(receiver=user))
+        try:
+            user = self.request.user
+            queryset = Message.objects.select_related('sender', 'receiver')
             
-        return queryset
+            other_user_id = self.request.query_params.get('other_user_id')
+            if other_user_id:
+                queryset = queryset.filter(
+                    (Q(sender=user) & Q(receiver_id=other_user_id)) |
+                    (Q(sender_id=other_user_id) & Q(receiver=user))
+                )
+            elif user.is_staff or getattr(user, 'role', None) == 'ADMIN':
+                # Admins can see all messages involving any admin or staff member
+                queryset = queryset.filter(
+                    Q(sender__is_staff=True) | Q(receiver__is_staff=True) |
+                    Q(sender__role='ADMIN') | Q(receiver__role='ADMIN')
+                ).distinct()
+            else:
+                queryset = queryset.filter(Q(sender=user) | Q(receiver=user))
+                
+            return queryset
+        except Exception as e:
+            print(f"Chat Query Error: {e}")
+            return Message.objects.none()
 
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)

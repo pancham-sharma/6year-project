@@ -139,9 +139,10 @@ export default function Dashboard() {
   useEffect(() => {
     // Attempt to fetch dedicated admin ID once on mount
     fetchAPI('/api/users/admin-id/').then(res => {
-      console.log("Fetched Admin ID:", res.id);
       if (res.id) setAdminId(res.id);
-    }).catch(err => console.warn("Dedicated Admin ID fetch failed", err));
+    }).catch(err => {
+      if (import.meta.env.DEV) console.warn("Dedicated Admin ID fetch failed", err);
+    });
   }, []);
 
   const [ws, setWs] = useState<WebSocket | null>(null);
@@ -163,11 +164,11 @@ export default function Dashboard() {
     
     const wsUrl = `${protocol}://${host}/ws/chat/?token=${token}`;
     
-    console.log("User connecting to WebSocket:", wsUrl);
+    if (import.meta.env.DEV) console.log("User connecting to WebSocket...");
     const newWs = new WebSocket(wsUrl);
     
     newWs.onopen = () => {
-      console.log("User WebSocket Connected");
+      if (import.meta.env.DEV) console.log("User WebSocket Connected");
       // Join specific room
       const ids = [parseInt(String(appUser.id)), parseInt(String(adminId))].sort((a, b) => a - b);
       newWs.send(JSON.stringify({

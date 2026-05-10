@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     RegisterView, ProfileView, LogoutView, UserListView, UserStatsView,
-    SocialAuthGoogleView, VolunteerApplicationView, 
+    SocialAuthGoogleView, FirebaseAuthView, VolunteerApplicationView, 
     VolunteerApplicationAdminListView, VolunteerApplicationAdminDetailView,
     ChangePasswordView, CustomTokenObtainPairView, GetAdminIdView
 )
@@ -11,6 +11,8 @@ from rest_framework_simplejwt.views import (
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='auth_register'),
+    path('auth/firebase/', FirebaseAuthView.as_view(), name='firebase-auth'),
+    path('auth/google/', SocialAuthGoogleView.as_view(), name='social_auth_google'),
     path('list/', UserListView.as_view(), name='user_list'),
     path('stats/', UserStatsView.as_view(), name='user_stats'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),

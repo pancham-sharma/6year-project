@@ -94,7 +94,7 @@ export default function Home() {
       try {
         const res = await fetchAPI(`/api/donations/categories/?t=${new Date().getTime()}`);
         const categoriesData = Array.isArray(res) ? res : (res.results || res.data || []);
-        console.log("Fetched Categories Data:", categoriesData);
+        if (import.meta.env.DEV) console.log("Fetched Categories Data:", categoriesData);
         
         // Deduplicate categoriesData itself by name first
         const uniqueDB = categoriesData.reduce((acc: any[], current: any) => {
@@ -257,48 +257,78 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-20 sm:py-32">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className={`rounded-[48px] py-16 px-10 sm:px-20 relative overflow-hidden text-center transition-all duration-700 group shadow-[0_40px_100px_rgba(0,0,0,0.1)] ${
-            dark 
-              ? 'bg-[#0f172b] border border-white/5' 
-              : 'bg-white border border-slate-100'
-          }`} style={{ 
-            scrollbarWidth: 'thin', 
-            scrollbarColor: 'var(--color-brand) transparent' 
-          }}>
-             {/* Dynamic Moving Green Glows - Targeted Corners */}
-             <div className="absolute inset-0 overflow-hidden pointer-events-none transition-transform duration-1000 group-hover:scale-110">
-                <div className={`absolute -left-20 -top-20 w-[60%] h-[60%] rounded-full animate-bg-drift transition-opacity duration-700 opacity-40 group-hover:opacity-80`} 
-                  style={{ backgroundColor: 'var(--color-brand)', filter: 'blur(100px)' }} />
-                <div className={`absolute -right-20 -bottom-20 w-[60%] h-[60%] rounded-full animate-bg-drift transition-opacity duration-700 opacity-40 group-hover:opacity-80`} 
-                  style={{ backgroundColor: 'var(--color-brand)', filter: 'blur(100px)', animationDirection: 'reverse', animationDelay: '-7s' }} />
-             </div>
-             
-             <div className="relative z-10 flex flex-col items-center justify-center text-center max-w-4xl mx-auto">
-                <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold font-serif mb-6 tracking-tight leading-tight ${
-                  dark ? 'text-[#95f0c9]' : 'text-slate-900'
-                }`}>
+      <section className="py-16 sm:py-24">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="relative group">
+            {/* The Main Premium Card - Slimmer and Wider */}
+            <div className={`
+              rounded-[48px] p-8 sm:p-12 md:p-16 relative overflow-hidden text-center transition-all duration-500 
+              ${dark 
+                ? 'bg-gradient-to-br from-[#0a0f1e] via-[#0f172a] to-[#050814] border-white/10' 
+                : 'bg-white border-emerald-50'}
+              border shadow-[0_30px_70px_rgba(0,0,0,0.08)]
+              group-hover:scale-[1.005] group-hover:shadow-[0_40px_90px_rgba(0,0,0,0.12)]
+            `}>
+              
+              {/* Light Mode Specific Corner Glows (Radial) */}
+              {!dark && (
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                  <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#18E299] opacity-[0.15] blur-[100px] rounded-full"></div>
+                  <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#18E299] opacity-[0.15] blur-[100px] rounded-full"></div>
+                </div>
+              )}
+
+              {/* Dark Mode Glows (maintained) */}
+              {dark && (
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                  <div className="absolute -top-32 -left-32 w-96 h-96 bg-[#18E299] opacity-10 blur-[120px] rounded-full animate-glow-pulse"></div>
+                  <div className="absolute -bottom-40 -right-40 w-[30rem] h-[30rem] bg-[#18E299] opacity-10 blur-[130px] rounded-full animate-glow-float"></div>
+                </div>
+              )}
+
+              {/* Content Layer - Smaller Text Sizes */}
+              <div className="relative z-20 flex flex-col items-center justify-center text-center max-w-4xl mx-auto">
+                <h2 className={`
+                  text-3xl sm:text-4xl md:text-[2.75rem] font-bold font-serif mb-5 tracking-tight
+                  ${dark ? 'text-[#95f0c9]' : 'text-[#0a0f1e]'}
+                  transition-all duration-500
+                `}>
                   Ready to Make a Difference?
                 </h2>
-                <p className={`text-base sm:text-lg mb-10 font-medium leading-relaxed px-6 ${
-                  dark ? 'text-slate-400' : 'text-slate-600'
-                }`}>
+                
+                <p className={`
+                  text-base sm:text-lg mb-10 font-medium leading-relaxed px-4
+                  ${dark ? 'text-slate-400' : 'text-slate-600'}
+                  max-w-2xl
+                `}>
                   Every donation, no matter how small, creates ripples of positive change. Start your journey of giving today.
                 </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-6 w-full">
-                  <Link to="/donate" className={`px-8 py-3 rounded-full text-base font-bold transition-all duration-300 active:scale-95 shadow-2xl ${
-                    dark ? 'bg-white text-slate-900 hover:bg-[#95f0c9]' : 'bg-slate-900 text-white shadow-slate-900/40 hover:bg-slate-800'
-                  }`}>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-5 w-full">
+                  <Link 
+                    to="/donate" 
+                    className={`
+                      px-9 py-3 rounded-full text-base font-bold transition-all duration-300 shadow-lg active:scale-95
+                      ${dark ? 'bg-white text-[#0a0f1e] hover:bg-[#95f0c9]' : 'bg-[#0a0f1e] text-white hover:bg-[#1a233e]'}
+                    `}
+                  >
                     Start Donating
                   </Link>
-                  <Link to="/about" className={`px-8 py-3 rounded-full text-base font-bold border-2 transition-all active:scale-95 ${
-                    dark ? 'border-white/10 text-white hover:bg-white/5' : 'border-slate-200 text-slate-900 hover:bg-slate-50'
-                  }`}>
+                  
+                  <Link 
+                    to="/about" 
+                    className={`
+                      px-9 py-3 rounded-full text-base font-bold border-2 transition-all active:scale-95
+                      ${dark 
+                        ? 'border-white/20 text-white glass-morphism hover:bg-white/10' 
+                        : 'border-slate-200 text-[#0a0f1e] hover:bg-slate-50'}
+                    `}
+                  >
                     Learn More
                   </Link>
                 </div>
-             </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

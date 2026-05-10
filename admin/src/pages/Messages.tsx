@@ -78,12 +78,12 @@ export default function Messages({ darkMode }: Props) {
     const wsUrl = `${protocol}://${host}/ws/chat/?token=${token}`;
 
     
-    console.log("Connecting to WebSocket:", wsUrl);
+    if (import.meta.env.DEV) console.log("Connecting to WebSocket...");
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log("WebSocket Connected");
+      if (import.meta.env.DEV) console.log("WebSocket Connected");
       // If we already have an activeId, join its room immediately
       if (activeId) {
         const ids = [parseInt(myId), parseInt(activeId)].sort((a, b) => a - b);

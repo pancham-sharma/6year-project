@@ -63,11 +63,13 @@ export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Pro
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  // Diagnostic logging
-  console.log(`[fetchAPI] Requesting: ${endpoint}`, {
-    method: options.method || 'GET',
-    hasToken: !!token && token !== 'null'
-  });
+  // Diagnostic logging in development
+  if (import.meta.env.DEV) {
+    console.log(`[fetchAPI] Requesting: ${endpoint}`, {
+      method: options.method || 'GET',
+      hasToken: !!token && token !== 'null'
+    });
+  }
 
   const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
   const response = await fetch(fullUrl, { ...options, headers });

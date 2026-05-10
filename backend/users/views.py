@@ -129,6 +129,59 @@ class SocialAuthGoogleView(APIView):
         except Exception as e:
             return Response({'error': f'Auth failed: {str(e)}'}, status=401)
 
+class FirebaseAuthView(APIView):
+    """
+    Dedicated Firebase Auth View as requested.
+    Verifies Firebase token and returns user info.
+    """
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request):
+        token = request.data.get("token")
+        if not token:
+            return Response({"error": "Token required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        initialize_firebase()
+        if not firebase_admin._apps:
+            return Response({"error": "Firebase not initialized"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            # Allow for clock skew
+            decoded_token = auth.verify_id_token(token, clock_skew_seconds=60)
+            email = decoded_token.get("email")
+            uid = decoded_token.get("uid")
+
+            if not email:
+                return Response({"error": "Email not found in token"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Sync user
+            user = User.objects.filter(email=email).first()
+            if not user:
+                username = email.split('@')[0] + str(random.randint(100, 999))
+                user = User.objects.create(
+                    email=email,
+                    username=username,
+                    firebase_uid=uid,
+                    is_email_verified=True
+                )
+            else:
+                user.firebase_uid = uid
+                user.is_email_verified = True
+                user.save()
+
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "message": "Authentication success",
+                "email": email,
+                "uid": uid,
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": UserSerializer(user).data
+            })
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
 class UserListView(generics.ListAPIView):
     queryset = User.objects.all().order_by('-date_joined')
     permission_classes = (permissions.IsAdminUser,)

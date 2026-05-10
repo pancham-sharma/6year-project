@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Search, Filter, Eye, Edit3, CheckCircle, Trash2, 
-  ChevronDown, X, Phone, MapPin, ChevronLeft, ChevronRight, Users, Package
+  ChevronDown, X, Phone, MapPin, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getDonations } from '../api/donations';
@@ -81,11 +81,6 @@ export default function DonationManagement({ darkMode }: Props) {
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
-  const { data: statsData } = useQuery({
-    queryKey: ['dashboard-summary'],
-    queryFn: () => fetchAPI('/api/donations/dashboard-summary/'),
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-  });
 
 
   useEffect(() => {
@@ -166,35 +161,18 @@ export default function DonationManagement({ darkMode }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className={`rounded-2xl border p-5 flex items-center gap-4 shadow-sm ${card}`}>
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white shadow-md">
-            <Package size={24} />
-          </div>
-          <div>
-            <h3 className={`text-2xl font-bold ${textMain}`}>{statsData?.total_donations || 0}</h3>
-            <p className={`text-sm font-medium ${textSub}`}>Total Donations</p>
-          </div>
-        </div>
-        
-        <div className={`rounded-2xl border p-5 flex items-center gap-4 shadow-sm ${card}`}>
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white shadow-md">
-            <Users size={24} />
-          </div>
-          <div>
-            <h3 className={`text-2xl font-bold ${textMain}`}>{statsData?.total_users || 0}</h3>
-            <p className={`text-sm font-medium ${textSub}`}>Total Users</p>
-          </div>
-        </div>
-      </div>
-
       {/* Toolbar */}
       <div className={`rounded-2xl border p-4 ${card} shadow-sm`}>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="flex-1">
+            <h2 className={`text-lg font-bold ${textMain} flex items-center gap-3`}>
+              Donation Management
+            </h2>
+          </div>
+          
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ml-auto
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors
               ${showFilters ? 'bg-green-500 border-green-500 text-white' : (darkMode ? 'bg-gray-700 border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-600')}`}
           >
             <Filter size={14} />
