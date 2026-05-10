@@ -58,7 +58,7 @@ const CategoryCard = memo(({ cat, dark, getImageUrl }: any) => {
             if (name.includes('food')) e.currentTarget.src = "/images/stories-food.jpg";
             else if (name.includes('clothes')) e.currentTarget.src = "/images/cat-clothes.jpg";
             else if (name.includes('book') || name.includes('education')) e.currentTarget.src = "/images/cat-books.jpg";
-            else if (name.includes('money')) e.currentTarget.src = "/images/cat-money.jpg";
+            else if (name.includes('money') || name.includes('fund')) e.currentTarget.src = "https://images.unsplash.com/photo-1579621970795-87faff2f9070?w=800&q=80&auto=format&fit=crop";
             else if (name.includes('tree') || name.includes('environment')) e.currentTarget.src = "/images/stories-trees.jpg";
             else if (name.includes('gift')) e.currentTarget.src = "/images/cat-gifts.jpg";
             else e.currentTarget.src = '/images/hero.jpg';

@@ -134,7 +134,7 @@ export default function Categories() {
                       if (name.includes('food')) e.currentTarget.src = "/images/stories-food.jpg";
                       else if (name.includes('clothes')) e.currentTarget.src = "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg";
                       else if (name.includes('book') || name.includes('education')) e.currentTarget.src = "/images/stories-education.jpg";
-                      else if (name.includes('money')) e.currentTarget.src = `${API_BASE_URL}/media/category_images/download_9.jpeg`;
+                      else if (name.includes('money') || name.includes('fund')) e.currentTarget.src = "https://images.unsplash.com/photo-1579621970795-87faff2f9070?w=800&q=80&auto=format&fit=crop";
                       else if (name.includes('tree') || name.includes('environment')) e.currentTarget.src = "/images/stories-trees.jpg";
                       else if (name.includes('gift')) e.currentTarget.src = `${API_BASE_URL}/media/category_images/download_10.jpeg`;
                       else e.currentTarget.src = '/images/hero.jpg';
