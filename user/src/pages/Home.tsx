@@ -103,15 +103,6 @@ const SkeletonCard = memo(({ dark }: { dark: boolean }) => (
 export default function Home() {
   const { dark, t } = useApp();
 
-  const permanentCategories = useMemo(() => [
-    { id: 'p1', key: 'food', name: t.categories.food, description: t.categories.foodDesc, impact_badge: t.categories.foodImpact, icon_name: 'Utensils', image: "/images/stories-food.jpg" },
-    { id: 'p2', key: 'clothes', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: t.categories.clothesImpact, icon_name: 'Shirt', image: "/images/cat-clothes.jpg" },
-    { id: 'p3', key: 'books', name: t.categories.books, description: t.categories.booksDesc, impact_badge: t.categories.booksImpact, icon_name: 'BookOpen', image: "/images/cat-books.jpg" },
-    { id: 'p4', key: 'money', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: t.categories.moneyImpact, icon_name: 'Banknote', image: "/images/cat-money.jpg" },
-    { id: 'p5', key: 'trees', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: t.categories.treesImpact, icon_name: 'Sprout', image: "/images/stories-trees.jpg" },
-    { id: 'p6', key: 'gift', name: t.categories.gift, description: t.categories.giftDesc, impact_badge: t.categories.giftImpact, icon_name: 'Gift', image: "/images/cat-gifts.jpg" },
-  ], [t]);
-
   // Optimized fetching with React Query
   const { data: statsData } = useQuery({
     queryKey: ['public-stats'],
@@ -140,37 +131,14 @@ export default function Home() {
   const categories = useMemo(() => {
     const raw = Array.isArray(categoriesDataRaw) ? categoriesDataRaw : (categoriesDataRaw?.results || []);
     
-    // Deduplicate and merge with permanent
-    const uniqueDB = raw.reduce((acc: any[], current: any) => {
-      if (!acc.find(c => c.name.toLowerCase() === current.name.toLowerCase())) {
+    // Filter out inactive and deduplicate by name
+    return raw.reduce((acc: any[], current: any) => {
+      if (current.is_active && !acc.find(c => c.name.toLowerCase() === current.name.toLowerCase())) {
         acc.push(current);
       }
       return acc;
     }, []);
-
-    const updatedPermanent = permanentCategories.map(p => {
-      const dbVersion = uniqueDB.find((cat: any) => 
-        cat.name.toLowerCase() === p.name.toLowerCase() || 
-        cat.name.toLowerCase() === p.key.toLowerCase() ||
-        (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
-        (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
-        (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
-      );
-      return dbVersion ? { ...p, ...dbVersion, image: dbVersion.image ? getImageUrl(dbVersion.image) : p.image } : p;
-    });
-
-    const onlyDynamic = uniqueDB.filter((cat: any) => 
-      !permanentCategories.some(p => 
-        p.name.toLowerCase() === cat.name.toLowerCase() || 
-        p.key.toLowerCase() === cat.name.toLowerCase() ||
-        (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
-        (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
-        (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
-      )
-    );
-
-    return [...updatedPermanent, ...onlyDynamic].filter(cat => cat.is_active !== false);
-  }, [categoriesDataRaw, permanentCategories]);
+  }, [categoriesDataRaw]);
 
   return (
     <div className={`min-h-screen ${dark ? 'bg-near-black text-white' : 'bg-white text-near-black'}`}>

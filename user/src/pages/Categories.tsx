@@ -52,15 +52,6 @@ const iconMap: Record<string, any> = {
 
 export default function Categories() {
   const { dark, t } = useApp();
-  
-  const permanentCategories = [
-    { id: 'p1', key: 'food', name: t.categories.food, description: t.categories.foodDesc, impact_badge: t.categories.foodImpact, icon_name: 'Utensils', image: "/images/stories-food.jpg" },
-    { id: 'p2', key: 'clothes', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: t.categories.clothesImpact, icon_name: 'Shirt', image: "/images/cat-clothes.jpg" },
-    { id: 'p3', key: 'books', name: t.categories.books, description: t.categories.booksDesc, impact_badge: t.categories.booksImpact, icon_name: 'BookOpen', image: "/images/cat-books.jpg" },
-    { id: 'p4', key: 'money', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: t.categories.moneyImpact, icon_name: 'Banknote', image: "/images/cat-money.jpg" },
-    { id: 'p5', key: 'trees', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: t.categories.treesImpact, icon_name: 'Sprout', image: "/images/stories-trees.jpg" },
-    { id: 'p6', key: 'gift', name: t.categories.gift, description: t.categories.giftDesc, impact_badge: t.categories.giftImpact, icon_name: 'Gift', image: "/images/cat-gifts.jpg" },
-  ];
 
 
 
@@ -73,55 +64,18 @@ export default function Categories() {
   const [categories, setCategories] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!categoryData) {
-      if (!isLoading) setCategories(permanentCategories);
-      return;
+    if (categoryData) {
+      const raw = Array.isArray(categoryData) ? categoryData : (categoryData.results || categoryData.data || []);
+      // Filter out inactive and deduplicate by name
+      const unique = raw.reduce((acc: any[], current: any) => {
+        if (current.is_active !== false && current.name && !acc.find(c => c.name.toLowerCase() === current.name.toLowerCase())) {
+          acc.push(current);
+        }
+        return acc;
+      }, []);
+      setCategories(unique);
     }
-    
-    const categoriesData = Array.isArray(categoryData) ? categoryData : (categoryData.results || categoryData.data || []);
-    
-    // Deduplicate categoriesData itself by name first
-    const uniqueDB = categoriesData.reduce((acc: any[], current: any) => {
-      if (current.name && !acc.find(c => c.name.toLowerCase() === current.name.toLowerCase())) {
-        acc.push(current);
-      }
-      return acc;
-    }, []);
-
-    // Merge logic: Use DB version of permanent categories if they exist
-    const updatedPermanent = permanentCategories.map(p => {
-      const dbVersion = uniqueDB.find((cat: any) => 
-        cat.name.toLowerCase() === p.name.toLowerCase() || 
-        cat.name.toLowerCase() === p.key.toLowerCase() ||
-        (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
-        (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
-        (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
-      );
-      
-      if (dbVersion) {
-        return {
-          ...p,
-          ...dbVersion,
-          image: dbVersion.image ? getImageUrl(dbVersion.image) : p.image
-        };
-      }
-      return p;
-    });
-
-    const onlyDynamic = uniqueDB.filter((cat: any) => 
-      !permanentCategories.some(p => 
-        p.name.toLowerCase() === cat.name.toLowerCase() || 
-        p.key.toLowerCase() === cat.name.toLowerCase() ||
-        (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
-        (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
-        (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
-      )
-    );
-
-    const allCategories = [...updatedPermanent, ...onlyDynamic];
-    const visibleCategories = allCategories.filter(cat => cat.is_active !== false);
-    setCategories(visibleCategories);
-  }, [categoryData, isLoading, t]);
+  }, [categoryData]);
 
 
   return (

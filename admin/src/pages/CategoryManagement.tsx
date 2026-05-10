@@ -74,34 +74,13 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
     }
   }, [message]);
 
-  const permanentCategories: Category[] = [
-    { id: 'p1', name: 'Food', description: 'Help feed families in need with nutritious meals', impact_badge: "₹500 feeds 5 people", icon_name: 'Utensils', unit_name: 'Meals', image: "https://i.pinimg.com/1200x/2b/b4/b0/2bb4b0e6331b1e738308549a500a49af.jpg", is_active: true, is_system: true },
-    { id: 'p2', name: 'Clothes', description: 'Provide warmth and dignity through clothing', impact_badge: "10 clothes help 1 family", icon_name: 'Shirt', unit_name: 'Sets', image: "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg", is_active: true, is_system: true },
-    { id: 'p3', name: 'Books', description: 'Empower minds through education materials', impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', unit_name: 'Books', image: "category_images/download_9_IOLG5uL.jpeg", is_active: true, is_system: true },
-    { id: 'p4', name: 'Money', description: 'Your financial support drives all our programs', impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', unit_name: 'Donations', image: "category_images/download_9.jpeg", is_active: true, is_system: true },
-    { id: 'p5', name: 'Trees', description: 'Plant hope for a greener tomorrow', impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', unit_name: 'Trees', image: "category_images/nbl_Erinnerungsbaum.jpeg", is_active: true, is_system: true },
-    { id: 'p6', name: 'Gifts', description: 'Spread joy with thoughtful gifts', impact_badge: "₹300 brings a smile", icon_name: 'Gift', unit_name: 'Gifts', image: "category_images/download_10.jpeg", is_active: true, is_system: true }
-  ];
-
   const fetchCategories = async () => {
     try {
       const data = await fetchAPI(`/api/donations/categories/?t=${new Date().getTime()}`);
       const res = Array.isArray(data) ? data : (data.results || []);
-      
-      // Merge logic: Use DB category if it exists (by name matching), otherwise use permanent default
-      const merged = permanentCategories.map(p => {
-        const dbVersion = res.find((cat: any) => cat.name.toLowerCase() === p.name.toLowerCase());
-        return dbVersion ? { ...dbVersion, is_system: true } : p;
-      });
-
-      const dbOnlyCategories = res.filter((cat: any) => 
-        !permanentCategories.some(p => p.name.toLowerCase() === cat.name.toLowerCase())
-      );
-      
-      setCategories([...merged, ...dbOnlyCategories]);
+      setCategories(res);
     } catch (err) {
       console.error("Failed to fetch categories", err);
-      setCategories(permanentCategories);
     } finally {
       setLoading(false);
     }
@@ -155,7 +134,7 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
     }
 
     try {
-      const isNew = editingId === 'new' || (typeof editingId === 'string' && editingId.startsWith('p'));
+      const isNew = editingId === 'new';
 
       const data = new FormData();
       data.append('name', formData.name);
@@ -197,7 +176,6 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
   };
 
   const handleDelete = async (id: number | string) => {
-    if (typeof id === 'string' && id.startsWith('p')) return;
     if (!window.confirm("Are you sure you want to delete this category?")) return;
     try {
       await fetchAPI(`/api/donations/categories/${id}/`, { method: 'DELETE' });
@@ -213,20 +191,7 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
   const cardClass = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
   const inputClass = `w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} focus:ring-2 focus:ring-green-500 outline-none transition-all`;
 
-  // Deduplicate by name (prefer system/permanent versions)
-  const uniqueCategories = categories.reduce((acc: Category[], current) => {
-    const exists = acc.find(c => c.name.toLowerCase() === current.name.toLowerCase());
-    if (!exists) {
-      acc.push(current);
-    } else if (current.is_system && !exists.is_system) {
-      // Replace non-system with system version if duplicate name found
-      const index = acc.findIndex(c => c.name.toLowerCase() === current.name.toLowerCase());
-      acc[index] = current;
-    }
-    return acc;
-  }, []);
-
-  const filteredCategories = uniqueCategories.filter(c => {
+  const filteredCategories = categories.filter(c => {
     const g = searchQuery.toLowerCase();
     const l = localSearch.toLowerCase();
     
@@ -242,7 +207,6 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
   });
 
   const handleToggle = async (cat: Category) => {
-    if (cat.is_system) return;
     try {
       const updated = await fetchAPI(`/api/donations/categories/${cat.id}/`, {
         method: 'PATCH',
@@ -308,9 +272,9 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
                 >
                   <Edit2 size={16} />
                 </button>
-                <button 
-                  onClick={() => !cat.is_system && handleDelete(cat.id!)}
-                  className={`p-2 rounded-lg transition-colors ${cat.is_system ? 'opacity-20 cursor-not-allowed' : darkMode ? 'hover:bg-red-500/10 text-gray-400 hover:text-red-400' : 'hover:bg-red-50 text-gray-500 hover:text-red-600'}`}
+                 <button 
+                  onClick={() => handleDelete(cat.id!)}
+                  className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-red-500/10 text-gray-400 hover:text-red-400' : 'hover:bg-red-50 text-gray-500 hover:text-red-600'}`}
                 >
                   <Trash2 size={16} />
                 </button>
@@ -320,9 +284,6 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <h4 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{cat.name}</h4>
-                {cat.is_system && (
-                  <span className="text-[10px] px-1.5 py-0.5 bg-blue-500/10 text-blue-500 rounded-md font-bold uppercase tracking-wider">System</span>
-                )}
               </div>
               <p className={`text-xs line-clamp-2 leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{cat.description}</p>
             </div>
