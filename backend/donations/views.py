@@ -19,6 +19,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.units import inch
+from inventory.models import InventoryItem
 
 class IsAdminOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -68,22 +69,29 @@ class DonationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def public_stats(self, request):
-        User = get_user_model()
-        from inventory.models import InventoryItem
-        
-        return Response({
-            'total_donations': Donation.objects.count(),
-            'total_donors': User.objects.count(),
-            'food_meals': Donation.objects.filter(category='Food').count() * 10, # Mock 10 meals per donation
-            'trees_planted': Donation.objects.filter(category='Environment').count() * 5,
+        try:
+            User = get_user_model()
             
-            # Where it goes percentages (dynamic based on DB inventory distribution)
-            'distribution': {
-                'food': InventoryItem.objects.filter(category='Food').count() * 20,
-                'education': InventoryItem.objects.filter(category='Books').count() * 20,
-                'green': InventoryItem.objects.filter(category='Environment').count() * 20,
-            }
-        })
+            # Using .count() is efficient, but let's ensure we return 0 if something fails
+            return Response({
+                'total_donations': Donation.objects.count(),
+                'total_donors': User.objects.count(),
+                'food_meals': Donation.objects.filter(category='Food').count() * 10,
+                'trees_planted': Donation.objects.filter(category='Environment').count() * 5,
+                
+                'distribution': {
+                    'food': InventoryItem.objects.filter(category='Food').count() * 20,
+                    'education': InventoryItem.objects.filter(category='Books').count() * 20,
+                    'green': InventoryItem.objects.filter(category='Environment').count() * 20,
+                }
+            })
+        except Exception as e:
+            if settings.DEBUG:
+                print(f"Error in public_stats: {str(e)}")
+            return Response({
+                'total_donations': 0, 'total_donors': 0, 'food_meals': 0, 'trees_planted': 0,
+                'distribution': {'food': 0, 'education': 0, 'green': 0}
+            })
 
     def perform_create(self, serializer):
         serializer.save(donor=self.request.user)

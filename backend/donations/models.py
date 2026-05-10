@@ -35,8 +35,8 @@ class Donation(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     image = models.ImageField(upload_to='donations/', blank=True, null=True)
     unit = models.CharField(max_length=20, blank=True, null=True, default='Units')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
-    timestamp = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, default='Pending', db_index=True) # Pending, Approved, Rejected, Recycled
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     
     class Meta:
         indexes = [
@@ -45,6 +45,7 @@ class Donation(models.Model):
             models.Index(fields=['donor']),
             models.Index(fields=['timestamp']),
         ]
+        ordering = ['-timestamp']
 
     def save(self, *args, **kwargs):
         # If status is changing to Completed, update inventory

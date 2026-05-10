@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLocation } from 'react-router-dom';
 import { 
-  User, MapPin, Clock, Download, HandHeart, TreePine, Utensils, TrendingUp, 
+  User, MapPin, Clock, HandHeart, TreePine, Utensils,
   CheckCircle, Package, Loader, Mail, Send, Truck, Calendar, LogOut, 
   Users, GraduationCap, Megaphone, HeartPulse, Shirt, Apple, 
   MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight
@@ -10,6 +10,11 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from '../utils/api';
 import { getUserDonations } from '../api/donations';
+import { DonationItem } from '../components/dashboard/DonationItem';
+
+const SkeletonItem = ({ dark }: { dark: boolean }) => (
+  <div className={`h-24 w-full rounded-2xl skeleton-shimmer ${dark ? 'bg-white/5' : 'bg-gray-100'}`} />
+);
 
 export default function Dashboard() {
   const { dark, t, user: appUser, setUser: setAppUser, setNotifications, logout } = useApp();
@@ -494,47 +499,16 @@ export default function Dashboard() {
                     <h3 className={`text-lg font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{t.dashboard.history}</h3>
                   </div>
                   <div className="space-y-4">
-                    {safeDonations.length === 0 ? (
-                      <div className="text-center py-10">
-                        <p className={`text-lg mb-2 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>No donations found in database.</p>
+                    {loadingDonations ? (
+                      Array.from({ length: 3 }).map((_, i) => <SkeletonItem key={i} dark={dark} />)
+                    ) : safeDonations.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className={`w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center text-2xl ${dark ? 'bg-white/5' : 'bg-gray-50'}`}>📦</div>
+                        <p className={`text-lg font-bold mb-1 ${dark ? 'text-white' : 'text-gray-900'}`}>No donations yet</p>
+                        <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>Start your journey of giving today.</p>
                       </div>
                     ) : safeDonations.map((d: any) => (
-                      <div key={d.id} className={`flex items-center gap-4 p-4 rounded-2xl transition-colors ${dark ? 'bg-slate-700/50 hover:bg-slate-700' : 'bg-gray-50 hover:bg-gray-100'}`}>
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                          d.category === 'Food' ? 'bg-orange-100 text-orange-600' :
-                          d.category === 'Clothes' ? 'bg-blue-100 text-blue-600' :
-                          d.category === 'Books' ? 'bg-purple-100 text-purple-600' :
-                          d.category === 'Monetary' ? 'bg-green-100 text-green-600' :
-                          'bg-teal-100 text-teal-600'
-                        }`}>
-                          {d.category === 'Food' ? '🍲' : d.category === 'Clothes' ? '👕' : d.category === 'Books' ? '📚' : d.category === 'Monetary' ? '💰' : '🌱'}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-semibold text-sm ${dark ? 'text-white' : 'text-gray-900'}`}>{d.category} Donation</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              d.status === 'Completed' ? (dark ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-green-100 text-green-700') : 
-                              d.status === 'Scheduled' ? (dark ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-blue-100 text-blue-700') : 
-                              (dark ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-amber-100 text-amber-700')
-                            }`}>
-                              <CheckCircle className="w-3 h-3 inline mr-0.5" />{d.status === 'Scheduled' ? 'Approved' : d.status}
-                            </span>
-                          </div>
-                          <p className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'} mt-1`}>#DON-{d.id} • {new Date(d.timestamp).toLocaleDateString()} • {d.quantity_description}</p>
-                          <p className={`text-xs mt-1 font-medium ${dark ? 'text-primary-400' : 'text-primary-600'}`}>
-                            🌟 Impact: {d.category === 'Food' ? '10 Meals provided' : d.category === 'Environment' ? '5 Trees planted' : 'Supporting local families'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => handleDownloadReceipt(d.id)}
-                            className={`p-2 rounded-lg ${dark ? 'hover:bg-slate-600' : 'hover:bg-gray-200'}`} 
-                            title="Download Receipt"
-                          >
-                            <Download className={`w-4 h-4 ${dark ? 'text-gray-400' : 'text-gray-500'}`} />
-                          </button>
-                        </div>
-                      </div>
+                      <DonationItem key={d.id} donation={d} dark={dark} onDownload={handleDownloadReceipt} />
                     ))}
                   </div>
 
@@ -677,13 +651,10 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <h4 className={`text-xl font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{appUser.name}</h4>
-                      <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{appUser.role === 'ADMIN' ? 'Administrator' : appUser.role === 'VOLUNTEER' ? 'Seva Marg Volunteer' : 'Seva Marg Donor'}</p>
-                      <div className="flex items-center gap-1 mt-1">
-                        <TrendingUp className="w-4 h-4 text-primary-500" />
-                        <span className={`text-xs font-medium ${dark ? 'text-primary-400' : 'text-primary-600'}`}>
-                          {appUser.role === 'ADMIN' ? 'System Master' : appUser.role === 'VOLUNTEER' ? 'Impact Partner' : 'Impact Champion'}
-                        </span>
-                      </div>
+                      <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{appUser.email}</p>
+                      <p className={`text-[10px] mt-1 uppercase tracking-wider font-bold ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                        {appUser.role === 'ADMIN' ? 'Administrator' : appUser.role === 'VOLUNTEER' ? 'Seva Marg Volunteer' : 'Seva Marg Donor'}
+                      </p>
                     </div>
                   </div>
 

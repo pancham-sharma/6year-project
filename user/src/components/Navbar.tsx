@@ -98,8 +98,10 @@ export default function Navbar() {
                     <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)}></div>
                     <div className={`absolute right-0 mt-3 w-64 rounded-2xl shadow-2xl border z-50 animate-fade-in py-2 overflow-hidden ${dark ? 'bg-slate-900 border-white/10 text-white shadow-black/50' : 'bg-white border-gray-100 text-slate-900 shadow-gray-200/50'}`}>
                       <div className={`px-4 py-3 border-b ${dark ? 'border-white/5' : 'border-gray-50'}`}>
-                        <p className="text-sm font-bold truncate">{user.name || 'User'}</p>
-                        <p className={`text-xs truncate ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{user.email}</p>
+                        <p className="text-sm font-bold truncate">{user.name || user.email || 'User'}</p>
+                        <p className={`text-xs truncate font-medium mt-0.5 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          {user.email || 'No email provided'}
+                        </p>
                       </div>
                       
                       <div className="p-2 space-y-1">

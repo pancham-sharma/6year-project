@@ -6,6 +6,7 @@ User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     donation_count = serializers.SerializerMethodField()
+    profile_picture = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -13,6 +14,25 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_donation_count(self, obj):
         return obj.donations.count()
+
+    def get_profile_picture(self, obj):
+        if not obj.profile_picture:
+            return None
+        
+        # If it's a string starting with http, return as is
+        # Note: obj.profile_picture is a FieldFile, so we check its name or str representation
+        pic_str = str(obj.profile_picture)
+        if pic_str.startswith('http://') or pic_str.startswith('https://'):
+            return pic_str
+            
+        # Otherwise use standard URL (handles storage backends like Cloudinary/S3 correctly)
+        try:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_picture.url)
+            return obj.profile_picture.url
+        except Exception:
+            return pic_str
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)

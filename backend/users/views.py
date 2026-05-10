@@ -17,8 +17,11 @@ except ImportError:
 User = get_user_model()
 
 def initialize_firebase():
-    """Fail-proof Firebase initialization"""
-    if not firebase_admin or firebase_admin._apps:
+    """Fail-proof Firebase initialization with improved logging"""
+    if not firebase_admin:
+        print("❌ Firebase Admin SDK not installed")
+        return
+    if firebase_admin._apps:
         return
 
     project_id = os.getenv('FIREBASE_PROJECT_ID', 'donation-44db3').strip(' "')
@@ -27,24 +30,23 @@ def initialize_firebase():
 
     if client_email and private_key:
         try:
-            # Clean and reconstruct PEM
-            import re
-            raw_key = private_key.strip(' "\'').replace('\\n', '\n')
-            clean_body = re.sub(r'[^A-Za-z0-9+/=]', '', raw_key.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', ''))
-            if '=' in clean_body[:-2]:
-                clean_body = clean_body.replace('=', '') + '=='
-            formatted_body = '\n'.join([clean_body[i:i+64] for i in range(0, len(clean_body), 64)])
-            final_pem = f"-----BEGIN PRIVATE KEY-----\n{formatted_body}\n-----END PRIVATE KEY-----\n"
+            raw_key = private_key.replace('\\n', '\n')
+            # Handle if the key already has BEGIN/END markers or not
+            if '-----BEGIN PRIVATE KEY-----' not in raw_key:
+                # Clean any whitespace/newlines and format correctly
+                clean_key = "".join(raw_key.split())
+                formatted_key = '\n'.join([clean_key[i:i+64] for i in range(0, len(clean_key), 64)])
+                raw_key = f"-----BEGIN PRIVATE KEY-----\n{formatted_key}\n-----END PRIVATE KEY-----\n"
             
             cred = credentials.Certificate({
                 "project_id": project_id,
                 "client_email": client_email,
-                "private_key": final_pem,
+                "private_key": raw_key,
                 "type": "service_account",
                 "token_uri": "https://oauth2.googleapis.com/token",
             })
             firebase_admin.initialize_app(cred)
-            print("✅ Firebase initialized via ENV")
+            print(f"✅ Firebase initialized for project: {project_id}")
             return
         except Exception as e:
             print(f"❌ Firebase ENV Init Failed: {str(e)}")
@@ -102,29 +104,39 @@ class SocialAuthGoogleView(APIView):
                 return Response({"error": "Email not found in token"}, status=400)
 
             user = User.objects.filter(email=email).first()
+            name = decoded_token.get('name', '')
+            name_parts = name.split(' ', 1) if name else []
+            first_name = name_parts[0] if name_parts else ''
+            last_name = name_parts[1] if len(name_parts) > 1 else ''
+            picture = decoded_token.get('picture', '')
+
             if not user:
-                # Create user if not exists
                 username = email.split('@')[0] + str(random.randint(100, 999))
-                name = decoded_token.get('name', '')
-                name_parts = name.split(' ', 1)
                 user = User.objects.create(
                     email=email,
                     username=username,
-                    first_name=name_parts[0] if name_parts else '',
-                    last_name=name_parts[1] if len(name_parts) > 1 else '',
+                    first_name=first_name,
+                    last_name=last_name,
+                    profile_picture=picture,
                     firebase_uid=uid,
-                    is_email_verified=True # Firebase verified them
+                    is_email_verified=True
                 )
             else:
                 user.firebase_uid = uid
                 user.is_email_verified = True
+                if not user.first_name:
+                    user.first_name = first_name
+                if not user.last_name:
+                    user.last_name = last_name
+                if not user.profile_picture:
+                    user.profile_picture = picture
                 user.save()
 
             refresh = RefreshToken.for_user(user)
             return Response({
                 'access': str(refresh.access_token),
                 'refresh': str(refresh),
-                'user': UserSerializer(user).data
+                'user': UserSerializer(user, context={'request': request}).data
             })
         except Exception as e:
             return Response({'error': f'Auth failed: {str(e)}'}, status=401)
@@ -176,7 +188,7 @@ class FirebaseAuthView(APIView):
                 "uid": uid,
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
-                "user": UserSerializer(user).data
+                "user": UserSerializer(user, context={'request': request}).data
             })
 
         except Exception as e:

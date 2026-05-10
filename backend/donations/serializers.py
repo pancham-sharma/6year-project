@@ -10,11 +10,21 @@ class DatabaseBackupSerializer(serializers.ModelSerializer):
 class CategorySerializer(serializers.ModelSerializer):
     description = serializers.CharField(required=True)
     impact_badge = serializers.CharField(required=True)
-    # image is required only for new categories, but we'll enforce it here
+    image = serializers.SerializerMethodField()
     
     class Meta:
         model = Category
         fields = '__all__'
+
+    def get_image(self, obj):
+        if not obj.image: return None
+        pic_str = str(obj.image)
+        if pic_str.startswith('http'): return pic_str
+        try:
+            request = self.context.get('request')
+            if request: return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        except: return pic_str
 
 class PickupDetailsSerializer(serializers.ModelSerializer):
     # Make address fields optional so partial submissions don't 400
@@ -32,11 +42,22 @@ class DonationSerializer(serializers.ModelSerializer):
     pickup_details = PickupDetailsSerializer(required=False)
     donor = serializers.ReadOnlyField(source='donor.username')
     donor_phone = serializers.ReadOnlyField(source='donor.phone_number')
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = Donation
         fields = ['id', 'donor', 'donor_phone', 'category', 'quantity_description', 'quantity', 'unit', 'image', 'status', 'timestamp', 'pickup_details']
         read_only_fields = ['timestamp', 'donor', 'donor_phone']
+
+    def get_image(self, obj):
+        if not obj.image: return None
+        pic_str = str(obj.image)
+        if pic_str.startswith('http'): return pic_str
+        try:
+            request = self.context.get('request')
+            if request: return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        except: return pic_str
 
     def to_internal_value(self, data):
         # Handle FormData sending pickup_details as a JSON string

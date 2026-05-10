@@ -35,8 +35,11 @@ class VolunteerApplication(models.Model):
     city = models.CharField(max_length=100)
     volunteering_role = models.CharField(max_length=50) # teaching, distribution, awareness, tree
     message = models.TextField(blank=True, null=True)
-    status = models.CharField(max_length=20, default='Pending') # Pending, Approved, Rejected, Recycled
-    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, default='Pending', db_index=True) # Pending, Approved, Rejected, Recycled
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.name} - {self.volunteering_role} ({self.status})"
