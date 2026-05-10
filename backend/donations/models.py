@@ -30,7 +30,7 @@ class Donation(models.Model):
     )
 
     donor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='donations')
-    category = models.CharField(max_length=20) 
+    category = models.CharField(max_length=100) 
     quantity_description = models.TextField()
     quantity = models.PositiveIntegerField(default=1)
     image = models.ImageField(upload_to='donations/', blank=True, null=True)

@@ -16,6 +16,7 @@ export interface Donation {
   scheduled_date: string;
   assigned_team: string;
   notes: string;
+  image: string | null;
 }
 
 export interface PaginatedDonations {
@@ -63,7 +64,8 @@ export const getDonations = async (
     scheduled_time: d.pickup_details ? d.pickup_details.scheduled_time : '',
     scheduled_date: d.pickup_details ? d.pickup_details.scheduled_date : '',
     assigned_team: d.pickup_details ? d.pickup_details.assigned_team : '',
-    notes: ''
+    notes: '',
+    image: d.image || null
   }));
 
   return {

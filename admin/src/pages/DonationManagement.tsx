@@ -47,7 +47,7 @@ export default function DonationManagement({ darkMode }: Props) {
   
   // State for filters and pagination
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(5); // Default to 5 so paging shows up easier
+  const [limit, setLimit] = useState(10); 
   const [filterCat, setFilterCat] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
@@ -284,16 +284,6 @@ export default function DonationManagement({ darkMode }: Props) {
               <div className={`text-xs font-medium ${textSub}`}>
                 Showing <span className={textMain}>{((page - 1) * limit) + 1}</span> to <span className={textMain}>{Math.min(page * limit, data?.meta?.total || 0)}</span> of <span className={textMain}>{data?.meta?.total || 0}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-[10px] font-bold uppercase ${textSub}`}>Show</span>
-                <select 
-                  value={limit} 
-                  onChange={e => setLimit(Number(e.target.value))}
-                  className={`text-xs px-2 py-1 rounded-lg border outline-none ${selectBg}`}
-                >
-                  {[5, 10, 20, 50].map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </div>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -351,6 +341,16 @@ export default function DonationManagement({ darkMode }: Props) {
               <button onClick={() => setViewItem(null)} className={`p-2 rounded-xl transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><X size={16} /></button>
             </div>
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              {viewItem.image && (
+                <div className="mb-6 rounded-2xl overflow-hidden border-2 border-gray-100 dark:border-gray-700 shadow-sm">
+                  <img 
+                    src={viewItem.image} 
+                    alt="Donated Item" 
+                    className="w-full h-64 object-cover"
+                    onError={(e) => e.currentTarget.style.display = 'none'}
+                  />
+                </div>
+              )}
               {[
                 { label: 'Donor Name', value: viewItem.donorName },
                 { label: 'Contact', value: viewItem.contact },

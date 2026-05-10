@@ -149,7 +149,17 @@ export default function DonationForm() {
     const dbOnly = Array.isArray(data) ? data.filter((c: any) => 
       !defaults.some(def => def.name.toLowerCase() === c.name.toLowerCase())
     ) : [];
-  
+
+    const all = [...merged, ...dbOnly].filter(c => c && c.is_active !== false);
+
+    return all.map((c, index) => ({
+      value: c.name,
+      label: c.name,
+      icon: getCategoryIcon(c.icon_name),
+      color: categoryColors[index % categoryColors.length]
+    }));
+  }, [categoryData]);
+
   // Extract unique addresses from history for auto-fill
   const uniqueAddresses = useMemo(() => {
     if (!Array.isArray(existingDonations)) return [];
@@ -167,19 +177,6 @@ export default function DonationForm() {
     });
     return result;
   }, [existingDonations]);
-
-    const forbidden = ['money', 'trees'];
-    const all = [...merged, ...dbOnly].filter(c => 
-      c && c.is_active !== false && !forbidden.includes(c.name.toLowerCase())
-    );
-
-    return all.map((c, index) => ({
-      value: c.name.toLowerCase(),
-      label: c.name,
-      icon: getCategoryIcon(c.icon_name),
-      color: categoryColors[index % categoryColors.length]
-    }));
-  }, [categoryData]);
 
   // Pre-fill user details if available
   useEffect(() => {
