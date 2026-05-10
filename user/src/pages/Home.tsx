@@ -8,15 +8,8 @@ import { useQuery } from '@tanstack/react-query';
 const getImageUrl = (path: string) => {
   if (!path) return '/images/hero.jpg';
   
-  if (path.includes('pancham-sharma-6year-project.vercel.app')) {
-    const p = path.toLowerCase();
-    if (p.includes('food')) return '/images/stories-food.jpg';
-    if (p.includes('clothes')) return "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg";
-    if (p.includes('books') || p.includes('education')) return '/images/stories-education.jpg';
-    if (p.includes('money')) return `${API_BASE_URL}/media/category_images/download_9.jpeg`;
-    if (p.includes('trees')) return '/images/stories-trees.jpg';
-    return '/images/hero.jpg'; 
-  }
+  // If it's already a local image path, return as is
+  if (path.startsWith('/images/')) return path;
 
   if (path.startsWith('http')) {
     if (path.includes('images.unsplash.com') && !path.includes('w=')) {
@@ -27,7 +20,7 @@ const getImageUrl = (path: string) => {
 
   const base = API_BASE_URL;
   if (path.startsWith('/media/')) return `${base}${path}`;
-  if (path.startsWith('/') || path.startsWith('images/')) return path;
+  if (path.startsWith('images/')) return `/${path}`;
   return `${base}/media/${path}`;
 };
 
@@ -59,17 +52,15 @@ const CategoryCard = memo(({ cat, dark, getImageUrl }: any) => {
         <img 
           src={getImageUrl(cat.image)} 
           alt={cat.name} 
-          className="w-full h-full object-cover"
-          loading="lazy"
-          decoding="async"
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
           onError={(e) => {
-            const name = cat.name.toLowerCase();
+            const name = cat.name?.toLowerCase() || '';
             if (name.includes('food')) e.currentTarget.src = "/images/stories-food.jpg";
-            else if (name.includes('clothes')) e.currentTarget.src = "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg";
-            else if (name.includes('book') || name.includes('education')) e.currentTarget.src = "/images/stories-education.jpg";
-            else if (name.includes('money')) e.currentTarget.src = `${API_BASE_URL}/media/category_images/download_9.jpeg`;
+            else if (name.includes('clothes')) e.currentTarget.src = "/images/cat-clothes.jpg";
+            else if (name.includes('book') || name.includes('education')) e.currentTarget.src = "/images/cat-books.jpg";
+            else if (name.includes('money')) e.currentTarget.src = "/images/cat-money.jpg";
             else if (name.includes('tree') || name.includes('environment')) e.currentTarget.src = "/images/stories-trees.jpg";
-            else if (name.includes('gift')) e.currentTarget.src = `${API_BASE_URL}/media/category_images/download_10.jpeg`;
+            else if (name.includes('gift')) e.currentTarget.src = "/images/cat-gifts.jpg";
             else e.currentTarget.src = '/images/hero.jpg';
           }}
         />
