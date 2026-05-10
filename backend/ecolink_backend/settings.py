@@ -37,7 +37,6 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 
 INSTALLED_APPS = [
@@ -171,7 +170,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+SECURE_REFERRER_POLICY = 'no-referrer-when-downgrade'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # File Storage

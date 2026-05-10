@@ -17,7 +17,7 @@ except ImportError:
 User = get_user_model()
 
 def initialize_firebase():
-    """Fail-proof Firebase initialization with improved logging"""
+    """Fail-proof Firebase initialization with improved logging and key handling"""
     if not firebase_admin:
         print("❌ Firebase Admin SDK not installed")
         return
@@ -30,26 +30,33 @@ def initialize_firebase():
 
     if client_email and private_key:
         try:
+            # Handle double-escaped or literal \n characters
             raw_key = private_key.replace('\\n', '\n')
-            # Handle if the key already has BEGIN/END markers or not
-            if '-----BEGIN PRIVATE KEY-----' not in raw_key:
-                # Clean any whitespace/newlines and format correctly
+            
+            # Remove existing headers if present to re-standardize
+            raw_key = raw_key.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '').strip()
+            
+            # Re-format as multi-line base64 if it's a single long string
+            if '\n' not in raw_key:
                 clean_key = "".join(raw_key.split())
-                formatted_key = '\n'.join([clean_key[i:i+64] for i in range(0, len(clean_key), 64)])
-                raw_key = f"-----BEGIN PRIVATE KEY-----\n{formatted_key}\n-----END PRIVATE KEY-----\n"
+                raw_key = '\n'.join([clean_key[i:i+64] for i in range(0, len(clean_key), 64)])
+            
+            # Re-add standard headers
+            final_key = f"-----BEGIN PRIVATE KEY-----\n{raw_key}\n-----END PRIVATE KEY-----\n"
             
             cred = credentials.Certificate({
                 "project_id": project_id,
                 "client_email": client_email,
-                "private_key": raw_key,
+                "private_key": final_key,
                 "type": "service_account",
                 "token_uri": "https://oauth2.googleapis.com/token",
             })
             firebase_admin.initialize_app(cred)
-            print(f"✅ Firebase initialized for project: {project_id}")
+            print(f"✅ Firebase initialized successfully for project: {project_id}")
             return
         except Exception as e:
             print(f"❌ Firebase ENV Init Failed: {str(e)}")
+            # Log the error but continue to JSON fallback
 
     # JSON Fallback
     json_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')

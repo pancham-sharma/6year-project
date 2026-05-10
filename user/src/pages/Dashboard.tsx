@@ -647,7 +647,6 @@ export default function Dashboard() {
                           appUser.name ? appUser.name.charAt(0).toUpperCase() : <User className="w-10 h-10" />
                         )}
                       </div>
-                      <div className="absolute -bottom-2 -right-2 w-7 h-7 bg-green-500 border-4 border-white dark:border-slate-800 rounded-full shadow-lg"></div>
                     </div>
                     <div>
                       <h4 className={`text-xl font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{appUser.name}</h4>

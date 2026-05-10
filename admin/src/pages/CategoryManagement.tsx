@@ -80,7 +80,7 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
     { id: 'p3', name: 'Books', description: 'Empower minds through education materials', impact_badge: "5 books educate 1 child", icon_name: 'BookOpen', unit_name: 'Books', image: "category_images/download_9_IOLG5uL.jpeg", is_active: true, is_system: true },
     { id: 'p4', name: 'Money', description: 'Your financial support drives all our programs', impact_badge: "₹1000 provides healthcare", icon_name: 'Banknote', unit_name: 'Donations', image: "category_images/download_9.jpeg", is_active: true, is_system: true },
     { id: 'p5', name: 'Trees', description: 'Plant hope for a greener tomorrow', impact_badge: "₹200 plants 1 tree", icon_name: 'Sprout', unit_name: 'Trees', image: "category_images/nbl_Erinnerungsbaum.jpeg", is_active: true, is_system: true },
-    { id: 'p6', name: 'Gifts', description: 'Spread joy with thoughtful gifts', impact_badge: "₹300 brings a smile", icon_name: 'Gift', unit_name: 'Gifts', image: "https://images.unsplash.com/photo-1513201099705-a9746e1e201f?q=80&w=800", is_active: true, is_system: true }
+    { id: 'p6', name: 'Gifts', description: 'Spread joy with thoughtful gifts', impact_badge: "₹300 brings a smile", icon_name: 'Gift', unit_name: 'Gifts', image: "category_images/download_10.jpeg", is_active: true, is_system: true }
   ];
 
   const fetchCategories = async () => {

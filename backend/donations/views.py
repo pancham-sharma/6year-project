@@ -69,11 +69,17 @@ class DonationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def public_stats(self, request):
+        from django.core.cache import cache
+        
+        # Try to get cached stats first to prevent timeouts on slow DB connections
+        cached_stats = cache.get('public_stats_data')
+        if cached_stats:
+            return Response(cached_stats)
+            
         try:
             User = get_user_model()
             
-            # Using .count() is efficient, but let's ensure we return 0 if something fails
-            return Response({
+            stats = {
                 'total_donations': Donation.objects.count(),
                 'total_donors': User.objects.count(),
                 'food_meals': Donation.objects.filter(category='Food').count() * 10,
@@ -84,7 +90,12 @@ class DonationViewSet(viewsets.ModelViewSet):
                     'education': InventoryItem.objects.filter(category='Books').count() * 20,
                     'green': InventoryItem.objects.filter(category='Environment').count() * 20,
                 }
-            })
+            }
+            
+            # Cache for 5 minutes
+            cache.set('public_stats_data', stats, 300)
+            return Response(stats)
+            
         except Exception as e:
             if settings.DEBUG:
                 print(f"Error in public_stats: {str(e)}")
