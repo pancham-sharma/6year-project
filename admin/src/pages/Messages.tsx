@@ -127,7 +127,7 @@ export default function Messages({ darkMode }: Props) {
   }, [rawConversations]);
 
   const activeConv = useMemo(() => {
-    const base = convList.find(c => String(c.id) === String(activeId));
+    const base = convList.find((c: any) => String(c.id) === String(activeId));
     if (!base) return null;
     return {
       ...base,

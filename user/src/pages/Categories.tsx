@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { ArrowRight, Utensils, BookOpen, Shirt, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins } from 'lucide-react';
@@ -82,10 +82,10 @@ export default function Categories() {
       }, []);
 
       // Merge logic: Use DB version of categories if they exist, otherwise fallback to default images/descriptions
-      const merged = defaultCategories.map(def => {
-        const dbMatch = unique.find(u => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase());
+      const merged = defaultCategories.map((def: Category) => {
+        const dbMatch = unique.find((u: any) => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase());
         return dbMatch ? { ...def, ...dbMatch, image: dbMatch.image ? getImageUrl(dbMatch.image) : def.image } : def;
-      }).concat(unique.filter(u => !defaultCategories.some(def => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase())));
+      }).concat(unique.filter((u: any) => !defaultCategories.some((def: Category) => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase())));
 
       setCategories(merged);
     }

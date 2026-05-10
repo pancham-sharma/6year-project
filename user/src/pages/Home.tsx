@@ -149,10 +149,10 @@ export default function Home() {
     }, []);
 
     // Merge logic: Ensure default categories have their descriptions/images if not in DB
-    return defaultCategories.map(def => {
-      const dbMatch = unique.find(u => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase());
+    return defaultCategories.map((def: any) => {
+      const dbMatch = unique.find((u: any) => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase());
       return dbMatch ? { ...def, ...dbMatch, image: dbMatch.image ? getImageUrl(dbMatch.image) : def.image } : def;
-    }).concat(unique.filter(u => !defaultCategories.some(def => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase())));
+    }).concat(unique.filter((u: any) => !defaultCategories.some((def: any) => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase())));
   }, [categoriesDataRaw, defaultCategories]);
 
   return (
