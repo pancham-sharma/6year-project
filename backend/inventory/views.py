@@ -10,7 +10,9 @@ class IsAdminOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user and request.user.is_authenticated and request.user.is_admin()
+        if request.user and request.user.is_authenticated:
+            return request.user.is_staff or getattr(request.user, 'role', '') == 'ADMIN'
+        return False
 
 from django_filters.rest_framework import DjangoFilterBackend
 
