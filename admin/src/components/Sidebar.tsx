@@ -94,7 +94,7 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
           const iconKey = (cat.icon_name || '').toLowerCase();
           const DBIcon = iconMap[iconKey] || (existing ? existing.icon : LayoutGrid);
           return {
-            id: cat.name.toLowerCase(),
+            id: cat.name.toLowerCase().replace(/\s+/g, '_'),
             label: cat.name,
             icon: DBIcon,
             color: existing ? existing.color : 'text-green-500'

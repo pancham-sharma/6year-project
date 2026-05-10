@@ -83,11 +83,9 @@ export default function App() {
         const newMap = { ...initialCategoryMap };
         
         categoriesData.forEach((cat: any) => {
-          const key = cat.name.toLowerCase();
-          if (!newTitles[key]) {
-            newTitles[key] = `${cat.name} Donations`;
-            newMap[key] = cat.name;
-          }
+          const key = cat.name.toLowerCase().replace(/\s+/g, '_');
+          newTitles[key] = `${cat.name} Donations`;
+          newMap[key] = cat.name;
         });
         
         setPageTitles(newTitles);

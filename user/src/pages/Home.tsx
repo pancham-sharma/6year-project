@@ -201,9 +201,9 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-            {loadingCats ? [1, 2, 3, 4, 5, 6].map(i => <SkeletonCard key={i} dark={dark} />) : 
+            {categories.length === 0 ? [1, 2, 3, 4, 5, 6].map(i => <SkeletonCard key={i} dark={dark} />) : 
               categories.map((cat: any) => (
-                <CategoryCard key={cat.id} cat={cat} dark={dark} getImageUrl={getImageUrl} />
+                <CategoryCard key={cat.id || cat.name} cat={cat} dark={dark} getImageUrl={getImageUrl} />
               ))
             }
           </div>

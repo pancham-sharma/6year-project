@@ -115,11 +115,13 @@ export default function Categories() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-          {categories.length > 0 ? categories.map((cat) => {
+          {categories.length === 0 ? [1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className={`h-80 rounded-3xl animate-pulse ${dark ? 'bg-white/5' : 'bg-gray-100'}`} />
+          )) : categories.map((cat) => {
             const iconKey = (cat.icon_name || 'Heart').toLowerCase();
             const Icon = iconMap[iconKey] || Heart;
             return (
-              <div key={cat.id} className={`card-modern group ${dark ? 'bg-near-black/60 border-white/10' : 'bg-white shadow-2xl shadow-black/5'}`}>
+              <div key={cat.id || cat.name} className={`card-modern group ${dark ? 'bg-near-black/60 border-white/10' : 'bg-white shadow-2xl shadow-black/5'}`}>
                 <div className="h-52 overflow-hidden relative">
                   <img 
                     src={getImageUrl(cat.image)} 
