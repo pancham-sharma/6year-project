@@ -59,8 +59,8 @@ class DonationViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return Donation.objects.none()
         
-        # Optimize with select_related for donor
-        queryset = Donation.objects.select_related('donor')
+        # Optimize with select_related for donor and pickup_details
+        queryset = Donation.objects.select_related('donor', 'pickup_details')
         
         if user.is_staff or user.is_admin():
             return queryset.all()

@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Package, TrendingDown, TrendingUp, Edit3, Save, X, Loader, Search } from 'lucide-react';
+import { Package, TrendingDown, TrendingUp, Edit3, Save, X, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import TableSkeleton from '../components/TableSkeleton';
+import CardSkeleton from '../components/CardSkeleton';
 import { getInventoryItems, getImpactMetrics, updateInventoryItem } from '../api/inventory';
 import { useSearch } from '../context/SearchContext';
 
@@ -32,14 +34,14 @@ export default function Inventory({ darkMode }: Props) {
   });
 
   const inventory = useMemo(() => {
-    const rawData = invData?.results || invData;
+    const rawData = invData?.data || invData?.results || invData;
     const raw = Array.isArray(rawData) ? rawData : [];
     return raw.map((item: any) => ({
       id: item.id,
       category: item.category,
       totalReceived: item.quantity, 
       distributed: item.distributed || 0, 
-      unit: item.category === 'Food' ? 'kg' : item.category === 'Monetary' ? 'INR' : 'units',
+      unit: item.unit_name || (item.category === 'Food' ? 'kg' : item.category === 'Monetary' ? 'INR' : 'units'),
       color: catColors[item.category] || '#9ca3af',
       icon: catIcons[item.category] || '📦',
       lastUpdated: new Date(item.last_updated).toLocaleDateString('en-IN')
@@ -47,7 +49,7 @@ export default function Inventory({ darkMode }: Props) {
   }, [invData]);
 
   const impactMetrics = useMemo(() => {
-    const rawData = impactData?.results || impactData;
+    const rawData = impactData?.data || impactData?.results || impactData;
     return Array.isArray(rawData) ? rawData : [];
   }, [impactData]);
 
@@ -71,10 +73,9 @@ export default function Inventory({ darkMode }: Props) {
   const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-300' : 'bg-white border-gray-200 text-gray-700 placeholder-gray-400';
   const editInputBg = darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'bg-gray-50 border-gray-300 text-gray-800';
 
-  const combinedSearch = (searchQuery + ' ' + (editValues.search || '')).trim().toLowerCase();
   const filtered = inventory.filter((i: any) => 
-    !combinedSearch || 
-    i.category.toLowerCase().includes(combinedSearch)
+    !searchQuery || 
+    i.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
 
@@ -152,18 +153,12 @@ export default function Inventory({ darkMode }: Props) {
         })}
       </div>
 
-      {/* Search Bar */}
-      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border shadow-sm ${card} ${inputBg}`}>
-        <Search size={15} className={textSub} />
-        <input className="bg-transparent outline-none text-sm flex-1" placeholder="Filter inventory on this page..." value={editValues.search || ''} onChange={e => setEditValues((v: any) => ({ ...v, search: e.target.value }))} />
-        {editValues.search && <button onClick={() => setEditValues((v: any) => ({ ...v, search: '' }))}><X size={13} className={textSub} /></button>}
-      </div>
 
 
       {/* Category Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         {loading ? (
-           <div className="col-span-full flex justify-center py-10"><Loader className="animate-spin text-green-500" /></div>
+           Array.from({ length: 5 }).map((_, i) => <CardSkeleton key={i} darkMode={darkMode} />)
         ) : filtered.length === 0 ? (
            <div className={`col-span-full text-center py-10 ${textSub}`}>No categories matching your search.</div>
         ) : filtered.map((item: any) => {
@@ -185,11 +180,11 @@ export default function Inventory({ darkMode }: Props) {
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className={textSub}>Distributed</span>
-                  <span className="font-semibold text-green-500">{item.distributed.toLocaleString()}</span>
+                  <span className="font-semibold text-green-500">{item.distributed.toLocaleString()} {item.unit}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className={textSub}>Remaining</span>
-                  <span className="font-semibold text-amber-500">{remaining.toLocaleString()}</span>
+                  <span className="font-semibold text-amber-500">{remaining.toLocaleString()} {item.unit}</span>
                 </div>
               </div>
               <div className={`mt-3 h-1.5 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
@@ -219,7 +214,13 @@ export default function Inventory({ darkMode }: Props) {
               </tr>
             </thead>
             <tbody className={`divide-y ${divider}`}>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="p-0">
+                    <TableSkeleton columns={8} rows={5} darkMode={darkMode} />
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                  <tr>
                    <td colSpan={8} className={`py-8 text-center ${textSub}`}>No matching inventory items.</td>
                  </tr>
@@ -244,10 +245,10 @@ export default function Inventory({ darkMode }: Props) {
                         <input type="number" className={`w-24 px-2 py-1 rounded-lg border text-sm ${editInputBg}`}
                           value={editValues.distributed} onChange={e => setEditValues((v: any) => ({ ...v, distributed: +e.target.value }))} />
                       ) : (
-                        <span className="font-medium text-green-500">{item.distributed.toLocaleString()}</span>
+                        <span className="font-medium text-green-500">{item.distributed.toLocaleString()} {item.unit}</span>
                       )}
                     </td>
-                    <td className={`px-5 py-4 font-medium text-amber-500`}>{remaining.toLocaleString()}</td>
+                    <td className={`px-5 py-4 font-medium text-amber-500`}>{remaining.toLocaleString()} {item.unit}</td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
                         <div className={`flex-1 h-2 rounded-full min-w-[80px] ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>

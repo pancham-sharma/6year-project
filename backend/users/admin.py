@@ -1,13 +1,11 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User, VolunteerApplication, EmailOTP
-
-admin.site.register(EmailOTP)
-
+from .models import User, VolunteerApplication
+...
 class MyUserAdmin(UserAdmin):
     list_display = UserAdmin.list_display + ('role', 'is_email_verified')
     fieldsets = UserAdmin.fieldsets + (
-        ('Verification', {'fields': ('is_email_verified', 'role', 'two_factor_enabled')}),
+        ('Verification', {'fields': ('is_email_verified', 'role', 'firebase_uid')}),
     )
 
 admin.site.register(User, MyUserAdmin)

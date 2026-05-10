@@ -16,7 +16,14 @@ export default function Dashboard() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState<'history' | 'profile' | 'addresses' | 'messages' | 'pickups' | 'volunteer'>('history');
+  const [activeTab, setActiveTab] = useState<'history' | 'profile' | 'addresses' | 'messages' | 'pickups' | 'volunteer'>(() => {
+    return (localStorage.getItem('dashboard_tab') as any) || 'history';
+  });
+
+  // Persist tab change
+  useEffect(() => {
+    localStorage.setItem('dashboard_tab', activeTab);
+  }, [activeTab]);
   const [showDonationToast, setShowDonationToast] = useState(false);
   
   // Pagination State
@@ -100,7 +107,22 @@ export default function Dashboard() {
       setNotifications(notifRes.results || notifRes || []);
       const msgData = msgRes.results || msgRes || [];
       const rawMsgs = Array.isArray(msgData) ? msgData.filter((m: any) => m.status !== 'Recycled') : [];
-      setMessages(rawMsgs.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()));
+      
+      setMessages((prev: any[]) => {
+        const sortedNew = rawMsgs.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        // Only keep optimistic messages that are NOT already in the server's list
+        const optimistic = prev.filter(m => m.temp && !sortedNew.some(sm => 
+          sm.message === m.message && String(sm.sender) === String(m.sender)
+        ));
+        const combined = [...sortedNew, ...optimistic];
+        
+        // If this is the first load and we have messages, scroll to bottom
+        if (prev.length === 0 && combined.length > 0) {
+          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+        
+        return combined;
+      });
     } catch (err) {
       console.error("Failed to load realtime dashboard data", err);
     }
@@ -117,6 +139,7 @@ export default function Dashboard() {
   useEffect(() => {
     // Attempt to fetch dedicated admin ID once on mount
     fetchAPI('/api/users/admin-id/').then(res => {
+      console.log("Fetched Admin ID:", res.id);
       if (res.id) setAdminId(res.id);
     }).catch(err => console.warn("Dedicated Admin ID fetch failed", err));
   }, []);
@@ -158,17 +181,17 @@ export default function Dashboard() {
       if (data.type === 'new_message') {
         const m = data.message;
         setMessages((prev: any[]) => {
-          // Check if this message (by ID or exact content) is already there
-          const isDuplicate = prev.some((existing: any) => 
-            String(existing.id) === String(m.id) || 
-            (existing.temp && existing.message_body === m.message_body && String(existing.sender) === String(m.sender))
+          // Robust duplicate check
+          const existingIdx = prev.findIndex((msg: any) => 
+            String(msg.id) === String(m.id) || 
+            (msg.temp && msg.message === m.message && String(msg.sender) === String(m.sender))
           );
-          if (isDuplicate) {
-            // Replace the optimistic temp message with the real server message
-            return prev.map((existing: any) => 
-              (existing.temp && existing.message_body === m.message_body && String(existing.sender) === String(m.sender))
-              ? m : existing
-            );
+
+          if (existingIdx !== -1) {
+            // Replace the optimistic message with the server message
+            const next = [...prev];
+            next[existingIdx] = m;
+            return next;
           }
           return [...prev, m];
         });
@@ -177,7 +200,7 @@ export default function Dashboard() {
         setMessages((prev: any[]) => prev.map((msg: any) => String(msg.id) === String(m.id) ? m : msg));
       } else if (data.type === 'delete_message') {
         const mid = data.message_id;
-        setMessages((prev: any[]) => prev.map((msg: any) => String(msg.id) === String(mid) ? { ...msg, message_body: '[Message Deleted]', isDeleted: true } : msg));
+        setMessages((prev: any[]) => prev.map((msg: any) => String(msg.id) === String(mid) ? { ...msg, message: '[Message Deleted]', isDeleted: true } : msg));
       }
     };
 
@@ -191,7 +214,7 @@ export default function Dashboard() {
     const newText = text.trim();
     // Optimistic local update
     setMessages((prev: any[]) => prev.map((msg: any) => 
-      String(msg.id) === String(msgId) ? { ...msg, message_body: newText, is_edited: true } : msg
+      String(msg.id) === String(msgId) ? { ...msg, message: newText, is_edited: true } : msg
     ));
 
     if (ws.readyState === WebSocket.OPEN) {
@@ -202,14 +225,14 @@ export default function Dashboard() {
       }));
     } else {
       try {
-        await fetchAPI(`/api/chat/messages/${msgId}/`, {
-          method: 'PATCH',
-          body: JSON.stringify({ message_body: newText, is_edited: true })
-        });
-      } catch (err) {
-        console.error("Failed to edit message via REST", err);
-      }
+      await fetchAPI(`/api/chat/messages/${msgId}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ message: text.trim(), is_edited: true })
+      });
+    } catch (err: any) {
+      console.error("Failed to edit message", err);
     }
+  }
     setEditingMsgId(null);
     setEditingText('');
   };
@@ -254,7 +277,9 @@ export default function Dashboard() {
   };
 
   const handleSendMessage = async () => {
-    if (!replyText.trim() || !adminId) return;
+    if (!replyText.trim() || sendingMsg) return;
+    const effectiveAdminId = adminId || 1;
+    console.log("Sending message to admin ID:", effectiveAdminId);
     
     const textToSend = replyText.trim();
     setReplyText(''); // Clear early for better UX
@@ -265,8 +290,8 @@ export default function Dashboard() {
       id: tempId,
       temp: true,
       sender: appUser.id,
-      receiver: adminId,
-      message_body: textToSend,
+      receiver: effectiveAdminId,
+      message: textToSend,
       timestamp: new Date().toISOString(),
       sender_username: appUser.name,
       read: false
@@ -277,7 +302,7 @@ export default function Dashboard() {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
         action: 'send_message',
-        receiver_id: adminId,
+        receiver_id: effectiveAdminId,
         message: textToSend
       }));
       return;
@@ -289,8 +314,8 @@ export default function Dashboard() {
       const newMsg = await fetchAPI('/api/chat/messages/', {
         method: 'POST',
         body: JSON.stringify({
-          receiver: adminId,
-          message_body: textToSend
+          receiver: effectiveAdminId,
+          message: textToSend
         })
       });
       // The WebSocket will broadcast this back to us if connected, 
@@ -298,10 +323,10 @@ export default function Dashboard() {
       setMessages((prev: any[]) => {
         const isDuplicate = prev.some((m: any) => 
           String(m.id) === String(newMsg.id) || 
-          (m.temp && m.message_body === newMsg.message_body)
+          (m.temp && m.message === newMsg.message)
         );
         if (isDuplicate) {
-          return prev.map((m: any) => (m.temp && m.message_body === newMsg.message_body) ? newMsg : m);
+          return prev.map((m: any) => (m.temp && m.message === newMsg.message) ? newMsg : m);
         }
         return [...prev, newMsg];
       });
@@ -814,7 +839,7 @@ export default function Dashboard() {
                           <div className={`max-w-[80%] p-4 rounded-2xl relative ${
                             isMe 
                               ? `bg-[#0d9488] text-white rounded-tr-none shadow-md shadow-teal-500/20` 
-                              : dark ? 'bg-slate-700 text-gray-200 rounded-tl-none border border-slate-600' : 'bg-white text-slate-900 border border-slate-200 rounded-tl-none shadow-sm'
+                              : dark ? 'bg-slate-700 text-gray-200 rounded-tl-none border border-slate-600' : 'bg-slate-100 text-slate-800 border border-slate-200 rounded-tl-none shadow-sm'
                           }`}>
                             {!isMe && (
                               <div className="mb-1">
@@ -839,7 +864,7 @@ export default function Dashboard() {
                             ) : (
                               <>
                                 <p className={`text-sm leading-relaxed whitespace-pre-wrap ${m.isDeleted ? 'italic opacity-50 text-[11px]' : ''}`}>
-                                  {m.message_body}
+                                  {m.message}
                                 </p>
                                 <div className="flex items-center justify-between mt-1 gap-4">
                                   <span className="text-[8px] opacity-40 uppercase tracking-tighter">
@@ -867,7 +892,7 @@ export default function Dashboard() {
                                     <button 
                                       onClick={() => {
                                         setEditingMsgId(m.id);
-                                        setEditingText(m.message_body);
+                                        setEditingText(m.message);
                                         setMenuMsgId(null);
                                       }}
                                       className="w-full px-3 py-2 flex items-center gap-2 text-[11px] hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"

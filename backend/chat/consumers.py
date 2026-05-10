@@ -94,7 +94,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_message(self, sender, receiver_id, body):
         receiver = User.objects.get(id=receiver_id)
-        msg = Message.objects.create(sender=sender, receiver=receiver, message_body=body)
+        msg = Message.objects.create(sender=sender, receiver=receiver, message=body)
         return MessageSerializer(msg).data
 
     @database_sync_to_async
@@ -103,7 +103,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             msg = Message.objects.get(id=msg_id)
             # Only sender can edit
             if msg.sender == self.user:
-                msg.message_body = body
+                msg.message = body
                 msg.is_edited = True
                 msg.save()
                 return MessageSerializer(msg).data

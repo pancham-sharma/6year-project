@@ -1,22 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Users, Heart, UserCheck, Eye, X, Loader, Shield } from 'lucide-react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { fetchAPI } from '../utils/api';
+import { useSearch } from '../context/SearchContext';
 
 interface Props { darkMode: boolean; }
 
 export default function UserManagement({ darkMode }: Props) {
   const [viewUser, setViewUser] = useState<any | null>(null);
-  const [localSearch, setLocalSearch] = useState('');
-  const [page] = useState(1);
+  const [page, setPage] = useState(1);
   const [limit] = useState(10);
+  const { searchQuery } = useSearch();
+
+  // Reset page when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  const { data: statsData } = useQuery({
+    queryKey: ['users-stats'],
+    queryFn: () => fetchAPI('/api/users/stats/'),
+    staleTime: 1000 * 60 * 5
+  });
 
   const { data, isLoading: loading } = useQuery({
-    queryKey: ['users-list', page, localSearch],
+    queryKey: ['users-list', page, searchQuery],
     queryFn: async () => {
-      const usersRes = await fetchAPI(`/api/users/list/?page=${page}&limit=${limit}&search=${localSearch}`);
-      const rawUsers = Array.isArray(usersRes) ? usersRes : (usersRes?.results || usersRes?.data || []);
-      const meta = usersRes?.meta || { total: rawUsers.length, totalPages: 1 };
+      const usersRes = await fetchAPI(`/api/users/list/?page=${page}&limit=${limit}&search=${searchQuery}`);
+      const rawUsers = usersRes?.results || (Array.isArray(usersRes) ? usersRes : []);
+      const total = usersRes?.count || rawUsers.length;
+      const totalPages = Math.ceil(total / limit);
       
       return {
         users: rawUsers.map((u: any) => ({
@@ -26,13 +39,14 @@ export default function UserManagement({ darkMode }: Props) {
           phone: u.phone_number || 'N/A',
           joinDate: u.date_joined ? new Date(u.date_joined).toLocaleDateString() : 'N/A',
           status: u.role || 'Donor',
-          avatar: u.username.charAt(0).toUpperCase()
+          avatar: u.username.charAt(0).toUpperCase(),
+          donationCount: u.donation_count || 0
         })),
-        meta
+        meta: { total, totalPages }
       };
     },
     placeholderData: keepPreviousData,
-    staleTime: 1000 * 60 * 5
+    staleTime: 1000 * 30
   });
 
   const users = data?.users || [];
@@ -50,11 +64,10 @@ export default function UserManagement({ darkMode }: Props) {
 
   const filtered = users; // Server side filtering handled via queryFn
 
-  const donorCount = users.filter((u: any) => u.status === 'DONOR' || u.status === 'Donor').length;
-  const volunteerCount = users.filter((u: any) => u.status === 'VOLUNTEER' || u.status === 'Volunteer').length;
-  const adminCount = users.filter((u: any) => u.status === 'ADMIN' || u.status === 'Admin').length;
+  const donorCount = users.filter((u: any) => (u.role || "").toUpperCase() === 'DONOR').length;
+  const volunteerCount = users.filter((u: any) => (u.role || "").toUpperCase() === 'VOLUNTEER').length;
+  const adminCount = users.filter((u: any) => (u.role || "").toUpperCase() === 'ADMIN').length;
 
-  const getUserDonationCount = () => 0; // Simplified for performance, can fetch from backend if needed
 
   const avatarColors = [
     'from-green-400 to-emerald-500',
@@ -74,10 +87,10 @@ export default function UserManagement({ darkMode }: Props) {
       {/* Stats */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {[
-          { label: 'Total Users', value: meta.total, icon: Users, color: 'from-green-400 to-emerald-500' },
-          { label: 'Donors', value: donorCount, icon: Heart, color: 'from-blue-400 to-indigo-500' },
-          { label: 'Volunteers', value: volunteerCount, icon: UserCheck, color: 'from-amber-400 to-orange-500' },
-          { label: 'Admins', value: adminCount, icon: Shield, color: 'from-violet-400 to-purple-500' },
+          { label: 'Total Users', value: statsData?.total || meta.total, icon: Users, color: 'from-green-400 to-emerald-500' },
+          { label: 'New Users (7d)', value: statsData?.new_users || 0, icon: Users, color: 'from-blue-400 to-indigo-500' },
+          { label: 'Volunteers', value: statsData?.volunteers || 0, icon: UserCheck, color: 'from-amber-400 to-orange-500' },
+          { label: 'Admins', value: statsData?.admins || 0, icon: Shield, color: 'from-violet-400 to-purple-500' },
         ].map((s, i) => {
           const Icon = s.icon;
           return (
@@ -96,12 +109,6 @@ export default function UserManagement({ darkMode }: Props) {
         })}
       </div>
 
-      {/* Search */}
-      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border shadow-sm ${card} ${inputBg}`}>
-        <Search size={15} className={textSub} />
-        <input className="bg-transparent outline-none text-sm flex-1" placeholder="Filter users on this page..." value={localSearch} onChange={e => setLocalSearch(e.target.value)} />
-        {localSearch && <button onClick={() => setLocalSearch('')}><X size={13} className={textSub} /></button>}
-      </div>
 
 
       {/* Table */}
@@ -127,7 +134,7 @@ export default function UserManagement({ darkMode }: Props) {
                   <td colSpan={7} className={`py-8 text-center ${textSub}`}>No users found in database.</td>
                 </tr>
               ) : filtered.map((u: any, idx: number) => {
-                const userDons = getUserDonationCount();
+                const userDons = u.donationCount;
                 return (
                 <tr key={u.id} className={`transition-colors ${rowHover}`}>
                   <td className="px-5 py-3.5">
@@ -167,6 +174,40 @@ export default function UserManagement({ darkMode }: Props) {
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination Controls */}
+        <div className={`px-5 py-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} flex items-center justify-between bg-transparent`}>
+          <div className={`text-xs ${textSub}`}>
+            Showing <span className="font-semibold textMain">{Math.min((page - 1) * limit + 1, meta.total)}</span> to <span className="font-semibold textMain">{Math.min(page * limit, meta.total)}</span> of <span className="font-semibold textMain">{meta.total}</span> users
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              disabled={page === 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${page === 1 ? 'opacity-50 cursor-not-allowed' : (darkMode ? 'hover:bg-gray-700 border-gray-600' : 'hover:bg-gray-50 border-gray-200')} ${textMain}`}
+            >
+              Previous
+            </button>
+            <div className="flex items-center gap-1">
+              {[...Array(meta.totalPages)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPage(i + 1)}
+                  className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${page === i + 1 ? 'bg-green-500 text-white shadow-md' : (darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-50 text-gray-500')}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button 
+              disabled={page === meta.totalPages}
+              onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${page === meta.totalPages ? 'opacity-50 cursor-not-allowed' : (darkMode ? 'hover:bg-gray-700 border-gray-600' : 'hover:bg-gray-50 border-gray-200')} ${textMain}`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* View User Modal */}
@@ -196,7 +237,7 @@ export default function UserManagement({ darkMode }: Props) {
                   { label: 'Email', value: viewUser.email },
                   { label: 'Phone', value: viewUser.phone },
                   { label: 'Join Date', value: viewUser.joinDate },
-                  { label: 'Total Donations', value: getUserDonationCount().toString() },
+                  { label: 'Total Donations', value: (viewUser.donationCount || 0).toString() },
                 ].map(item => (
                   <div key={item.label} className={`flex justify-between py-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
                     <span className={`text-sm ${textSub}`}>{item.label}</span>

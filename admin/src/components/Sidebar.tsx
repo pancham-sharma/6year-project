@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Heart, Package, MapPin, Truck,
-  Users, MessageSquare, Bell, BarChart3, Settings, ChevronLeft, ArrowLeft,
+  Users, MessageSquare, Bell, BarChart3, Settings, ArrowLeft,
   Utensils, Shirt, BookOpen, Coins, Leaf, X, Handshake, LayoutGrid, Banknote, Sprout, HandHeart, TreePine, Gift, ShoppingBag, GraduationCap
 } from 'lucide-react';
 import { useSearch } from '../context/SearchContext';
@@ -128,12 +128,14 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
 
   useEffect(() => {
     const isCat = categoryNav.some(c => c.id === active);
-    if (isCat && counts[active] !== undefined) {
-      const newSeen = { ...lastSeen, [active]: counts[active] };
-      setLastSeen(newSeen);
-      localStorage.setItem('admin_sidebar_seen', JSON.stringify(newSeen));
+    if (isCat && counts[active] !== undefined && lastSeen[active] !== counts[active]) {
+      setLastSeen(prev => {
+        const newSeen = { ...prev, [active]: counts[active] };
+        localStorage.setItem('admin_sidebar_seen', JSON.stringify(newSeen));
+        return newSeen;
+      });
     }
-  }, [active, counts, categoryNav, lastSeen]);
+  }, [active, counts, categoryNav]);
 
   const bg = darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200';
   const textBase = darkMode ? 'text-gray-300' : 'text-gray-600';

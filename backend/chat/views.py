@@ -4,20 +4,33 @@ from django.db.models import Q
 from .models import Message, Notification
 from .serializers import MessageSerializer, NotificationSerializer
 
+from utils.pagination import CustomPagination
+
 class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = None # Disable pagination to show all chat history
+    pagination_class = CustomPagination
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff or getattr(user, 'role', None) == 'ADMIN':
+        queryset = Message.objects.select_related('sender', 'receiver')
+        
+        other_user_id = self.request.query_params.get('other_user_id')
+        if other_user_id:
+            queryset = queryset.filter(
+                (Q(sender=user) & Q(receiver_id=other_user_id)) |
+                (Q(sender_id=other_user_id) & Q(receiver=user))
+            )
+        elif user.is_staff or getattr(user, 'role', None) == 'ADMIN':
             # Admins can see all messages involving any admin or staff member
-            return Message.objects.filter(
+            queryset = queryset.filter(
                 Q(sender__is_staff=True) | Q(receiver__is_staff=True) |
                 Q(sender__role='ADMIN') | Q(receiver__role='ADMIN')
             ).distinct()
-        return Message.objects.filter(Q(sender=user) | Q(receiver=user))
+        else:
+            queryset = queryset.filter(Q(sender=user) | Q(receiver=user))
+            
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)
@@ -31,11 +44,19 @@ class MessageViewSet(viewsets.ModelViewSet):
         
         # If user is admin, mark all unread messages from other_user as read
         if request.user.is_staff or getattr(request.user, 'role', '') == 'ADMIN':
-            Message.objects.filter(sender_id=other_user_id, read=False).update(read=True)
+            Message.objects.filter(sender_id=other_user_id, is_read=False).update(is_read=True)
         else:
             # Regular user marks messages sent specifically to them
-            Message.objects.filter(sender_id=other_user_id, receiver=request.user, read=False).update(read=True)
+            Message.objects.filter(sender_id=other_user_id, receiver=request.user, is_read=False).update(is_read=True)
         return Response({"status": "success"})
+
+    @action(detail=False, methods=['get'])
+    def unread_counts(self, request):
+        from django.db.models import Count
+        counts = Message.objects.filter(receiver=request.user, is_read=False)\
+            .values('sender')\
+            .annotate(unread_count=Count('id'))
+        return Response([{"user_id": c['sender'], "unread_count": c['unread_count']} for c in counts])
 
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer

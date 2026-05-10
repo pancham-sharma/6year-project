@@ -2,12 +2,13 @@ import { useState, useMemo } from 'react';
 import { Trash2, RotateCcw, Loader, Search, Heart, Handshake, MessageSquare, Bell, CheckCircle, XCircle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getRecycledItems, restoreItemAPI, deleteItemAPI } from '../api/recycled';
+import { useSearch } from '../context/SearchContext';
 
 interface Props { darkMode: boolean; }
 
 export default function RecycleBin({ darkMode }: Props) {
   const queryClient = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState('');
+  const { searchQuery: searchTerm } = useSearch();
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -110,15 +111,6 @@ export default function RecycleBin({ darkMode }: Props) {
           </div>
         </div>
 
-        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'} mb-6`}>
-          <Search size={16} className={darkMode ? 'text-gray-300' : textSub} />
-          <input 
-            className={`bg-transparent outline-none w-full text-sm ${darkMode ? 'text-white placeholder-gray-300' : 'text-gray-700 placeholder-gray-400'}`} 
-            placeholder="Search recycled items..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
-        </div>
 
         {loading ? (
           <div className="py-12 text-center"><Loader className="animate-spin mx-auto text-green-500" /></div>

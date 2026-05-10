@@ -18,9 +18,11 @@ export interface Donation {
 
 export interface PaginatedDonations {
   data: Donation[];
-  total: number;
-  page: number;
-  totalPages: number;
+  meta: {
+    total: number;
+    page: number;
+    totalPages: number;
+  };
 }
 
 export const getDonations = async (
@@ -41,6 +43,7 @@ export const getDonations = async (
 
   const response = await fetchAPI(`/api/donations/?${queryParams.toString()}`);
   const rawData = Array.isArray(response) ? response : (response.results || response.data || []);
+  const count = response.count || (Array.isArray(response) ? response.length : 0);
   
   // Map backend fields to frontend structure
   const formattedData = rawData.map((d: any) => ({
@@ -60,7 +63,11 @@ export const getDonations = async (
   }));
 
   return {
-    ...response,
-    data: formattedData
+    data: formattedData,
+    meta: {
+      total: count,
+      page: page,
+      totalPages: Math.ceil(count / limit) || 1
+    }
   };
 };

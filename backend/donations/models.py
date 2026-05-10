@@ -34,6 +34,7 @@ class Donation(models.Model):
     quantity_description = models.TextField()
     quantity = models.PositiveIntegerField(default=1)
     image = models.ImageField(upload_to='donations/', blank=True, null=True)
+    unit = models.CharField(max_length=20, blank=True, null=True, default='Units')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     timestamp = models.DateTimeField(auto_now_add=True)
     

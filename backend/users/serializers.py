@@ -5,9 +5,14 @@ from .models import VolunteerApplication
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
+    donation_count = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone_number', 'city', 'profile_picture', 'is_staff', 'is_superuser', 'date_joined']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone_number', 'city', 'profile_picture', 'is_staff', 'is_superuser', 'date_joined', 'donation_count']
+
+    def get_donation_count(self, obj):
+        return obj.donations.count()
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)

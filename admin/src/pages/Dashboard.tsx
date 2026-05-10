@@ -3,18 +3,42 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { Heart, DollarSign, Clock, CheckCircle2, TrendingUp, ArrowUpRight, Loader } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { Heart, DollarSign, Clock, CheckCircle2, TrendingUp, ArrowUpRight, RefreshCw } from 'lucide-react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getDashboardData } from '../api/dashboard';
+
+// Skeleton components for ultra-fast perceived performance
+const CardSkeleton = () => (
+  <div className="rounded-2xl border border-gray-100 p-5 bg-white animate-pulse">
+    <div className="flex justify-between">
+      <div className="space-y-3 flex-1">
+        <div className="h-3 w-20 bg-gray-100 rounded" />
+        <div className="h-8 w-24 bg-gray-200 rounded" />
+        <div className="h-3 w-32 bg-gray-50 rounded" />
+      </div>
+      <div className="w-12 h-12 rounded-2xl bg-gray-100" />
+    </div>
+  </div>
+);
+
+const ChartSkeleton = () => (
+  <div className="rounded-2xl border border-gray-100 p-5 bg-white animate-pulse h-[300px] flex flex-col gap-4">
+    <div className="h-4 w-40 bg-gray-200 rounded mb-4" />
+    <div className="flex-1 w-full bg-gray-50 rounded-lg relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 translate-x-[-100%] animate-[shimmer_2s_infinite]" />
+    </div>
+  </div>
+);
 
 interface Props { darkMode: boolean; }
 
 export default function Dashboard({ darkMode }: Props) {
   // React Query for Dashboard Data
-  const { data, isLoading: loading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['dashboard-data'],
     queryFn: getDashboardData,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    placeholderData: keepPreviousData,
   });
 
   const donations = useMemo(() => Array.isArray(data?.donations) ? data.donations : [], [data]);
@@ -31,7 +55,7 @@ export default function Dashboard({ darkMode }: Props) {
   const statusColors: Record<string, string> = {
     Completed: 'bg-green-100 text-green-900 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-none',
     Scheduled: 'bg-blue-100 text-blue-900 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-none',
-    Pending: 'bg-amber-100 text-amber-900 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-none',
+    Pending: 'bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-none',
     Cancelled: 'bg-red-100 text-red-900 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-none',
   };
 
@@ -118,12 +142,28 @@ export default function Dashboard({ darkMode }: Props) {
     return null;
   };
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-full min-h-[300px]"><Loader className="animate-spin text-green-500 w-8 h-8" /></div>;
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => <CardSkeleton key={i} />)}
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="xl:col-span-2"><ChartSkeleton /></div>
+          <div><ChartSkeleton /></div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {isFetching && !isLoading && (
+        <div className="absolute top-0 right-0 z-50 flex items-center gap-2 px-3 py-1 bg-green-500 text-white text-[10px] font-bold rounded-full shadow-lg animate-bounce">
+          <RefreshCw size={10} className="animate-spin" />
+          SYNCING...
+        </div>
+      )}
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {summaryCards.map((c, i) => {
@@ -309,7 +349,7 @@ export default function Dashboard({ darkMode }: Props) {
                   <td className={`px-5 py-3.5 font-mono font-medium text-green-600`}>#{d.id}</td>
                   <td className={`px-5 py-3.5 font-medium ${textMain}`}>{d.donor}</td>
                   <td className={`px-5 py-3.5 ${textSub}`}>{d.category}</td>
-                  <td className={`px-5 py-3.5 ${textSub}`}>{d.quantity_description}</td>
+                  <td className={`px-5 py-3.5 ${textSub}`}>{d.quantity} {d.unit || 'Units'}</td>
                   <td className={`px-5 py-3.5 ${textSub}`}>{new Date(d.timestamp).toLocaleDateString()}</td>
                   <td className="px-5 py-3.5">
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${getStatusColor(d.status)}`}>{d.status}</span>

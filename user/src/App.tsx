@@ -9,10 +9,13 @@ import Auth from './pages/Auth';
 import Categories from './pages/Categories';
 import DonationForm from './pages/DonationForm';
 import About from './pages/About';
-import Stories from './pages/Stories';
 import Volunteer from './pages/Volunteer';
 import Dashboard from './pages/Dashboard';
 import Notifications from './pages/Notifications';
+import VerifyEmail from './pages/VerifyEmail';
+import EmailVerified from './pages/EmailVerified';
+import ForgotPassword from './pages/ForgotPassword';
+import PasswordResetSuccess from './pages/PasswordResetSuccess';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -31,8 +34,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const { dark } = useApp();
   const location = useLocation();
-  const hideFooterRoutes = ['/auth', '/dashboard', '/notifications'];
-  const hideNavbarRoutes = ['/auth'];
+  const hideFooterRoutes = ['/auth', '/dashboard', '/notifications', '/verify-email', '/email-verified', '/forgot-password', '/password-reset-success'];
+  const hideNavbarRoutes = ['/auth', '/verify-email', '/email-verified', '/forgot-password', '/password-reset-success'];
   const shouldHideFooter = hideFooterRoutes.includes(location.pathname);
   const shouldHideNavbar = hideNavbarRoutes.includes(location.pathname);
 
@@ -40,15 +43,14 @@ function AppContent() {
     <div className={`min-h-screen transition-colors duration-300 ${dark ? 'bg-slate-900 text-gray-100' : 'bg-white text-gray-900'}`}>
       <ScrollToTop />
       {!shouldHideNavbar && <Navbar />}
-      <main>
+      <main className="pb-16 md:pb-24 lg:pb-32">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/about" element={<About />} />
-          <Route path="/stories" element={<Stories />} />
           <Route path="/volunteer" element={<Volunteer />} />
-          
+
           {/* Protected Routes */}
           <Route path="/donate" element={
             <PrivateRoute>
@@ -65,6 +67,12 @@ function AppContent() {
               <Notifications />
             </PrivateRoute>
           } />
+
+          {/* Verification & Password Routes */}
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/email-verified" element={<EmailVerified />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/password-reset-success" element={<PasswordResetSuccess />} />
         </Routes>
       </main>
       {!shouldHideFooter && <Footer />}

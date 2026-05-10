@@ -13,12 +13,12 @@ User = get_user_model()
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def admin_dashboard_summary(self):
+def admin_dashboard_summary(request):
     """
     Combined API for the Admin Dashboard to reduce multiple network requests.
     Cached for 1 minute to ensure high performance under load.
     """
-    if not self.user.is_staff and not self.user.is_admin():
+    if not request.user.is_staff and not request.user.is_admin():
         return Response({"detail": "Permission denied"}, status=403)
 
     cache_key = 'admin_dashboard_stats'
@@ -27,10 +27,11 @@ def admin_dashboard_summary(self):
         return Response(cached_data)
 
     # 1. Base Stats
+    from django.db.models import Q
     stats = {
         'total_donations': Donation.objects.exclude(status='Recycled').count(),
         'total_users': User.objects.count(),
-        'active_volunteers': User.objects.filter(role='VOLUNTEER').count(),
+        'active_volunteers': User.objects.filter(Q(role='VOLUNTEER') | Q(volunteer_applications__status='Approved')).distinct().count(),
         'pending_donations': Donation.objects.filter(status='Pending').count()
     }
 

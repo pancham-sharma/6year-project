@@ -5,8 +5,6 @@ import {
 } from 'lucide-react';
 import { fetchAPI } from '../utils/api';
 import { useToast } from '../context/ToastContext';
-import { Setup2FAModal } from '../components/Setup2FAModal';
-
 import RecycleBin from './RecycleBin';
 
 interface Props { darkMode: boolean; onToggleDark: () => void; }
@@ -49,7 +47,6 @@ const iconMap: Record<string, any> = {
 export default function Settings({ darkMode, onToggleDark }: Props) {
   const { showToast } = useToast();
   const [activeSection, setActiveSection] = useState('categories');
-  const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
   const setBtnLoading = (id: string, isLoading: boolean) => {
@@ -60,7 +57,6 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
   const [loading, setLoading] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatIcon, setNewCatIcon] = useState('layoutgrid');
-  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [passwords, setPasswords] = useState({ current: '', new: '' });
   const [passLoading, setPassLoading] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
@@ -70,18 +66,6 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
     newDonation: true, newMessage: true, pickupUpdates: true,
     lowStock: true, weeklyReport: false, emailDigest: true,
   });
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const profile = await fetchAPI('/api/users/profile/');
-        setIs2FAEnabled(profile.two_factor_enabled);
-      } catch (err) {
-        console.error("Failed to fetch profile for 2FA status", err);
-      }
-    };
-    fetchProfile();
-  }, []);
 
   useEffect(() => {
     const lower = newCatName.toLowerCase().trim();
@@ -129,22 +113,6 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
       setCategories(permanentCategories);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handle2FAToggle = async () => {
-    if (is2FAEnabled) {
-      if (confirm("Are you sure you want to disable 2FA? This will reduce your account security.")) {
-        try {
-          await fetchAPI('/api/users/2fa/disable/', { method: 'POST' });
-          setIs2FAEnabled(false);
-          showToast("Two-Factor Authentication disabled", "info");
-        } catch (err: any) {
-          showToast(err.message || "Failed to disable 2FA", "error");
-        }
-      }
-    } else {
-      setIs2FAModalOpen(true);
     }
   };
 
@@ -484,14 +452,6 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
             
             <div className="space-y-3">
               <div className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-700/30' : 'border-gray-100 bg-gray-50'}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <p className={`font-medium text-sm ${textMain}`}>Two-Factor Authentication</p>
-                  <Toggle checked={is2FAEnabled} onChange={handle2FAToggle} />
-                </div>
-                <p className={`text-xs ${textSub}`}>Add an extra layer of security to your account.</p>
-              </div>
-
-              <div className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-700/30' : 'border-gray-100 bg-gray-50'}`}>
                 <p className={`font-medium text-sm ${textMain} mb-3`}>Change Password</p>
                 <div className="space-y-2">
                   <input 
@@ -593,13 +553,6 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
             </div>
           </div>
         )}
-
-        <Setup2FAModal 
-          isOpen={is2FAModalOpen} 
-          onClose={() => setIs2FAModalOpen(false)} 
-          onSuccess={() => setIs2FAEnabled(true)}
-          darkMode={darkMode}
-        />
 
         {activeSection === 'recycle' && (
           <div className="animate-fade-in">

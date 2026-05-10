@@ -1,21 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar, { NavSection } from './components/Sidebar';
 import Topbar from './components/Topbar';
-import Auth from './pages/Auth';
-import Dashboard from './pages/Dashboard';
-import DonationManagement from './pages/DonationManagement';
-import Inventory from './pages/Inventory';
-import LocationTracking from './pages/LocationTracking';
-import PickupManagement from './pages/PickupManagement';
-import UserManagement from './pages/UserManagement';
-import Messages from './pages/Messages';
-import Reports from './pages/Reports';
-import Settings from './pages/Settings';
-import CategoryPage from './pages/CategoryPage';
-import Notifications from './pages/Notifications';
-import Volunteers from './pages/Volunteers';
-import CategoryManagement from "./pages/CategoryManagement.tsx";
-import RecycleBin from './pages/RecycleBin';
+
+const Auth = lazy(() => import('./pages/Auth'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const DonationManagement = lazy(() => import('./pages/DonationManagement'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const LocationTracking = lazy(() => import('./pages/LocationTracking'));
+const PickupManagement = lazy(() => import('./pages/PickupManagement'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const Messages = lazy(() => import('./pages/Messages'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Settings = lazy(() => import('./pages/Settings'));
+const CategoryPage = lazy(() => import('./pages/CategoryPage'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Volunteers = lazy(() => import('./pages/Volunteers'));
+const CategoryManagement = lazy(() => import("./pages/CategoryManagement.tsx"));
+const RecycleBin = lazy(() => import('./pages/RecycleBin'));
+
 import { SearchProvider } from './context/SearchContext';
 import { ToastProvider } from './context/ToastContext';
 import { fetchAPI } from './utils/api';
@@ -49,6 +51,14 @@ const initialCategoryMap: Record<string, string> = {
   money: 'Money',
   trees: 'Trees',
 };
+
+// Loading skeleton component for lazy routes
+const PageLoader = () => (
+  <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+    <div className="w-12 h-12 border-4 border-green-500/20 border-t-green-500 rounded-full animate-spin" />
+    <p className="text-sm font-medium text-gray-500 animate-pulse">Loading experience...</p>
+  </div>
+);
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -110,25 +120,32 @@ export default function App() {
 
   const renderPage = () => {
     const catSection = categoryMap[activeSection];
-    if (catSection) {
-      return <CategoryPage darkMode={darkMode} category={catSection} />;
-    }
-    switch (activeSection) {
-      case 'dashboard': return <Dashboard darkMode={darkMode} />;
-      case 'donations': return <DonationManagement darkMode={darkMode} />;
-      case 'inventory': return <Inventory darkMode={darkMode} />;
-      case 'location': return <LocationTracking darkMode={darkMode} />;
-      case 'pickups': return <PickupManagement darkMode={darkMode} />;
-      case 'users': return <UserManagement darkMode={darkMode} />;
-      case 'volunteers': return <Volunteers darkMode={darkMode} />;
-      case 'messages': return <Messages darkMode={darkMode} />;
-      case 'notifications': return <Notifications darkMode={darkMode} />;
-      case 'reports': return <Reports darkMode={darkMode} />;
-      case 'category_mgmt': return <CategoryManagement darkMode={darkMode} />;
-      case 'recycle': return <RecycleBin darkMode={darkMode} />;
-      case 'settings': return <Settings darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} />;
-      default: return <Dashboard darkMode={darkMode} />;
-    }
+    return (
+      <Suspense fallback={<PageLoader />}>
+        {catSection ? (
+          <CategoryPage darkMode={darkMode} category={catSection} />
+        ) : (
+          (() => {
+            switch (activeSection) {
+              case 'dashboard': return <Dashboard darkMode={darkMode} />;
+              case 'donations': return <DonationManagement darkMode={darkMode} />;
+              case 'inventory': return <Inventory darkMode={darkMode} />;
+              case 'location': return <LocationTracking darkMode={darkMode} />;
+              case 'pickups': return <PickupManagement darkMode={darkMode} />;
+              case 'users': return <UserManagement darkMode={darkMode} />;
+              case 'volunteers': return <Volunteers darkMode={darkMode} />;
+              case 'messages': return <Messages darkMode={darkMode} />;
+              case 'notifications': return <Notifications darkMode={darkMode} />;
+              case 'reports': return <Reports darkMode={darkMode} />;
+              case 'category_mgmt': return <CategoryManagement darkMode={darkMode} />;
+              case 'recycle': return <RecycleBin darkMode={darkMode} />;
+              case 'settings': return <Settings darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} />;
+              default: return <Dashboard darkMode={darkMode} />;
+            }
+          })()
+        )}
+      </Suspense>
+    );
   };
 
   const handleLogout = () => {
@@ -170,8 +187,8 @@ export default function App() {
               />
 
               <main className="flex-1 overflow-y-auto">
-                <div className={`p-4 lg:p-6 ${activeSection === 'messages' ? 'h-full flex flex-col' : ''}`}>
-                  <div className={`fade-in ${activeSection === 'messages' ? 'flex-1 flex flex-col min-h-0' : ''}`} key={activeSection}>
+                <div className={`p-4 lg:p-6 h-full flex flex-col`}>
+                  <div className={`flex-1 flex flex-col min-h-0 animate-[fadeIn_0.3s_ease-out]`} key={activeSection}>
                     {renderPage()}
                   </div>
                 </div>

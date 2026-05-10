@@ -4,6 +4,7 @@ import {
 } from 'recharts';
 import { TrendingUp, Package, ArrowDownCircle, Archive, Loader } from 'lucide-react';
 import { fetchAPI } from '../utils/api';
+import { useSearch } from '../context/SearchContext';
 
 export type DonationCategory = string;
 
@@ -27,13 +28,16 @@ export default function CategoryPage({ darkMode, category }: Props) {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
         const [donsRes, invRes] = await Promise.all([
-          fetchAPI('/api/donations/').catch(() => []),
-          fetchAPI('/api/inventory/items/').catch(() => [])
+          fetchAPI(`/api/donations/?category=${category}&limit=100`),
+          fetchAPI(`/api/inventory/items/?category=${category}`)
         ]);
-        setDonations(donsRes.results || donsRes || []);
-        setInventory(invRes.results || invRes || []);
+        const donsData = donsRes?.data || donsRes?.results || donsRes;
+        const invData = invRes?.data || invRes?.results || invRes;
+        setDonations(Array.isArray(donsData) ? donsData : []);
+        setInventory(Array.isArray(invData) ? invData : []);
       } catch (err) {
         console.error("Failed to fetch category data", err);
       } finally {
@@ -41,7 +45,7 @@ export default function CategoryPage({ darkMode, category }: Props) {
       }
     };
     fetchData();
-  }, [category]); // Re-fetch or re-calculate if category prop somehow changes
+  }, [category]);
 
   const cfg = (categoryConfig as any)[category] || defaultCfg;
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
@@ -53,7 +57,19 @@ export default function CategoryPage({ darkMode, category }: Props) {
   const divider = darkMode ? 'divide-gray-700' : 'divide-gray-100';
   const theadBg = darkMode ? 'bg-gray-700/50' : 'bg-gray-50';
 
-  const catDonations = donations.filter((d: any) => d.category === category);
+  const { searchQuery } = useSearch();
+  const catDonations = donations.filter((d: any) => {
+    const isCat = d.category === category;
+    if (!isCat) return false;
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      d.donor?.toLowerCase().includes(q) ||
+      d.id.toString().includes(q) ||
+      d.quantity_description?.toLowerCase().includes(q) ||
+      d.pickup_details?.full_address?.toLowerCase().includes(q)
+    );
+  });
   
   // Find matching inventory
   const rawInv = inventory.find((i: any) => i.category === category);
@@ -122,8 +138,8 @@ export default function CategoryPage({ darkMode, category }: Props) {
         {[
           { label: 'Total Received', value: inv.totalReceived > 0 ? `${inv.totalReceived.toLocaleString('en-IN')} ${inv.unit}` : '0', icon: Package, sub: 'Live DB' },
 
-          { label: 'Distributed', value: `${inv.distributed.toLocaleString()}`, icon: ArrowDownCircle, sub: `${distPct}% of total` },
-          { label: 'Remaining Stock', value: remaining.toLocaleString(), icon: Archive, sub: `${100 - distPct}% available` },
+          { label: 'Distributed', value: `${inv.distributed.toLocaleString()} ${inv.unit}`, icon: ArrowDownCircle, sub: `${distPct}% of total` },
+          { label: 'Remaining Stock', value: `${remaining.toLocaleString()} ${inv.unit}`, icon: Archive, sub: `${100 - distPct}% available` },
           { label: 'Active Donations', value: catDonations.length.toString(), icon: TrendingUp, sub: `${catDonations.filter((d: any) => d.status === 'Pending').length} pending` },
         ].map((s, i) => {
           const Icon = s.icon;

@@ -17,7 +17,12 @@ const getImageUrl = (path: string) => {
     return '/images/hero.jpg'; 
   }
 
-  if (path.startsWith('http')) return path;
+  if (path.startsWith('http')) {
+    if (path.includes('images.unsplash.com') && !path.includes('w=')) {
+      return `${path}${path.includes('?') ? '&' : '?'}w=800&q=80&auto=format&fit=crop`;
+    }
+    return path;
+  }
 
   const base = API_BASE_URL;
   if (path.startsWith('/media/')) return `${base}${path}`;
@@ -200,6 +205,8 @@ export default function Home() {
                       src={getImageUrl(cat.image)} 
                       alt={cat.name} 
                       className="w-full h-full object-cover card-img-grayscale"
+                      loading="lazy"
+                      decoding="async"
                       onError={(e) => {
                         const name = cat.name.toLowerCase();
                         if (name.includes('food')) e.currentTarget.src = "/images/stories-food.jpg";
@@ -250,27 +257,43 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-12 sm:py-16">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className={`rounded-[40px] p-8 sm:p-16 relative overflow-hidden text-center transition-all duration-500 shadow-[0_30px_70px_rgba(0,0,0,0.15)] ${dark ? 'bg-[#0f172b] shadow-black/60 border border-white/5' : 'bg-white shadow-slate-200/80 border border-slate-100'}`}>
-             <div className="absolute top-0 right-0 w-96 h-96 bg-brand opacity-10 blur-[100px] -mr-48 -mt-48 animate-pulse" />
-             <div className="absolute bottom-0 left-0 w-96 h-96 bg-brand opacity-10 blur-[100px] -ml-48 -mb-48 animate-pulse" />
+      <section className="py-20 sm:py-32">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className={`rounded-[48px] py-16 px-10 sm:px-20 relative overflow-hidden text-center transition-all duration-700 group shadow-[0_40px_100px_rgba(0,0,0,0.1)] ${
+            dark 
+              ? 'bg-[#0f172b] border border-white/5' 
+              : 'bg-white border border-slate-100'
+          }`} style={{ 
+            scrollbarWidth: 'thin', 
+            scrollbarColor: 'var(--color-brand) transparent' 
+          }}>
+             {/* Dynamic Moving Green Glows - Targeted Corners */}
+             <div className="absolute inset-0 overflow-hidden pointer-events-none transition-transform duration-1000 group-hover:scale-110">
+                <div className={`absolute -left-20 -top-20 w-[60%] h-[60%] rounded-full animate-bg-drift transition-opacity duration-700 opacity-40 group-hover:opacity-80`} 
+                  style={{ backgroundColor: 'var(--color-brand)', filter: 'blur(100px)' }} />
+                <div className={`absolute -right-20 -bottom-20 w-[60%] h-[60%] rounded-full animate-bg-drift transition-opacity duration-700 opacity-40 group-hover:opacity-80`} 
+                  style={{ backgroundColor: 'var(--color-brand)', filter: 'blur(100px)', animationDirection: 'reverse', animationDelay: '-7s' }} />
+             </div>
              
-             <div className="relative z-10 flex flex-col items-center justify-center text-center max-w-3xl mx-auto">
-                <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold font-serif mb-6 tracking-tight ${dark ? 'text-[#95f0c9]' : 'text-slate-900'}`}>
+             <div className="relative z-10 flex flex-col items-center justify-center text-center max-w-4xl mx-auto">
+                <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold font-serif mb-6 tracking-tight leading-tight ${
+                  dark ? 'text-[#95f0c9]' : 'text-slate-900'
+                }`}>
                   Ready to Make a Difference?
                 </h2>
-                <p className={`text-base sm:text-lg mb-8 font-medium leading-relaxed px-4 ${dark ? 'text-slate-300' : 'text-slate-600'}`}>
+                <p className={`text-base sm:text-lg mb-10 font-medium leading-relaxed px-6 ${
+                  dark ? 'text-slate-400' : 'text-slate-600'
+                }`}>
                   Every donation, no matter how small, creates ripples of positive change. Start your journey of giving today.
                 </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
-                  <Link to="/donate" className={`px-8 py-3 rounded-full text-[15px] font-bold transition-all duration-300 active:scale-95 shadow-xl ${
-                    dark ? 'bg-white text-slate-900 hover:bg-brand shadow-white/10' : 'bg-slate-900 text-white shadow-slate-900/20 hover:bg-slate-800'
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-6 w-full">
+                  <Link to="/donate" className={`px-8 py-3 rounded-full text-base font-bold transition-all duration-300 active:scale-95 shadow-2xl ${
+                    dark ? 'bg-white text-slate-900 hover:bg-[#95f0c9]' : 'bg-slate-900 text-white shadow-slate-900/40 hover:bg-slate-800'
                   }`}>
                     Start Donating
                   </Link>
-                  <Link to="/about" className={`px-8 py-3 rounded-full text-[15px] font-bold border-2 transition-all active:scale-95 ${
-                    dark ? 'border-white/20 text-white hover:bg-white/10' : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                  <Link to="/about" className={`px-8 py-3 rounded-full text-base font-bold border-2 transition-all active:scale-95 ${
+                    dark ? 'border-white/10 text-white hover:bg-white/5' : 'border-slate-200 text-slate-900 hover:bg-slate-50'
                   }`}>
                     Learn More
                   </Link>

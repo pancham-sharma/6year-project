@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { UserCheck, UserX, Loader, Mail, Phone, MapPin, Briefcase, Search, X } from 'lucide-react';
+import { UserCheck, UserX, Mail, Phone, MapPin, Briefcase, Search, X } from 'lucide-react';
+import CardSkeleton from '../components/CardSkeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getVolunteersData, updateVolunteerStatus } from '../api/volunteers';
 import { useSearch } from '../context/SearchContext';
@@ -10,7 +11,6 @@ export default function Volunteers({ darkMode }: Props) {
   const { searchQuery } = useSearch();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'applications' | 'active'>('applications');
-  const [localSearch, setLocalSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
 
   // React Query
@@ -39,6 +39,8 @@ export default function Volunteers({ darkMode }: Props) {
           email: app.email,
           city: app.city,
           role: 'VOLUNTEER',
+          role_category: app.volunteering_role,
+          message: app.message,
           isFromApp: true
         });
       }
@@ -73,37 +75,25 @@ export default function Volunteers({ darkMode }: Props) {
 
   const filteredApps = applications.filter((v: any) => {
     const g = searchQuery.toLowerCase();
-    const l = localSearch.toLowerCase();
     
     const matchesGlobal = !g || 
       v.name.toLowerCase().includes(g) || 
       v.email.toLowerCase().includes(g) || 
       v.volunteering_role.toLowerCase().includes(g) || 
       v.city.toLowerCase().includes(g);
-      
-    const matchesLocal = !l || 
-      v.name.toLowerCase().includes(l) || 
-      v.email.toLowerCase().includes(l) || 
-      v.volunteering_role.toLowerCase().includes(l) || 
-      v.city.toLowerCase().includes(l);
 
     const matchesFilter = statusFilter === 'All' || v.status === statusFilter;
-    return matchesGlobal && matchesLocal && matchesFilter;
+    return matchesGlobal && matchesFilter;
   });
   
   const filteredActive = activeVolunteers.filter((v: any) => {
     const g = searchQuery.toLowerCase();
-    const l = localSearch.toLowerCase();
     
     const matchesGlobal = !g || 
       v.username.toLowerCase().includes(g) || 
       v.email.toLowerCase().includes(g);
       
-    const matchesLocal = !l || 
-      v.username.toLowerCase().includes(l) || 
-      v.email.toLowerCase().includes(l);
-      
-    return matchesGlobal && matchesLocal;
+    return matchesGlobal;
   });
 
 
@@ -111,13 +101,11 @@ export default function Volunteers({ darkMode }: Props) {
     switch (status) {
       case 'Approved': return 'bg-green-100 text-green-700';
       case 'Rejected': return 'bg-red-100 text-red-700';
-      default: return 'bg-amber-100 text-amber-700';
+      default: return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
     }
   };
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-[50vh]"><Loader className="animate-spin text-green-500 w-8 h-8" /></div>;
-  }
+  // No full page loader, use inline skeletons in the grid below
 
   return (
     <div className="space-y-6">
@@ -147,20 +135,12 @@ export default function Volunteers({ darkMode }: Props) {
           </div>
         </div>
 
-        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border ${inputBg} mb-6`}>
-          <Search size={16} className={textSub} />
-          <input 
-            className="bg-transparent outline-none w-full text-sm" 
-            placeholder={activeTab === 'applications' ? "Filter applications..." : "Filter active volunteers..."}
-            value={localSearch}
-            onChange={e => setLocalSearch(e.target.value)}
-          />
-          {localSearch && <button onClick={() => setLocalSearch('')}><X size={14} className={textSub} /></button>}
-        </div>
 
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {activeTab === 'applications' ? (
+          {loading ? (
+             Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} darkMode={darkMode} />)
+          ) : activeTab === 'applications' ? (
             filteredApps.length === 0 ? (
               <div className={`col-span-2 py-12 text-center ${textSub}`}>No applications found.</div>
             ) : (
@@ -212,12 +192,20 @@ export default function Volunteers({ darkMode }: Props) {
                     {v.username.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className={`font-bold text-base truncate ${textMain}`}>{v.username}</h3>
-                    <p className={`text-sm ${textSub} truncate`}>{v.email}</p>
-                    <div className="flex items-center gap-3 mt-2">
-                       <span className={`text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold uppercase`}>Active Volunteer</span>
-                       <span className="text-[10px] text-gray-400 flex items-center gap-1"><MapPin size={10} /> {v.city || 'Not specified'}</span>
+                    <div className="flex items-center gap-2">
+                      <h3 className={`font-bold text-base truncate ${textMain}`}>{v.username}</h3>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold uppercase whitespace-nowrap">Active</span>
                     </div>
+                    <p className={`text-sm ${textSub} truncate`}>{v.email}</p>
+                    <div className="flex flex-wrap items-center gap-3 mt-2">
+                       <span className={`text-[10px] text-gray-400 flex items-center gap-1 font-medium`}><MapPin size={10} /> {v.city || 'Not specified'}</span>
+                       {v.role_category && (
+                         <span className="text-[10px] text-green-500 font-bold flex items-center gap-1"><Briefcase size={10} /> {v.role_category}</span>
+                       )}
+                    </div>
+                    {v.message && (
+                      <p className={`mt-2 text-[10px] italic ${textSub} line-clamp-1`}>"{v.message}"</p>
+                    )}
                   </div>
                   <button className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}>
                     <Mail size={16} />

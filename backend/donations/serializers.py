@@ -35,7 +35,7 @@ class DonationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Donation
-        fields = ['id', 'donor', 'donor_phone', 'category', 'quantity_description', 'quantity', 'image', 'status', 'timestamp', 'pickup_details']
+        fields = ['id', 'donor', 'donor_phone', 'category', 'quantity_description', 'quantity', 'unit', 'image', 'status', 'timestamp', 'pickup_details']
         read_only_fields = ['timestamp', 'donor', 'donor_phone']
 
     def to_internal_value(self, data):
@@ -64,6 +64,7 @@ class DonationSerializer(serializers.ModelSerializer):
         instance.category = validated_data.get('category', instance.category)
         instance.quantity_description = validated_data.get('quantity_description', instance.quantity_description)
         instance.quantity = validated_data.get('quantity', instance.quantity)
+        instance.unit = validated_data.get('unit', instance.unit)
         instance.image = validated_data.get('image', instance.image)
         instance.status = validated_data.get('status', instance.status)
         instance.save()

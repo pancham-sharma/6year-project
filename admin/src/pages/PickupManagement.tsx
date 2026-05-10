@@ -17,7 +17,6 @@ export default function PickupManagement({ darkMode }: Props) {
   const [selectedTeam, setSelectedTeam] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed'>('upcoming');
-  const [localSearch, setLocalSearch] = useState('');
 
 
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
@@ -58,9 +57,8 @@ export default function PickupManagement({ darkMode }: Props) {
 
   const upcoming = localDonations.filter(d => d.status === 'Pending' || d.status === 'Scheduled');
   const completed = localDonations.filter(d => d.status === 'Completed');
-  const combinedSearch = (searchQuery + ' ' + localSearch).trim().toLowerCase();
   const filtered = (activeTab === 'upcoming' ? upcoming : completed).filter(p => {
-    const q = combinedSearch;
+    const q = searchQuery.toLowerCase();
     return !q || p.donorName.toLowerCase().includes(q) || p.address.toLowerCase().includes(q) || p.id.toString().includes(q);
   });
 
@@ -166,12 +164,6 @@ export default function PickupManagement({ darkMode }: Props) {
                 </button>
               ))}
             </div>
-          </div>
-          {/* Search Bar */}
-          <div className={`mt-4 flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${inputBg}`}>
-            <Search size={14} className={textSub} />
-            <input className="bg-transparent outline-none flex-1 text-sm" placeholder="Filter pickups on this page..." value={localSearch} onChange={e => setLocalSearch(e.target.value)} />
-            {localSearch && <button onClick={() => setLocalSearch('')}><X size={12} className={textSub} /></button>}
           </div>
 
         </div>

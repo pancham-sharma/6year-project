@@ -198,14 +198,14 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
             <Search size={14} className={darkMode ? 'text-gray-300' : textSub} />
             <input 
               className="bg-transparent outline-none w-full" 
-              placeholder="Search anything..." 
+              placeholder={pageTitle === 'Dashboard' ? "Search anything..." : `Search ${pageTitle}...`} 
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setShowSearch(true); }}
               onFocus={() => setShowSearch(true)}
             />
           </div>
 
-          {showSearch && searchQuery && (
+          {showSearch && searchQuery && pageTitle === 'Dashboard' && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowSearch(false)} />
               <div className={`absolute left-0 top-12 w-80 rounded-2xl border shadow-2xl z-50 overflow-hidden ${notifBg} animate-fade-in`}>

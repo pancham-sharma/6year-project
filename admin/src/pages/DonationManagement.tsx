@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Search, Filter, Eye, Edit3, CheckCircle, Trash2, 
-  ChevronDown, X, Phone, MapPin, ChevronLeft, ChevronRight
+  ChevronDown, X, Phone, MapPin, ChevronLeft, ChevronRight, Users, Package
 } from 'lucide-react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getDonations } from '../api/donations';
@@ -9,6 +9,7 @@ import { useSearch } from '../context/SearchContext';
 import { useToast } from '../context/ToastContext';
 import { useDebounce } from '../hooks/useDebounce';
 import { fetchAPI } from '../utils/api';
+import TableSkeleton from '../components/TableSkeleton';
 
 interface Props { darkMode: boolean; }
 
@@ -18,7 +19,7 @@ const STATUSES = ['Pending', 'Scheduled', 'Completed', 'Cancelled'];
 const statusColors: Record<string, string> = {
   Completed: 'bg-green-100 text-green-900 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-none',
   Scheduled: 'bg-blue-100 text-blue-900 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-none',
-  Pending: 'bg-amber-100 text-amber-900 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-none',
+  Pending: 'bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-none',
   Cancelled: 'bg-red-100 text-red-900 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-none',
 };
 
@@ -28,7 +29,7 @@ const getStatusColor = (status: string) => {
 };
 
 const catColors: Record<string, string> = {
-  Food: 'bg-amber-50 text-amber-900 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-none',
+  Food: 'bg-orange-50 text-orange-800 border border-orange-100 dark:bg-orange-900/20 dark:text-orange-300 dark:border-none',
   Clothes: 'bg-purple-50 text-purple-900 border border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-none',
   Books: 'bg-blue-50 text-blue-900 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-none',
   Monetary: 'bg-emerald-50 text-emerald-900 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-none',
@@ -47,13 +48,12 @@ export default function DonationManagement({ darkMode }: Props) {
   // State for filters and pagination
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
-  const [localSearch, setLocalSearch] = useState('');
   const [filterCat, setFilterCat] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
   
   // Debounce search input
-  const debouncedSearch = useDebounce(localSearch || globalSearch, 500);
+  const debouncedSearch = useDebounce(globalSearch, 500);
 
   // Modals state
   const [viewItem, setViewItem] = useState<any | null>(null);
@@ -80,6 +80,13 @@ export default function DonationManagement({ darkMode }: Props) {
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
+
+  const { data: statsData } = useQuery({
+    queryKey: ['dashboard-summary'],
+    queryFn: () => fetchAPI('/api/donations/dashboard-summary/'),
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+
 
   useEffect(() => {
     if (isError) {
@@ -159,23 +166,35 @@ export default function DonationManagement({ darkMode }: Props) {
 
   return (
     <div className="space-y-5">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className={`rounded-2xl border p-5 flex items-center gap-4 shadow-sm ${card}`}>
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white shadow-md">
+            <Package size={24} />
+          </div>
+          <div>
+            <h3 className={`text-2xl font-bold ${textMain}`}>{statsData?.total_donations || 0}</h3>
+            <p className={`text-sm font-medium ${textSub}`}>Total Donations</p>
+          </div>
+        </div>
+        
+        <div className={`rounded-2xl border p-5 flex items-center gap-4 shadow-sm ${card}`}>
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white shadow-md">
+            <Users size={24} />
+          </div>
+          <div>
+            <h3 className={`text-2xl font-bold ${textMain}`}>{statsData?.total_users || 0}</h3>
+            <p className={`text-sm font-medium ${textSub}`}>Total Users</p>
+          </div>
+        </div>
+      </div>
+
       {/* Toolbar */}
       <div className={`rounded-2xl border p-4 ${card} shadow-sm`}>
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className={`flex items-center gap-2 flex-1 px-3 py-2.5 rounded-xl border ${inputBg}`}>
-            <Search size={15} className={textSub} />
-            <input 
-              className="bg-transparent outline-none text-sm w-full" 
-              placeholder="Search by donor, ID, or address..." 
-              value={localSearch} 
-              onChange={e => setLocalSearch(e.target.value)} 
-            />
-            {localSearch && <button onClick={() => setLocalSearch('')}><X size={13} className={textSub} /></button>}
-          </div>
-
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ml-auto
               ${showFilters ? 'bg-green-500 border-green-500 text-white' : (darkMode ? 'bg-gray-700 border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-600')}`}
           >
             <Filter size={14} />
@@ -217,19 +236,11 @@ export default function DonationManagement({ darkMode }: Props) {
             </thead>
             <tbody className={`divide-y ${divider}`}>
               {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td className="px-5 py-4"><div className={`h-4 w-12 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
-                    <td className="px-4 py-4"><div className={`h-4 w-32 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
-                    <td className="px-4 py-4"><div className={`h-4 w-24 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
-                    <td className="px-4 py-4"><div className={`h-4 w-40 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
-                    <td className="px-4 py-4"><div className={`h-6 w-20 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
-                    <td className="px-4 py-4"><div className={`h-4 w-28 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
-                    <td className="px-4 py-4"><div className={`h-4 w-20 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
-                    <td className="px-4 py-4"><div className={`h-6 w-16 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
-                    <td className="px-4 py-4"><div className={`h-8 w-16 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}></div></td>
-                  </tr>
-                ))
+                <tr>
+                  <td colSpan={9} className="p-0">
+                    <TableSkeleton columns={9} rows={limit} darkMode={darkMode} />
+                  </td>
+                </tr>
               ) : data?.data?.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-20 text-center">
@@ -256,7 +267,7 @@ export default function DonationManagement({ darkMode }: Props) {
                     <td className="px-4 py-4 min-w-[120px]">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap inline-block ${getCatColor(d.category)}`}>{d.category}</span>
                     </td>
-                    <td className={`px-4 py-4 font-medium ${textMain} min-w-[150px]`}>{d.quantity}</td>
+                    <td className={`px-4 py-4 font-medium ${textMain} min-w-[150px]`}>{d.quantity} {d.unit || 'Units'}</td>
                     <td className={`px-4 py-4 ${textSub}`}>{d.date}</td>
                     <td className="px-4 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${getStatusColor(d.status)}`}>{d.status}</span>
@@ -320,8 +331,8 @@ export default function DonationManagement({ darkMode }: Props) {
 
               <button 
                 onClick={() => handlePageChange(page + 1)}
-                disabled={page === data.totalPages}
-                className={`p-2 rounded-lg border transition-all ${page === data.totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-50 hover:text-green-600'}`}
+                disabled={page === data.meta.totalPages}
+                className={`p-2 rounded-lg border transition-all ${page === data.meta.totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-50 hover:text-green-600'}`}
               >
                 <ChevronRight size={16} />
               </button>
@@ -347,7 +358,8 @@ export default function DonationManagement({ darkMode }: Props) {
                 { label: 'Contact', value: viewItem.contact },
                 { label: 'Full Address', value: viewItem.address },
                 { label: 'Category', value: viewItem.category },
-                { label: 'Quantity Description', value: viewItem.quantity },
+                { label: 'Quantity', value: `${viewItem.quantity} ${viewItem.unit || 'Units'}` },
+                { label: 'Quantity Description', value: viewItem.quantity_description || viewItem.quantity },
                 { label: 'Submission Date', value: viewItem.date },
                 { label: 'Current Status', value: viewItem.status },
               ].map(item => (

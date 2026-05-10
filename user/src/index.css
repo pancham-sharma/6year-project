@@ -1,20 +1,5 @@
 @import "tailwindcss";
 
-@theme {
-  --color-brand: #18E299;
-  --color-brand-light: #d4fae8;
-  --color-brand-deep: #0fa76e;
-  --color-heart-red: #ef4444;
-  --color-near-black: #0d0d0d;
-  --color-pure-white: #ffffff;
-  --color-primary-50: #fafafa;
-  --color-primary-100: #f5f5f5;
-  --color-primary-400: #888888;
-  --color-primary-500: #18E299;
-  --color-primary-600: #0fa76e;
-  --color-primary-900: #0d0d0d;
-}
-
 /* Tailwind CSS v4 Theme Configuration (using :root for IDE compatibility) */
 @layer base {
   :root {
@@ -135,6 +120,7 @@ body {
 /* Modern Donation Cards (Request-specific) */
 .card-modern {
   background: var(--color-card-bg);
+  background-image: radial-gradient(circle at bottom right, var(--color-brand-light) 0%, transparent 35%);
   border: 1px solid var(--color-card-border);
   border-radius: 20px;
   overflow: hidden;
@@ -270,6 +256,16 @@ body {
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+@keyframes bg-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.4; }
+  33% { transform: translate(30px, -20px) scale(1.2); opacity: 0.6; }
+  66% { transform: translate(-20px, 40px) scale(0.8); opacity: 0.3; }
+}
+
+.animate-bg-drift {
+  animation: bg-drift 15s ease-in-out infinite;
 }
 
 /* Global Button Hover Effects */

@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Search, Info, Heart, X, Loader, Check, CheckCheck, Trash2, Edit2 } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { Send, Paperclip, Search, Info, Heart, X, Loader, Check, CheckCheck, Trash2, Edit2, ChevronDown } from 'lucide-react';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getConversations, getMessages, markChatAsRead } from '../api/chat';
 
 import { fetchAPI } from '../utils/api';
 import { useSearch } from '../context/SearchContext';
@@ -15,180 +17,51 @@ const quickActions = [
 ];
 
 export default function Messages({ darkMode }: Props) {
+  const queryClient = useQueryClient();
   const { searchQuery } = useSearch();
-  const [convList, setConvList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [myId, setMyId] = useState<string | null>(null);
-  
   const [input, setInput] = useState('');
   const [localSearch, setLocalSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
-  const [locallyReadIds, setLocallyReadIds] = useState<Set<string>>(new Set());
-
   const [mobileShowChat, setMobileShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Scroll to bottom when messages change
+  // 1. Fetch Conversations (Left Sidebar)
+  const { data: rawConversations, isLoading: loadingConvs } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: getConversations,
+    refetchInterval: 5000, // Background sync
+  });
+
+  // 2. Fetch Messages (Chat Area) - Infinite scroll
+  const { 
+    data: messagesPages, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage,
+    isLoading: loadingMsgs 
+  } = useInfiniteQuery({
+    queryKey: ['messages', activeId],
+    queryFn: ({ pageParam }) => getMessages({ pageParam, otherUserId: activeId! }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => lastPage.meta?.nextPage || undefined,
+    enabled: !!activeId,
+  });
+
+  // Flatten messages from pages
+  const allMessages = useMemo(() => {
+    if (!messagesPages) return [];
+    return messagesPages.pages.flatMap(page => page.data || page.results || []).reverse();
+  }, [messagesPages]);
+
+  // Fetch my profile once
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [convList, activeId]);
-
-  // Group messages into conversations
-  useEffect(() => {
-    const fetchChat = async () => {
-      try {
-        const [msgsRes, usersRes, meRes] = await Promise.all([
-          fetchAPI('/api/chat/messages/').catch(() => []),
-          fetchAPI('/api/users/list/').catch(() => []),
-          fetchAPI('/api/users/profile/').catch(() => null)
-        ]);
-        
-        const rawMessages = (msgsRes.results || msgsRes || []).filter((m: any) => m.status !== 'Recycled');
-        const allUsers = usersRes.results || usersRes || [];
-        
-        const myIdVal = meRes?.id ? String(meRes.id) : null;
-        setMyId(myIdVal);
-        const myName = meRes?.username || 'admin';
-        
-        if (myName) { /* used in the loop below */ }
-        
-        const adminIds = new Set(allUsers.filter((u: any) => u.role === 'ADMIN' || u.is_staff || u.is_superuser).map((u: any) => String(u.id)));
-        if (myIdVal) adminIds.add(String(myIdVal));
-
-        const conversationsMap: any = {};
-        rawMessages.forEach((m: any) => {
-          const senderIsAdmin = adminIds.has(String(m.sender));
-          const receiverIsAdmin = adminIds.has(String(m.receiver));
-          
-          let otherUser, otherUserName, otherUserEmail, isSentByMe;
-
-          if (senderIsAdmin && !receiverIsAdmin) {
-            // Admin sending to user
-            otherUser = m.receiver;
-            otherUserName = m.receiver_full_name || m.receiver_username;
-            otherUserEmail = m.receiver_email;
-            isSentByMe = String(m.sender) === myIdVal || m.sender_username === myName || m.sender_username?.toLowerCase().includes('admin');
-          } else if (!senderIsAdmin && receiverIsAdmin) {
-            // User sending to admin
-            otherUser = m.sender;
-            otherUserName = m.sender_full_name || m.sender_username;
-            otherUserEmail = m.sender_email;
-            isSentByMe = false;
-          } else {
-            // Both admins or both users
-            isSentByMe = String(m.sender) === String(myIdVal) || m.sender_username === myName;
-            otherUser = isSentByMe ? m.receiver : m.sender;
-            otherUserName = isSentByMe ? (m.receiver_full_name || m.receiver_username) : (m.sender_full_name || m.sender_username);
-            otherUserEmail = isSentByMe ? m.receiver_email : m.sender_email;
-          }
-
-          otherUserName = otherUserName || otherUserEmail || `User ${otherUser}`;
-
-          if (!conversationsMap[otherUser]) {
-            conversationsMap[otherUser] = {
-              id: otherUser.toString(),
-              userName: otherUserName,
-              userEmail: otherUserEmail,
-              avatar: otherUserName.charAt(0).toUpperCase(),
-              messages: [],
-              unread: 0,
-              lastMessage: '',
-              lastTime: '',
-              lastTimestamp: 0
-            };
-          }
-          
-          conversationsMap[otherUser].messages.push({
-            id: m.id,
-            text: m.message_body,
-            type: isSentByMe ? 'sent' : 'received',
-            read: m.read ?? false,
-            is_edited: m.is_edited,
-            status: m.status || 'Active',
-            timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          });
-          
-          conversationsMap[otherUser].lastMessage = m.message_body;
-          conversationsMap[otherUser].lastTime = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          
-          const msgTimestamp = new Date(m.timestamp).getTime();
-          if (msgTimestamp > conversationsMap[otherUser].lastTimestamp) {
-            conversationsMap[otherUser].lastTimestamp = msgTimestamp;
-          }
-          
-          // Only count unread if NOT sent by me AND NOT from the currently active chat AND NOT locally read
-          if (!m.read && !isSentByMe && String(activeId) !== String(otherUser) && !locallyReadIds.has(String(otherUser))) {
-            conversationsMap[otherUser].unread += 1;
-          }
-        });
-
-        // Add empty states for all registered users so admin can initiate chats
-        allUsers.forEach((u: any) => {
-           if (!conversationsMap[u.id] && String(u.id) !== String(myId)) {
-             conversationsMap[u.id] = {
-               id: u.id.toString(),
-               userName: u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : u.username,
-               userEmail: u.email,
-               avatar: (u.first_name || u.username).charAt(0).toUpperCase(),
-               messages: [],
-               unread: 0,
-               lastMessage: 'Start a conversation...',
-               lastTime: '',
-               lastTimestamp: 0,
-             };
-           }
-        });
-
-        // Sort formattedConvs by lastTimestamp (newest first)
-        const formattedConvs: any[] = Object.values(conversationsMap);
-        
-        setConvList(prev => {
-           const updated = formattedConvs.map(newC => {
-              const oldC = prev.find(oc => String(oc.id) === String(newC.id));
-              if (!oldC) return newC;
-              
-              // Keep temp messages that aren't yet confirmed by the server
-              const tempMsgs = oldC.messages.filter((om: any) => 
-                String(om.id).startsWith('temp-') && 
-                !newC.messages.some((nm: any) => nm.text === om.text && nm.type === om.type)
-              );
-
-              return {
-                ...newC,
-                messages: [...newC.messages, ...tempMsgs]
-              };
-           });
-           return [...updated].sort((a: any, b: any) => b.lastTimestamp - a.lastTimestamp);
-        });
-        
-        // Handle selection from notification state
-        const navState = (window as any)._navState;
-        const selectUser = navState?.selectUser;
-        if (selectUser) {
-          const target = formattedConvs.find(c => c.userName === selectUser || c.userEmail === selectUser || c.id === String(selectUser));
-          if (target) {
-            setActiveId(target.id);
-            setMobileShowChat(true);
-          }
-          // Clear state after use
-          (window as any)._navState = null;
-        }
-      } catch (err) {
-        console.error("Failed to load messages", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchChat();
-    const interval = setInterval(fetchChat, 2000);
-    return () => clearInterval(interval);
-  }, [activeId]);
+    fetchAPI('/api/users/profile/').then(me => setMyId(me?.id ? String(me.id) : null));
+  }, []);
 
   // WebSocket Connection
   useEffect(() => {
@@ -223,91 +96,9 @@ export default function Messages({ darkMode }: Props) {
 
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data);
-      console.log("WebSocket Message Received:", data);
-
-      if (data.type === 'new_message') {
-        const m = data.message;
-        setConvList(prev => {
-          const senderId = String(m.sender);
-          const receiverId = String(m.receiver);
-          const otherId = senderId === myId ? receiverId : senderId;
-          
-          const exists = prev.some(c => String(c.id) === String(otherId));
-          
-          if (!exists) {
-            return prev; 
-          }
-
-          return prev.map(c => {
-             if (String(c.id) !== String(otherId)) return c;
-             
-             const isSentByMe = String(m.sender) === myId;
-             
-             // Check if this message (by ID or exact content) is already there
-             const isDuplicate = c.messages.some((existing: any) => 
-               String(existing.id) === String(m.id) || 
-               (String(existing.id).startsWith('temp-') && existing.text === m.message_body && existing.type === (isSentByMe ? 'sent' : 'received'))
-             );
-
-             const newMsg = {
-               id: m.id,
-               text: m.message_body,
-               type: isSentByMe ? 'sent' : 'received',
-               read: m.read ?? false,
-               is_edited: m.is_edited,
-               status: m.status || 'Active',
-               timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-             };
-
-             if (isDuplicate) {
-               // Replace the optimistic temp message with the real server message
-               return {
-                 ...c,
-                 messages: c.messages.map((msg: any) => 
-                   (String(msg.id).startsWith('temp-') && msg.text === m.message_body && msg.type === (isSentByMe ? 'sent' : 'received'))
-                   ? newMsg : msg
-                 ),
-                 lastMessage: m.message_body,
-                 lastTime: newMsg.timestamp,
-                 lastTimestamp: new Date(m.timestamp).getTime()
-               };
-             }
-
-             const isUnread = !m.read && !isSentByMe && String(activeId) !== String(otherId);
-             
-             if (isUnread) {
-               // New message from user, we should allow notifications again even if previously cleared
-               setLocallyReadIds(prev => {
-                 const next = new Set(prev);
-                 next.delete(String(otherId));
-                 return next;
-               });
-             }
-
-             return {
-               ...c,
-               messages: [...c.messages, newMsg],
-               lastMessage: m.message_body,
-               lastTime: newMsg.timestamp,
-               lastTimestamp: new Date(m.timestamp).getTime(),
-               unread: isUnread ? c.unread + 1 : c.unread
-             };
-          }).sort((a: any, b: any) => b.lastTimestamp - a.lastTimestamp);
-        });
-      } else if (data.type === 'edit_message') {
-        const m = data.message;
-        setConvList(prev => prev.map(c => ({
-          ...c,
-          messages: c.messages.map((msg: any) => String(msg.id) === String(m.id) ? { ...msg, text: m.message_body, is_edited: true } : msg),
-          lastMessage: String(c.messages[c.messages.length - 1]?.id) === String(m.id) ? m.message_body : c.lastMessage
-        })));
-      } else if (data.type === 'delete_message') {
-        const mid = data.message_id;
-        setConvList(prev => prev.map(c => ({
-          ...c,
-          messages: c.messages.map((msg: any) => String(msg.id) === String(mid) ? { ...msg, text: '[Message Deleted]', isDeleted: true } : msg),
-          lastMessage: String(c.messages[c.messages.length - 1]?.id) === String(mid) ? '[Message Deleted]' : c.lastMessage
-        })));
+      if (data.type === 'new_message' || data.type === 'edit_message' || data.type === 'delete_message') {
+        queryClient.invalidateQueries({ queryKey: ['messages', activeId] });
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
       }
     };
 
@@ -329,7 +120,50 @@ export default function Messages({ darkMode }: Props) {
     }
   }, [activeId, myId]);
 
-  const activeConv = convList.find(c => c.id === activeId);
+  const convList = useMemo(() => {
+    if (!rawConversations) return [];
+    return rawConversations.map((u: any) => ({
+      id: String(u.id),
+      userName: u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : u.username,
+      userEmail: u.email,
+      avatar: (u.first_name || u.username || 'U').charAt(0).toUpperCase(),
+      unread: u.unread_count || 0,
+      lastMessage: '...',
+      lastTime: '',
+    })).sort((a: any, b: any) => b.unread - a.unread);
+  }, [rawConversations]);
+
+  const activeConv = useMemo(() => {
+    const base = convList.find(c => String(c.id) === String(activeId));
+    if (!base) return null;
+    return {
+      ...base,
+      messages: allMessages.map(m => ({
+        id: m.id,
+        text: m.message,
+        type: String(m.sender) === myId ? 'sent' : 'received',
+        is_read: m.is_read,
+        is_edited: m.is_edited,
+        timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }))
+    };
+  }, [convList, activeId, allMessages, myId]);
+
+  // Load more trigger
+  const observer = useRef<IntersectionObserver | null>(null);
+  const topRef = useCallback((node: HTMLDivElement) => {
+    if (loadingMsgs) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasNextPage) {
+        fetchNextPage();
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [loadingMsgs, hasNextPage, fetchNextPage]);
+
+  const filtered = convList.filter((c: any) => !searchQuery || c.userName.toLowerCase().includes(searchQuery.toLowerCase()));
+
 
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
@@ -343,24 +177,16 @@ export default function Messages({ darkMode }: Props) {
   const recvBubble = darkMode ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-800 shadow-sm';
   const divider = darkMode ? 'border-gray-700' : 'border-gray-200';
 
+  // Scroll to bottom effect
   useEffect(() => {
     if (activeId && chatContainerRef.current) {
-      const container = chatContainerRef.current;
-      const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 150;
-      
-      const lastMsg = activeConv?.messages[activeConv.messages.length - 1];
-      const isMe = lastMsg && lastMsg.type === 'sent';
-
-      if (isAtBottom || isMe) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [activeId, activeConv?.messages.length]);
+  }, [activeId, allMessages.length]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || !activeId) return;
-    
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         action: 'send_message',
         receiver_id: activeId,
@@ -368,57 +194,15 @@ export default function Messages({ darkMode }: Props) {
       }));
       setInput('');
     } else {
-      // Optimistic Update
-      const tempId = `temp-${Date.now()}`;
-      const newMsg = {
-        id: tempId,
-        text: text.trim(),
-        type: 'sent',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        read: false
-      };
-      setConvList(prev => prev.map((c: any) => 
-        String(c.id) === String(activeId) ? { ...c, messages: [...c.messages, newMsg], lastMessage: text.trim(), lastTime: 'Just now' } : c
-      ));
-      setInput('');
-
       try {
         await fetchAPI('/api/chat/messages/', {
           method: 'POST',
-          body: JSON.stringify({
-            receiver: activeId,
-            message_body: text.trim()
-          })
+          body: JSON.stringify({ receiver: activeId, message: text.trim() })
         });
+        queryClient.invalidateQueries({ queryKey: ['messages', activeId] });
+        setInput('');
       } catch (err) {
-        setConvList(prev => prev.map((c: any) => 
-          String(c.id) === String(activeId) ? { ...c, messages: c.messages.filter((m: any) => m.id !== tempId) } : c
-        ));
-        console.error("Failed to send message", err);
-      }
-    }
-  };
-
-  const editMessage = async (msgId: any, newText: string) => {
-    if (!newText.trim()) return;
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        action: 'edit_message',
-        message_id: msgId,
-        message: newText.trim()
-      }));
-    } else {
-      try {
-        await fetchAPI(`/api/chat/messages/${msgId}/`, {
-          method: 'PATCH',
-          body: JSON.stringify({ message_body: newText.trim(), is_edited: true })
-        });
-        setConvList((prev: any[]) => prev.map((c: any) => ({
-          ...c,
-          messages: c.messages.map((m: any) => m.id === msgId ? { ...m, text: newText.trim(), is_edited: true } : m)
-        })));
-      } catch (err) {
-        console.error("Failed to edit message", err);
+        console.error("Failed to send", err);
       }
     }
   };
@@ -427,57 +211,32 @@ export default function Messages({ darkMode }: Props) {
     const stringId = String(id);
     setActiveId(stringId);
     setMobileShowChat(true);
+    markChatAsRead(stringId).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
+  };
 
-    // Find the conversation
-    const conv = convList.find(c => String(c.id) === stringId);
-    if (!conv) return;
-    
-    // Clear unread count IMMEDIATELY in state
-    setConvList((prev: any[]) => prev.map((c: any) =>
-      String(c.id) === stringId
-        ? { ...c, unread: 0, messages: c.messages.map((m: any) => ({ ...m, read: true })) }
-        : c
-    ));
-    setLocallyReadIds(prev => new Set(prev).add(stringId));
-
-    // Persist the read status to the backend using the bulk mark_read action
-    try {
-      await fetchAPI('/api/chat/messages/mark_read/', {
-        method: 'POST',
-        body: JSON.stringify({ other_user_id: stringId })
+  const editMessage = async (msgId: any, newText: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'edit_message', message_id: msgId, message: newText.trim() }));
+    } else {
+      await fetchAPI(`/api/chat/messages/${msgId}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ message: newText.trim(), is_edited: true })
       });
-      // After successful backend update, we can potentially remove from locallyReadIds 
-      // but keeping it until next full fetch is safer.
-    } catch (err) {
-      console.warn("Failed to persist read status:", err);
+      queryClient.invalidateQueries({ queryKey: ['messages', activeId] });
     }
   };
 
   const deleteMessage = async (msgId: any) => {
-    if (!confirm("Permanently delete this message?")) return;
+    if (!confirm("Delete?")) return;
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        action: 'delete_message',
-        message_id: msgId
-      }));
+      wsRef.current.send(JSON.stringify({ action: 'delete_message', message_id: msgId }));
     } else {
-      try {
-        await fetchAPI(`/api/chat/messages/${msgId}/`, {
-          method: 'DELETE'
-        });
-        setConvList(prev => prev.map(c => ({
-          ...c,
-          messages: c.messages.filter((m: any) => m.id !== msgId)
-        })));
-      } catch (err) {
-        console.error("Failed to delete message", err);
-      }
+      await fetchAPI(`/api/chat/messages/${msgId}/`, { method: 'DELETE' });
+      queryClient.invalidateQueries({ queryKey: ['messages', activeId] });
     }
   };
-
-  const combinedSearch = (searchQuery + ' ' + localSearch).trim().toLowerCase();
-  const filtered = convList.filter(c => !combinedSearch || c.userName.toLowerCase().includes(combinedSearch));
-
 
   const avatarColors = [
     'from-green-400 to-emerald-500',
@@ -487,7 +246,7 @@ export default function Messages({ darkMode }: Props) {
     'from-pink-400 to-rose-500',
   ];
 
-  if (loading) {
+  if (loadingConvs) {
     return <div className="flex justify-center items-center h-[50vh]"><Loader className="animate-spin text-green-500 w-8 h-8" /></div>;
   }
 
@@ -508,11 +267,23 @@ export default function Messages({ darkMode }: Props) {
 
         {/* Conversations */}
         <div className="flex-1 overflow-y-auto py-2">
-          {filtered.length === 0 ? (
+          {loadingConvs ? (
+             Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="px-4 py-3 space-y-2 animate-pulse">
+                   <div className="flex gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700" />
+                      <div className="flex-1 space-y-2">
+                         <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
+                         <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+                      </div>
+                   </div>
+                </div>
+             ))
+          ) : filtered.length === 0 ? (
              <div className={`text-center py-10 px-4 text-sm ${textSub}`}>
                No conversations found. Users must be registered first.
              </div>
-          ) : filtered.map((conv, i) => {
+          ) : filtered.map((conv: any, i: number) => {
             const isSelected = String(activeId) === String(conv.id);
             
             return (
@@ -532,13 +303,11 @@ export default function Messages({ darkMode }: Props) {
                     <span className="text-xs text-green-500 font-mono">{conv.donationRef}</span>
                   )}
                 </div>
-                {conv.unread > 0 && (
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
-                      {conv.unread}
-                    </span>
-                  </div>
-                )}
+                <div className={`flex flex-col items-end gap-1 transition-all duration-300 transform ${conv.unread > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
+                  <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm ring-2 ring-white">
+                    {conv.unread}
+                  </span>
+                </div>
               </button>
             );
           })}
@@ -585,7 +354,13 @@ export default function Messages({ darkMode }: Props) {
               ref={chatContainerRef}
               className={`flex-1 overflow-y-auto p-4 space-y-4 ${chatBg} custom-scrollbar`}
             >
-              {activeConv?.messages.length === 0 ? (
+              {/* Infinite Scroll Trigger (Top) */}
+              <div ref={topRef} className="h-4 flex justify-center">
+                {isFetchingNextPage && <Loader className="animate-spin text-green-500 w-4 h-4" />}
+                {!hasNextPage && allMessages.length > 0 && <p className="text-[10px] text-gray-400">Beginning of conversation</p>}
+              </div>
+
+              {activeConv?.messages.length === 0 && !loadingMsgs ? (
                  <div className={`text-center py-10 text-sm ${textSub}`}>No messages yet. Send a message to start the conversation!</div>
               ) : activeConv?.messages.map((msg: any) => (
                 <div key={msg.id} className={`flex ${msg.type === 'sent' ? 'justify-end' : 'justify-start'}`}>
@@ -627,7 +402,7 @@ export default function Messages({ darkMode }: Props) {
                       <div className={`flex items-center gap-1 ${msg.type === 'sent' ? 'justify-end' : 'justify-start'}`}>
                         <p className={`text-[10px] ${textSub}`}>{msg.timestamp}</p>
                         {msg.type === 'sent' && (
-                          msg.read ? <CheckCheck size={12} className="text-blue-400" /> : <Check size={12} className={textSub} />
+                          msg.is_read ? <CheckCheck size={12} className="text-blue-400" /> : <Check size={12} className={textSub} />
                         )}
                       </div>
                       

@@ -90,6 +90,7 @@ export default function DonationForm() {
   const [form, setForm] = useState({
     types: [] as string[], 
     quantities: {} as Record<string, string>, 
+    units: {} as Record<string, string>, 
     descriptions: {} as Record<string, string>, 
     images: {} as Record<string, File | string | null>,
     address: '', city: '', state: '', pincode: '', landmark: '', phone: '', date: '', time: '',
@@ -254,6 +255,7 @@ export default function DonationForm() {
 
   const update = (key: string, val: unknown) => setForm(p => ({ ...p, [key]: val }));
   const updateQuantities = (type: string, val: string) => setForm(p => ({ ...p, quantities: { ...p.quantities, [type]: val } }));
+  const updateUnits = (type: string, val: string) => setForm(p => ({ ...p, units: { ...p.units, [type]: val } }));
   const updateDescriptions = (type: string, val: string) => setForm(p => ({ ...p, descriptions: { ...p.descriptions, [type]: val } }));
 
   const handleImageChange = (type: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -300,10 +302,11 @@ export default function DonationForm() {
         const formData = new FormData();
         formData.append('category', categoryLabel);
         formData.append('quantity', (form.quantities[type] || '1').toString());
+        formData.append('unit', form.units[type] || 'Units');
         
         const description = type === 'monetary' || type === 'money'
           ? `₹${form.quantities[type] || '0'} (Txn: ${form.transactionId})`
-          : `${form.quantities[type] || 'N/A'} - ${form.descriptions[type] || ''}`;
+          : `${form.quantities[type] || 'N/A'} ${form.units[type] || 'Units'} - ${form.descriptions[type] || ''}`;
         formData.append('quantity_description', description);
 
         const pickupDetails = {
@@ -330,6 +333,7 @@ export default function DonationForm() {
           const payload = {
             category: categoryLabel,
             quantity: parseInt(form.quantities[type] || '1', 10),
+            unit: form.units[type] || 'Units',
             quantity_description: description,
             pickup_details: pickupDetails
           };
@@ -453,8 +457,24 @@ export default function DonationForm() {
                             <>
                               <div>
                                 <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Quantity of {dt.label} (Number Required)</label>
-                                <input type="number" value={form.quantities[type] || ''} onChange={e => updateQuantities(type, e.target.value)} placeholder="e.g. 10"
-                                  className={`w-full px-4 py-3 rounded-xl border-2 text-sm ${dark ? 'bg-slate-700 border-slate-600 text-white focus:border-primary-500' : 'bg-white border-gray-200 focus:border-primary-500'} outline-none`} />
+                                <div className="flex flex-col lg:flex-row gap-2">
+                                  <input type="number" value={form.quantities[type] || ''} onChange={e => updateQuantities(type, e.target.value)} placeholder="e.g. 10"
+                                    className={`flex-1 min-w-0 px-4 py-3 rounded-xl border-2 text-sm ${dark ? 'bg-slate-700 border-slate-600 text-white focus:border-primary-500' : 'bg-white border-gray-200 focus:border-primary-500'} outline-none`} />
+                                  <select 
+                                    value={form.units[type] || 'Units'} 
+                                    onChange={e => updateUnits(type, e.target.value)}
+                                    className={`w-full lg:w-28 px-3 py-3 rounded-xl border-2 text-sm font-medium ${dark ? 'bg-slate-700 border-slate-600 text-white focus:border-primary-500' : 'bg-white border-gray-200 focus:border-primary-500'} outline-none cursor-pointer`}
+                                  >
+                                    <option value="Units">Units</option>
+                                    <option value="KG">KG</option>
+                                    <option value="Pieces">Pieces</option>
+                                    <option value="Liters">Liters</option>
+                                    <option value="Grams">Grams</option>
+                                    <option value="Servings">Servings</option>
+                                    <option value="Packets">Packets</option>
+                                    <option value="Boxes">Boxes</option>
+                                  </select>
+                                </div>
                               </div>
 
 
@@ -499,19 +519,19 @@ export default function DonationForm() {
                 <button 
                   onClick={handleUseLocation}
                   disabled={geoLoading}
-                  className={`p-6 rounded-2xl border-2 text-center transition-all relative overflow-hidden ${form.useCurrentLocation ? (dark ? 'border-brand bg-brand/5' : 'border-slate-900 bg-slate-50 shadow-lg') : dark ? 'border-slate-700 hover:border-slate-600' : 'border-gray-100 hover:border-gray-200 shadow-sm'}`}
+                  className={`p-6 rounded-2xl border-2 text-center transition-all relative overflow-hidden ${form.useCurrentLocation ? (dark ? 'border-[#95f0c9] bg-[#95f0c9]/5 ring-1 ring-[#95f0c9]/30' : 'border-slate-900 bg-slate-50 shadow-lg') : dark ? 'border-slate-700/50 hover:border-slate-600' : 'border-gray-100 hover:border-gray-200 shadow-sm'}`}
                 >
                   {geoLoading && (
                     <div className="absolute inset-0 bg-white/20 dark:bg-black/20 flex items-center justify-center z-10">
                       <Loader className="w-5 h-5 animate-spin text-brand" />
                     </div>
                   )}
-                  <Navigation className={`w-8 h-8 mx-auto mb-3 ${form.useCurrentLocation ? (dark ? 'text-brand' : 'text-slate-900') : 'text-slate-400'}`} />
+                  <Navigation className={`w-8 h-8 mx-auto mb-3 transition-colors ${form.useCurrentLocation ? (dark ? 'text-[#95f0c9]' : 'text-slate-900') : (dark ? 'text-slate-500' : 'text-slate-400')}`} />
                   <span className={`text-sm font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>{t.donate.useLocation}</span>
                 </button>
                 <button onClick={() => update('useCurrentLocation', false)}
-                  className={`p-6 rounded-2xl border-2 text-center transition-all ${!form.useCurrentLocation ? (dark ? 'border-brand bg-brand/5' : 'border-slate-900 bg-slate-50 shadow-lg') : dark ? 'border-slate-700 hover:border-slate-600' : 'border-gray-100 hover:border-gray-200 shadow-sm'}`}>
-                  <MapPin className={`w-8 h-8 mx-auto mb-3 ${!form.useCurrentLocation ? (dark ? 'text-brand' : 'text-slate-900') : 'text-slate-400'}`} />
+                  className={`p-6 rounded-2xl border-2 text-center transition-all ${!form.useCurrentLocation ? (dark ? 'border-[#95f0c9] bg-[#95f0c9]/5 ring-1 ring-[#95f0c9]/30' : 'border-slate-900 bg-slate-50 shadow-lg') : dark ? 'border-slate-700/50 hover:border-slate-600' : 'border-gray-100 hover:border-gray-200 shadow-sm'}`}>
+                  <MapPin className={`w-8 h-8 mx-auto mb-3 transition-colors ${!form.useCurrentLocation ? (dark ? 'text-[#95f0c9]' : 'text-slate-900') : (dark ? 'text-slate-500' : 'text-slate-400')}`} />
                   <span className={`text-sm font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>{t.donate.manualAddress}</span>
                 </button>
               </div>
@@ -539,7 +559,7 @@ export default function DonationForm() {
                 <div className={`absolute bottom-4 left-4 right-4 p-3 rounded-xl backdrop-blur-md border ${dark ? 'bg-slate-900/80 border-white/10' : 'bg-white/80 border-gray-100'} z-10 shadow-lg`}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dark ? 'text-brand' : 'text-slate-900'}`}>
+                      <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dark ? 'text-[#95f0c9]' : 'text-slate-900'}`}>
                         {form.useCurrentLocation ? '📍 Current Location' : '📍 Selected Location'}
                       </p>
                       <p className={`text-[11px] truncate leading-tight ${dark ? 'text-gray-300' : 'text-slate-600'}`}>

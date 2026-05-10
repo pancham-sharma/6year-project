@@ -96,7 +96,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           phone: profile.phone_number || '',
           city: profile.city || '',
           role: profile.role || '',
-          image: profile.profile_image || '',
+          image: profile.profile_picture || '',
         });
       })
       .catch(() => { /* token may be mid-refresh; poller will retry */ });

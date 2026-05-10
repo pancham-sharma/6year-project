@@ -54,7 +54,7 @@ export default function Reports({ darkMode }: Props) {
   const distRate = totalInvReceived > 0 ? Math.round((totalInvDistributed / totalInvReceived) * 100) : 0;
 
   
-  const activeDonors = users.filter((u: any) => true).length; // Assume all active for now
+  const activeDonors = users.length; // Assume all active for now
 
   const kpis = [
     { label: 'Total Donations Recorded', value: totalDonationsThisMonth.toLocaleString('en-IN'), change: 'Live', up: true },
@@ -200,7 +200,7 @@ export default function Reports({ darkMode }: Props) {
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie data={categoryPieData} cx="50%" cy="50%" outerRadius={90} paddingAngle={3} dataKey="value" label={({ name, percent }: { name: string; percent?: number }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+                <Pie data={categoryPieData} cx="50%" cy="50%" outerRadius={90} paddingAngle={3} dataKey="value" label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`} labelLine={false}>
                   {categoryPieData.map((entry, index) => (
                     <Cell key={index} fill={entry.color} />
                   ))}

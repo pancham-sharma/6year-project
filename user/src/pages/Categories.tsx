@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { ArrowRight, Utensils, BookOpen, Shirt, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins } from 'lucide-react';
 import { fetchAPI, API_BASE_URL } from '../utils/api';
+import { useQuery } from '@tanstack/react-query';
+import { getCategories } from '../api/donations';
 
 const getImageUrl = (path: string) => {
   if (!path) return '/images/hero.jpg';
@@ -17,7 +19,12 @@ const getImageUrl = (path: string) => {
     return '/images/hero.jpg'; 
   }
 
-  if (path.startsWith('http') || path.startsWith('https')) return path;
+  if (path.startsWith('http') || path.startsWith('https')) {
+    if (path.includes('images.unsplash.com') && !path.includes('w=')) {
+      return `${path}${path.includes('?') ? '&' : '?'}w=800&q=80&auto=format&fit=crop`;
+    }
+    return path;
+  }
   
   const base = API_BASE_URL;
   if (path.startsWith('/media/')) return `${base}${path}`;
@@ -57,64 +64,64 @@ export default function Categories() {
 
 
 
+  const { data: categoryData, isLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: getCategories,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+  
   const [categories, setCategories] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await fetchAPI(`/api/donations/categories/?t=${new Date().getTime()}`);
-        const categoriesData = Array.isArray(res) ? res : (res.results || res.data || []);
-        
-        // Deduplicate categoriesData itself by name first
-        const uniqueDB = categoriesData.reduce((acc: any[], current: any) => {
-          if (!acc.find(c => c.name.toLowerCase() === current.name.toLowerCase())) {
-            acc.push(current);
-          }
-          return acc;
-        }, []);
-
-        // Merge logic: Use DB version of permanent categories if they exist
-        const updatedPermanent = permanentCategories.map(p => {
-          const dbVersion = uniqueDB.find((cat: any) => 
-            cat.name.toLowerCase() === p.name.toLowerCase() || 
-            cat.name.toLowerCase() === p.key.toLowerCase() ||
-            (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
-            (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
-            (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
-          );
-          
-          if (dbVersion) {
-            return {
-              ...p,
-              ...dbVersion,
-              // If the DB has a valid image, use it via getImageUrl, else p.image
-              image: dbVersion.image ? getImageUrl(dbVersion.image) : p.image
-            };
-          }
-          return p;
-        });
-
-        const onlyDynamic = uniqueDB.filter((cat: any) => 
-          !permanentCategories.some(p => 
-            p.name.toLowerCase() === cat.name.toLowerCase() || 
-            p.key.toLowerCase() === cat.name.toLowerCase() ||
-            (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
-            (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
-            (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
-          )
-        );
-
-        const allCategories = [...updatedPermanent, ...onlyDynamic];
-        console.log("Categories Fetch Results:", allCategories);
-        const visibleCategories = allCategories.filter(cat => cat.is_active !== false);
-        setCategories(visibleCategories);
-      } catch (err) {
-        console.error("Failed to load categories", err);
-        setCategories(permanentCategories);
+    if (!categoryData) {
+      if (!isLoading) setCategories(permanentCategories);
+      return;
+    }
+    
+    const categoriesData = Array.isArray(categoryData) ? categoryData : (categoryData.results || categoryData.data || []);
+    
+    // Deduplicate categoriesData itself by name first
+    const uniqueDB = categoriesData.reduce((acc: any[], current: any) => {
+      if (current.name && !acc.find(c => c.name.toLowerCase() === current.name.toLowerCase())) {
+        acc.push(current);
       }
-    };
-    fetchCategories();
-  }, [t]);
+      return acc;
+    }, []);
+
+    // Merge logic: Use DB version of permanent categories if they exist
+    const updatedPermanent = permanentCategories.map(p => {
+      const dbVersion = uniqueDB.find((cat: any) => 
+        cat.name.toLowerCase() === p.name.toLowerCase() || 
+        cat.name.toLowerCase() === p.key.toLowerCase() ||
+        (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
+        (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
+        (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
+      );
+      
+      if (dbVersion) {
+        return {
+          ...p,
+          ...dbVersion,
+          image: dbVersion.image ? getImageUrl(dbVersion.image) : p.image
+        };
+      }
+      return p;
+    });
+
+    const onlyDynamic = uniqueDB.filter((cat: any) => 
+      !permanentCategories.some(p => 
+        p.name.toLowerCase() === cat.name.toLowerCase() || 
+        p.key.toLowerCase() === cat.name.toLowerCase() ||
+        (p.key === 'money' && cat.name.toLowerCase() === 'monetary') ||
+        (p.key === 'trees' && cat.name.toLowerCase() === 'environment') ||
+        (p.key === 'gift' && cat.name.toLowerCase() === 'gifts')
+      )
+    );
+
+    const allCategories = [...updatedPermanent, ...onlyDynamic];
+    const visibleCategories = allCategories.filter(cat => cat.is_active !== false);
+    setCategories(visibleCategories);
+  }, [categoryData, isLoading, t]);
 
 
   return (
@@ -150,6 +157,8 @@ export default function Categories() {
                     src={getImageUrl(cat.image)} 
                     alt={cat.name} 
                     className="w-full h-full object-cover card-img-grayscale"
+                    loading="lazy"
+                    decoding="async"
                     onError={(e) => {
                       const name = cat.name.toLowerCase();
                       if (name.includes('food')) e.currentTarget.src = "/images/stories-food.jpg";

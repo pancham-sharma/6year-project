@@ -10,12 +10,12 @@ class Message(models.Model):
     )
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='sent_messages', on_delete=models.CASCADE)
     receiver = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='received_messages', on_delete=models.CASCADE)
-    message_body = models.TextField()
+    message = models.TextField()
     attachment_url = models.URLField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_edited = models.BooleanField(default=False)
-    read = models.BooleanField(default=False)
+    is_read = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
 
     class Meta:
@@ -54,13 +54,13 @@ def handle_message_sync(sender, instance, created, **kwargs):
                 Notification.objects.create(
                     user=admin,
                     title="New Message from User",
-                    message=f"Message from {instance.sender.username}: {instance.message_body[:100]}..."
+                    message=f"Message from {instance.sender.username}: {instance.message[:100]}..."
                 )
         else:
             Notification.objects.create(
                 user=instance.receiver,
                 title="New message from Admin",
-                message=instance.message_body[:100] + ("..." if len(instance.message_body) > 100 else "")
+                message=instance.message[:100] + ("..." if len(instance.message) > 100 else "")
             )
 
     # 2. Broadcast Message Update (for both create and edit)
