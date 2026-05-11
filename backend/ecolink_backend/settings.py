@@ -98,6 +98,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'utils.middleware.Log500Middleware',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True # Broad support for production stability
@@ -227,7 +228,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
 SECURE_REFERRER_POLICY = 'no-referrer-when-downgrade'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 

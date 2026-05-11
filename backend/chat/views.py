@@ -73,6 +73,15 @@ class NotificationViewSet(viewsets.ModelViewSet):
             print(f"Notification Query Error: {e}")
             return Notification.objects.none()
 
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            print(f"❌ Notification List Critical Error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({"error": f"Failed to load notifications: {str(e)}"}, status=500)
+
     def perform_create(self, serializer):
         # Allow specifying a target user (e.g. by Admin), otherwise default to current user
         user_id = self.request.data.get('user')
