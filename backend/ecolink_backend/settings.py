@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-default-key-for-dev')
-DEBUG = env.bool('DEBUG', default=False)
+DEBUG = env.bool('DEBUG', default=True)
 
 ALLOWED_HOSTS = [
     'donation-admin-panel.onrender.com', 
@@ -29,6 +29,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://pancham-sharma-6year-project.vercel.app",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True # Temporary to solve CORB
@@ -146,30 +148,13 @@ CHANNEL_LAYERS = {
     },
 }
 
-DATABASE_URL = env('DATABASE_URL', default='')
+DATABASES = {
+    'default': env.db('DATABASE_URL', default='postgresql://postgres:pancham6@localhost:5433/donation_db')
+}
 
-if DATABASE_URL:
-    print(f"DEBUG: Using DATABASE_URL (starts with {DATABASE_URL[:15]}...)")
-    # Ensure the scheme is 'postgresql' for django-environ/psycopg2
-    if DATABASE_URL.startswith('postgres://'):
-        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-    
-    DATABASES = {
-        'default': env.db_url_config(DATABASE_URL)
-    }
-else:
-    print("DEBUG: DATABASE_URL not found, using local fallback")
-    # Local fallback
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'donation_db',
-            'USER': 'postgres',
-            'PASSWORD': 'pancham6',
-            'HOST': 'localhost',
-            'PORT': '5433',
-        }
-    }
+# Ensure the scheme is 'postgresql' for psycopg2 compatibility if provided via URL
+if 'DATABASE_URL' in os.environ and os.environ['DATABASE_URL'].startswith('postgres://'):
+    DATABASES['default'] = env.db_url_config(os.environ['DATABASE_URL'].replace('postgres://', 'postgresql://', 1))
 
 # Production Database Tweaks
 DATABASES['default']['CONN_MAX_AGE'] = 600 # Re-use connections
@@ -177,12 +162,21 @@ DATABASES['default']['CONN_MAX_AGE'] = 600 # Re-use connections
 if not DATABASES['default'].get('ENGINE'):
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
 
-# Ensure SSL for production databases (Supabase/Render)
-if not DEBUG and 'localhost' not in DATABASES['default'].get('HOST', ''):
+# Ensure SSL for remote databases (Supabase/Render)
+if 'localhost' not in DATABASES['default'].get('HOST', '') and '127.0.0.1' not in DATABASES['default'].get('HOST', ''):
     if 'OPTIONS' not in DATABASES['default']:
         DATABASES['default']['OPTIONS'] = {}
-    DATABASES['default']['OPTIONS']['sslmode'] = 'require'
+    
+    # Use require for Supabase compatibility
+    # On Windows local dev, if SSL verify fails, 'prefer' is a safer fallback
+    import sys
+    if sys.platform == 'win32' and DEBUG:
+        DATABASES['default']['OPTIONS']['sslmode'] = 'prefer'
+    else:
+        DATABASES['default']['OPTIONS']['sslmode'] = 'require'
+        
     DATABASES['default']['OPTIONS']['connect_timeout'] = 10
+
 
 
 CACHES = {
