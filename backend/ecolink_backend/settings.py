@@ -148,13 +148,31 @@ CHANNEL_LAYERS = {
     },
 }
 
-DATABASES = {
-    'default': env.db('DATABASE_URL', default='postgresql://postgres:pancham6@localhost:5433/donation_db')
-}
+# Database configuration
+DATABASE_URL = os.environ.get('DATABASE_URL') or env('DATABASE_URL', default='')
 
-# Ensure the scheme is 'postgresql' for psycopg2 compatibility if provided via URL
-if 'DATABASE_URL' in os.environ and os.environ['DATABASE_URL'].startswith('postgres://'):
-    DATABASES['default'] = env.db_url_config(os.environ['DATABASE_URL'].replace('postgres://', 'postgresql://', 1))
+if DATABASE_URL:
+    # Diagnostic for Render logs (does not reveal password)
+    print(f"--- Database URL detected (Scheme: {DATABASE_URL.split(':')[0]}) ---")
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    
+    DATABASES = {
+        'default': env.db_url_config(DATABASE_URL)
+    }
+else:
+    print("--- WARNING: No DATABASE_URL found. Using local fallback (localhost:5433) ---")
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'donation_db',
+            'USER': 'postgres',
+            'PASSWORD': 'pancham6',
+            'HOST': 'localhost',
+            'PORT': '5433',
+        }
+    }
+
 
 # Production Database Tweaks
 DATABASES['default']['CONN_MAX_AGE'] = 600 # Re-use connections
