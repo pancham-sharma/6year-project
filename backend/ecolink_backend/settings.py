@@ -139,8 +139,19 @@ CHANNEL_LAYERS = {
 }
 
 DATABASES = {
-    'default': env.db('DATABASE_URL', default='postgres://postgres:pancham6@localhost:5433/donation_db')
+    'default': env.db('DATABASE_URL', default=None)
 }
+
+# Fallback for local development if DATABASE_URL is not set
+if DATABASES['default'] is None:
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'donation_db',
+        'USER': 'postgres',
+        'PASSWORD': 'pancham6',
+        'HOST': 'localhost',
+        'PORT': '5433',
+    }
 # Add connection timeout to prevent hanging
 DATABASES['default']['OPTIONS'] = {
     'connect_timeout': 5,
