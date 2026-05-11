@@ -159,7 +159,8 @@ export default function Dashboard({ darkMode }: Props) {
       'pants': 'Clothes',
       'footwear': 'Clothes',
       'monetary': 'Money',
-      'fund': 'Money'
+      'fund': 'Money',
+      'gifts': 'Gift'
     };
 
     const agg = inventory.reduce((acc: any, inv: any) => {
@@ -206,12 +207,16 @@ export default function Dashboard({ darkMode }: Props) {
   const now = new Date();
   const monthlyTrends = Array.from({ length: 4 }).map((_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - (3 - i), 1);
-    return { 
+    const monthData: any = { 
       month: months[d.getMonth()], 
       monthIdx: d.getMonth(), 
-      year: d.getFullYear(),
-      Food: 0, Clothes: 0, Books: 0, Environment: 0, Monetary: 0 
+      year: d.getFullYear()
     };
+    // Initialize all categories to 0
+    categoriesList.forEach((c: any) => {
+      monthData[c.name] = 0;
+    });
+    return monthData;
   });
   
   donations.forEach((d: any) => {

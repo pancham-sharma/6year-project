@@ -58,7 +58,10 @@ export default function Reports({ darkMode }: Props) {
   // Calculate KPIs
   const totalDonationsThisMonth = donations.length; 
   const totalMonetary = donations
-    .filter((d: any) => d.category.toLowerCase().includes('money') || d.category.toLowerCase().includes('monetary'))
+    .filter((d: any) => {
+      const name = d.category.toLowerCase();
+      return name.includes('money') || name.includes('monetary') || name.includes('fund');
+    })
     .reduce((sum, d) => sum + (d.quantity || 0), 0);
   
   const totalInvReceived = inventory.reduce((acc: number, inv: any) => acc + inv.quantity, 0);
@@ -86,14 +89,25 @@ export default function Reports({ darkMode }: Props) {
   }));
 
   // Setup Monthly Trends for the charts (simplified to place all current live data into current month)
-  const monthlyTrends = [
-    { month: 'Jan' }, { month: 'Feb' }, { month: 'Mar' }, { month: 'Apr' }
-  ].map(m => ({ ...m, ...Object.fromEntries(categories.map(c => [c.name, 0])) }));
+  // Setup Monthly Trends for the charts - dynamically based on category list and real timestamps
+  const monthsArr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const now = new Date();
+  const monthlyTrends = Array.from({ length: 4 }).map((_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (3 - i), 1);
+    const mData: any = { 
+      month: monthsArr[d.getMonth()], 
+      monthIdx: d.getMonth(), 
+      year: d.getFullYear() 
+    };
+    categories.forEach(c => { mData[c.name] = 0; });
+    return mData;
+  });
   
   donations.forEach((d: any) => {
-    const cat = d.category;
-    if (monthlyTrends[3][cat as keyof typeof monthlyTrends[0]] !== undefined) {
-      (monthlyTrends[3] as any)[cat]++;
+    const date = new Date(d.timestamp);
+    const trend = monthlyTrends.find(t => t.monthIdx === date.getMonth() && t.year === date.getFullYear());
+    if (trend && trend[d.category as keyof typeof trend] !== undefined) {
+      (trend as any)[d.category]++;
     }
   });
 
@@ -108,7 +122,7 @@ export default function Reports({ darkMode }: Props) {
     const normMap: Record<string, string> = {
       'cake': 'Food', 'meals': 'Food', 'meal': 'Food', 'grocery': 'Food',
       'shirts': 'Clothes', 'shirt': 'Clothes', 'jeans': 'Clothes', 'pants': 'Clothes',
-      'monetary': 'Money', 'fund': 'Money'
+      'monetary': 'Money', 'fund': 'Money', 'money': 'Money', 'gifts': 'Gift'
     };
 
     // Find all inventory items that match this category or map to it

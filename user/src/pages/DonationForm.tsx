@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { fetchAPI } from '../utils/api';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCategories } from '../api/donations';
 import { 
   Check, ChevronRight, ChevronLeft, Package, MapPin, Navigation, Shield, Upload, Calendar, Clock, Loader,
@@ -121,6 +121,7 @@ export default function DonationForm() {
   }, [user.id]);
 
   // Derived Dynamic Types
+  // Derived Dynamic Types
   const dynamicTypes = useMemo(() => {
     const data = Array.isArray(categoryData) ? categoryData : (categoryData?.results || []);
     
@@ -138,6 +139,22 @@ export default function DonationForm() {
       impact_per_quantity: c.impact_per_quantity || 1
     }));
   }, [categoryData]);
+
+  const queryClient = useQueryClient();
+
+  const donationMutation = useMutation({
+    mutationFn: async (promises: Promise<any>[]) => {
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-donations'] });
+      queryClient.invalidateQueries({ queryKey: ['public-stats'] });
+      navigate('/dashboard', { state: { donated: true } });
+    },
+    onError: (err: any) => {
+      setErrorMsg(err.message || "Donation Failed. Please Login First");
+    }
+  });
 
   // Extract unique addresses from history for auto-fill
   const uniqueAddresses = useMemo(() => {
@@ -289,71 +306,62 @@ export default function DonationForm() {
   const handleSubmit = async () => {
     setLoading(true);
     setErrorMsg('');
-    try {
-      // Create a separate donation record for each type selected
-      const promises = form.types.map(async (type: string) => {
-        const dt = dynamicTypes.find((d: any) => d.value === type);
-        const categoryLabel = dt ? dt.label : type;
+    
+    const promises = form.types.map(async (type: string) => {
+      const dt = dynamicTypes.find((d: any) => d.value === type);
+      const categoryLabel = dt ? dt.label : type;
 
-        const formData = new FormData();
-        formData.append('category', categoryLabel);
-        formData.append('quantity', (form.quantities[type] || '1').toString());
-        formData.append('unit', form.units[type] || 'Units');
-        if (form.transactionId) formData.append('transaction_id', form.transactionId);
-        if (form.donorMobile) formData.append('donor_mobile', form.donorMobile);
-        
-        const isMoney = type === 'monetary' || type === 'money' || categoryLabel.toLowerCase().includes('money') || categoryLabel.toLowerCase().includes('monetary');
-        
-        const description = isMoney
-          ? `₹${form.quantities[type] || '0'} (Txn: ${form.transactionId})`
-          : `${form.quantities[type] || 'N/A'} ${form.units[type] || 'Units'} - ${form.descriptions[type] || ''}`;
-        formData.append('quantity_description', description);
+      const formData = new FormData();
+      formData.append('category', categoryLabel);
+      formData.append('quantity', (form.quantities[type] || '1').toString());
+      formData.append('unit', form.units[type] || 'Units');
+      if (form.transactionId) formData.append('transaction_id', form.transactionId);
+      if (form.donorMobile) formData.append('donor_mobile', form.donorMobile);
+      
+      const isMoney = type === 'monetary' || type === 'money' || categoryLabel.toLowerCase().includes('money') || categoryLabel.toLowerCase().includes('monetary');
+      
+      const description = isMoney
+        ? `₹${form.quantities[type] || '0'} (Txn: ${form.transactionId})`
+        : `${form.quantities[type] || 'N/A'} ${form.units[type] || 'Units'} - ${form.descriptions[type] || ''}`;
+      formData.append('quantity_description', description);
 
-        const pickupDetails = {
-          full_address: form.address || '',
-          city: form.city || '',
-          state: form.state || '',
-          pincode: form.pincode || '',
-          landmark: form.landmark || '',
-          scheduled_date: form.date || null,
-          scheduled_time: form.time || null,
+      const pickupDetails = {
+        full_address: form.address || '',
+        city: form.city || '',
+        state: form.state || '',
+        pincode: form.pincode || '',
+        landmark: form.landmark || '',
+        scheduled_date: form.date || null,
+        scheduled_time: form.time || null,
+      };
+
+      const imageFile = form.images[type];
+      if (imageFile instanceof File) {
+        formData.append('pickup_details', JSON.stringify(pickupDetails));
+        formData.append('image', imageFile);
+
+        return fetchAPI('/api/donations/', {
+          method: 'POST',
+          body: formData
+        });
+      } else {
+        const payload = {
+          category: categoryLabel,
+          quantity: parseInt(form.quantities[type] || '1', 10),
+          unit: form.units[type] || 'Units',
+          quantity_description: description,
+          pickup_details: pickupDetails
         };
 
-        const imageFile = form.images[type];
-        if (imageFile instanceof File) {
-          formData.append('pickup_details', JSON.stringify(pickupDetails));
-          formData.append('image', imageFile);
+        return fetchAPI('/api/donations/', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+      }
+    });
 
-          return fetchAPI('/api/donations/', {
-            method: 'POST',
-            body: formData
-          });
-        } else {
-          // No image? Standard JSON is fine
-          const payload = {
-            category: categoryLabel,
-            quantity: parseInt(form.quantities[type] || '1', 10),
-            unit: form.units[type] || 'Units',
-            quantity_description: description,
-            pickup_details: pickupDetails
-          };
-
-          return fetchAPI('/api/donations/', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-          });
-        }
-      });
-
-      await Promise.all(promises);
-      // ✅ Redirect to dashboard — live changes will reflect via the data fetch there
-      navigate('/dashboard', { state: { donated: true } });
-    } catch (err: any) {
-      console.error("Submission failed", err);
-      setErrorMsg(err.message || "Donation Failed. Please Login First");
-    } finally {
-      setLoading(false);
-    }
+    donationMutation.mutate(promises);
+    setLoading(false);
   };
 
   return (

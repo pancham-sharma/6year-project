@@ -7,7 +7,7 @@ import {
   Users, GraduationCap, Megaphone, HeartPulse, Shirt, Apple, 
   MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, BookOpen, Banknote, Sprout, Heart, LayoutGrid, Gift, ShoppingBag, Coins
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, getWSUrl } from '../utils/api';
 import { getUserDonations } from '../api/donations';
 import { DonationItem } from '../components/dashboard/DonationItem';
@@ -61,6 +61,13 @@ export default function Dashboard() {
     enabled: !!appUser.id,
   });
 
+  const { data: chatHistory, isLoading: loadingMessages } = useQuery({
+    queryKey: ['chat-messages', adminId],
+    queryFn: () => fetchAPI(`/api/chat/messages/?other_user_id=${adminId}`),
+    enabled: !!appUser.id && !!adminId,
+    refetchInterval: activeTab === 'messages' ? 10000 : false,
+  });
+
   const { data: profileData } = useQuery({
     queryKey: ['profile'],
     queryFn: () => fetchAPI('/api/users/profile/'),
@@ -68,9 +75,26 @@ export default function Dashboard() {
   });
 
   const { data: volunteerData } = useQuery({
+    queryKey: ['my-volunteer-apps'],
+    queryFn: () => fetchAPI('/api/users/volunteer/'),
     enabled: !!appUser.id,
   });
   
+  const { data: notificationData } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => fetchAPI('/api/chat/notifications/'),
+    enabled: !!appUser.id,
+    refetchInterval: 30000,
+  });
+
+  // Sync notifications to context
+  useEffect(() => {
+    if (notificationData) {
+      const list = notificationData.results || notificationData || [];
+      setNotifications(list);
+    }
+  }, [notificationData, setNotifications]);
+
   const { data: publicStats } = useQuery({
     queryKey: ['public-stats'],
     queryFn: () => fetchAPI('/api/donations/public_stats/'),
@@ -110,45 +134,7 @@ export default function Dashboard() {
     }
   }, [location.state]);
 
-  // Legacy data loader for compatibility with parts not yet migrated
-  const loadDashboardData = useCallback(async () => {
-    try {
-      const [notifRes, msgRes] = await Promise.all([
-        fetchAPI('/api/chat/notifications/').catch(() => []),
-        fetchAPI('/api/chat/messages/').catch(() => [])
-      ]);
-      
-      setNotifications(notifRes.results || notifRes || []);
-      const msgData = msgRes.results || msgRes || [];
-      const rawMsgs = Array.isArray(msgData) ? msgData.filter((m: any) => m.status !== 'Recycled') : [];
-      
-      setMessages((prev: any[]) => {
-        const sortedNew = rawMsgs.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-        // Only keep optimistic messages that are NOT already in the server's list
-        const optimistic = prev.filter(m => m.temp && !sortedNew.some(sm => 
-          sm.message === m.message && String(sm.sender) === String(m.sender)
-        ));
-        const combined = [...sortedNew, ...optimistic];
-        
-        // If this is the first load and we have messages, scroll to bottom
-        if (prev.length === 0 && combined.length > 0) {
-          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-        }
-        
-        return combined;
-      });
-    } catch (err) {
-      console.error("Failed to load realtime dashboard data", err);
-    }
-  }, [setNotifications, setMessages]);
-
-  useEffect(() => {
-    loadDashboardData();
-    const interval = setInterval(() => {
-      if (activeTab === 'messages') loadDashboardData();
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [activeTab, loadDashboardData]);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     // Attempt to fetch dedicated admin ID once on mount
@@ -158,6 +144,16 @@ export default function Dashboard() {
       if (import.meta.env.DEV) console.warn("Dedicated Admin ID fetch failed", err);
     });
   }, []);
+
+  // Sync chatMessages from chatHistory query
+  useEffect(() => {
+    if (chatHistory) {
+      const msgData = chatHistory.results || chatHistory.data || chatHistory || [];
+      const rawMsgs = Array.isArray(msgData) ? msgData.filter((m: any) => m.status !== 'Recycled') : [];
+      const sorted = [...rawMsgs].sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      setMessages(sorted);
+    }
+  }, [chatHistory]);
 
   const [ws, setWs] = useState<WebSocket | null>(null);
 
@@ -411,8 +407,8 @@ export default function Dashboard() {
     return Array.isArray(apps) ? apps.filter((a: any) => a.status && a.status.toLowerCase() !== 'recycled') : [];
   }, [volunteerData]);
   
-  const totalPages = donationData?.totalPages || 1;
-  const totalCount = donationData?.total || (Array.isArray(safeDonations) ? safeDonations.length : 0);
+  const totalPages = donationData?.meta?.totalPages || 1;
+  const totalCount = donationData?.meta?.total || (Array.isArray(safeDonations) ? safeDonations.length : 0);
 
   const totalDonations = totalCount;
   
@@ -479,35 +475,30 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
                 <Package className={`w-6 h-6 mx-auto mb-2 text-brand`} />
-                <div className="text-2xl font-bold">{publicStats?.total_donations || totalDonations}</div>
+                <div className="text-2xl font-bold">{totalDonations}</div>
                 <div className="text-xs text-white/70">Total Donations</div>
               </div>
-              {(publicStats?.impacts || []).slice(0, 3).map((imp: any, i: number) => {
-                const Icon = getCategoryIcon(imp.icon);
-                return (
-                  <div key={i} className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
-                    <Icon className={`w-6 h-6 mx-auto mb-2 text-brand`} />
-                    <div className="text-2xl font-bold">{imp.count}</div>
-                    <div className="text-xs text-white/70">{imp.label}</div>
-                  </div>
-                );
-              })}
-              {(!publicStats?.impacts || publicStats.impacts.length === 0) && (
-                <>
-                  <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
-                    <Utensils className={`w-6 h-6 mx-auto mb-2 text-brand`} />
-                    <div className="text-2xl font-bold">{foodMeals}</div>
-                    <div className="text-xs text-white/70">Meals Provided</div>
-                  </div>
-                  <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
-                    <TreePine className={`w-6 h-6 mx-auto mb-2 text-brand`} />
-                    <div className="text-2xl font-bold">{treesPlanted}</div>
-                    <div className="text-xs text-white/70">Trees Planted</div>
-                  </div>
-                </>
-              )}
+              
+              <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                <Utensils className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                <div className="text-2xl font-bold">{foodMeals}</div>
+                <div className="text-xs text-white/70">Meals Provided</div>
+              </div>
+
+              <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                <Sprout className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                <div className="text-2xl font-bold">{treesPlanted}</div>
+                <div className="text-xs text-white/70">Trees Planted</div>
+              </div>
+
+              <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                <Heart className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                <div className="text-2xl font-bold">{familiesHelped}</div>
+                <div className="text-xs text-white/70">Families Helped</div>
+              </div>
             </div>
           </div>
+        </div>
         </div>
 
         {/* Tabs */}

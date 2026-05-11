@@ -9,22 +9,17 @@ import { getCategories } from '../api/donations';
 const getImageUrl = (path: string) => {
   if (!path) return '/images/hero.jpg';
   
-  if (path.includes('pancham-sharma-6year-project.vercel.app')) {
-    const p = path.toLowerCase();
-    if (p.includes('food')) return '/images/stories-food.jpg';
-    if (p.includes('clothes')) return "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg";
-    if (p.includes('books') || p.includes('education')) return '/images/stories-education.jpg';
-    if (p.includes('money')) return `${API_BASE_URL}/media/category_images/download_9.jpeg`;
-    if (p.includes('trees')) return '/images/stories-trees.jpg';
-    return '/images/hero.jpg'; 
-  }
-
   if (path.startsWith('http') || path.startsWith('https')) {
+    // For Unsplash images, ensure we have good quality/size parameters
     if (path.includes('images.unsplash.com') && !path.includes('w=')) {
       return `${path}${path.includes('?') ? '&' : '?'}w=800&q=80&auto=format&fit=crop`;
     }
+    
+    // For Cloudinary images (from our backend), we already add optimization in the serializer
+    // so we can return it as is.
     return path;
   }
+
   
   const base = API_BASE_URL;
   if (path.startsWith('/media/')) return `${base}${path}`;
@@ -119,9 +114,9 @@ export default function Categories() {
                       if (name.includes('food')) e.currentTarget.src = "/images/stories-food.jpg";
                       else if (name.includes('clothes')) e.currentTarget.src = "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg";
                       else if (name.includes('book') || name.includes('education')) e.currentTarget.src = "/images/stories-education.jpg";
-                      else if (name.includes('money') || name.includes('fund')) e.currentTarget.src = "https://images.unsplash.com/photo-1579621970795-87faff2f9070?w=800&q=80&auto=format&fit=crop";
-                      else if (name.includes('tree') || name.includes('environment')) e.currentTarget.src = "/images/stories-trees.jpg";
-                      else if (name.includes('gift')) e.currentTarget.src = `${API_BASE_URL}/media/category_images/download_10.jpeg`;
+                      else if (name.includes('money') || name.includes('fund')) e.currentTarget.src = "https://images.unsplash.com/photo-1554224155-1696413565d3?w=800&q=80&auto=format&fit=crop";
+                      else if (name.includes('tree') || name.includes('environment')) e.currentTarget.src = "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80&auto=format&fit=crop";
+                      else if (name.includes('gift')) e.currentTarget.src = "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&q=80&auto=format&fit=crop";
                       else e.currentTarget.src = '/images/hero.jpg';
                     }}
                   />

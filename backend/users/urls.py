@@ -16,6 +16,7 @@ urlpatterns = [
     path('admin-id/', views.GetAdminIdView.as_view(), name='admin_id'),
     path('change-password/', views.ChangePasswordView.as_view(), name='auth_change_password'),
     path('volunteer/', views.VolunteerApplicationView.as_view(), name='volunteer_apply'),
+    path('volunteer/status/', views.VolunteerApplicationView.as_view(), name='volunteer_status'),
     path('volunteer/admin/list/', views.VolunteerApplicationAdminListView.as_view(), name='volunteer_admin_list'),
     path('volunteer/admin/active/', views.ActiveVolunteerListView.as_view(), name='volunteer_active_list'),
     path('volunteer/admin/<int:pk>/', views.VolunteerApplicationAdminDetailView.as_view(), name='volunteer_admin_detail'),

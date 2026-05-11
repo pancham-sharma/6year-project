@@ -14,10 +14,16 @@ export const DonationItem = React.memo(({ donation: d, dark, onDownload }: Donat
         d.category === 'Food' ? 'bg-orange-100 text-orange-600' :
         d.category === 'Clothes' ? 'bg-blue-100 text-blue-600' :
         d.category === 'Books' ? 'bg-purple-100 text-purple-600' :
-        d.category === 'Monetary' ? 'bg-green-100 text-green-600' :
+        (d.category === 'Monetary' || d.category === 'Money') ? 'bg-green-100 text-green-600' :
+        d.category === 'Gift' ? 'bg-pink-100 text-pink-600' :
         'bg-teal-100 text-teal-600'
       }`}>
-        {d.category === 'Food' ? '🍲' : d.category === 'Clothes' ? '👕' : d.category === 'Books' ? '📚' : d.category === 'Monetary' ? '💰' : '🌱'}
+        {(d.category === 'Food' || d.category === 'Meals') ? '🍲' : 
+         d.category === 'Clothes' ? '👕' : 
+         d.category === 'Books' ? '📚' : 
+         (d.category === 'Monetary' || d.category === 'Money') ? '💰' : 
+         d.category === 'Gift' ? '🎁' : 
+         '🌱'}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
