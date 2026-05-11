@@ -9,7 +9,9 @@ class DatabaseBackupSerializer(serializers.ModelSerializer):
 
 class CategorySerializer(serializers.ModelSerializer):
     description = serializers.CharField(required=True)
-    impact_badge = serializers.CharField(required=True)
+    impact_badge = serializers.CharField(required=False, allow_blank=True)
+    impact_label = serializers.CharField(required=False, allow_blank=True)
+    impact_per_quantity = serializers.IntegerField(required=False, default=1)
     image = serializers.SerializerMethodField()
     
     class Meta:

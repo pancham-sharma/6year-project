@@ -12,19 +12,23 @@ export default function Reports({ darkMode }: Props) {
   const [donations, setDonations] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [donsRes, invRes, usersRes] = await Promise.all([
+        const [donsRes, invRes, usersRes, catRes] = await Promise.all([
           fetchAPI('/api/donations/').catch(() => []),
           fetchAPI('/api/inventory/items/').catch(() => []),
-          fetchAPI('/api/users/list/').catch(() => [])
+          fetchAPI('/api/users/list/').catch(() => []),
+          fetchAPI('/api/donations/categories/').catch(() => [])
         ]);
         setDonations(Array.isArray(donsRes) ? donsRes : (donsRes?.results || []));
         setInventory(Array.isArray(invRes) ? invRes : (invRes?.results || []));
         setUsers(Array.isArray(usersRes) ? usersRes : (usersRes?.results || []));
+        const categories = Array.isArray(catRes) ? catRes : (catRes?.results || []);
+        setCategories(categories);
       } catch (err) {
         console.error("Analytics fetch error:", err);
       } finally {
@@ -40,13 +44,20 @@ export default function Reports({ darkMode }: Props) {
   const gridLine = darkMode ? '#374151' : '#f3f4f6';
   const axisColor = darkMode ? '#9ca3af' : '#6b7280';
 
-  const catColors: any = { Food: '#f59e0b', Clothes: '#8b5cf6', Books: '#3b82f6', Monetary: '#10b981', Environment: '#22c55e' };
-  const catIcons: any = { Food: '🍲', Clothes: '👕', Books: '📚', Monetary: '💰', Environment: '🌱' };
+  const iconMap: Record<string, any> = {
+    utensils: '🍲', bookopen: '📚', shirt: '👕', banknote: '💵', sprout: '🌱',
+    heart: '❤️', handheart: '🤝', users: '👥', treepine: '🌲', gift: '🎁',
+    shoppingbag: '🛍️', graduationcap: '🎓', coins: '💰', layoutgrid: '📦'
+  };
+
+  const colorMap: Record<string, string> = {
+    food: '#f59e0b', clothes: '#8b5cf6', books: '#3b82f6', money: '#10b981', monetary: '#10b981', trees: '#22c55e', environment: '#22c55e'
+  };
 
   // Calculate KPIs
   const totalDonationsThisMonth = donations.length; 
   const totalMonetary = donations
-    .filter((d: any) => d.category === 'Monetary')
+    .filter((d: any) => d.category.toLowerCase().includes('money') || d.category.toLowerCase().includes('monetary'))
     .reduce((sum, d) => sum + (d.quantity || 0), 0);
   
   const totalInvReceived = inventory.reduce((acc: number, inv: any) => acc + inv.quantity, 0);
@@ -70,16 +81,13 @@ export default function Reports({ darkMode }: Props) {
     return acc;
   }, {});
   const categoryPieData = Object.keys(catCounts).map(cat => ({
-    name: cat, value: catCounts[cat], color: catColors[cat] || '#9ca3af'
+    name: cat, value: catCounts[cat], color: colorMap[cat.toLowerCase()] || '#10b981'
   }));
 
   // Setup Monthly Trends for the charts (simplified to place all current live data into current month)
   const monthlyTrends = [
-    { month: 'Jan', Food: 0, Clothes: 0, Books: 0, Monetary: 0, Environment: 0 },
-    { month: 'Feb', Food: 0, Clothes: 0, Books: 0, Monetary: 0, Environment: 0 },
-    { month: 'Mar', Food: 0, Clothes: 0, Books: 0, Monetary: 0, Environment: 0 },
-    { month: 'Apr', Food: 0, Clothes: 0, Books: 0, Monetary: 0, Environment: 0 }
-  ];
+    { month: 'Jan' }, { month: 'Feb' }, { month: 'Mar' }, { month: 'Apr' }
+  ].map(m => ({ ...m, ...Object.fromEntries(categories.map(c => [c.name, 0])) }));
   
   donations.forEach((d: any) => {
     const cat = d.category;
@@ -89,18 +97,21 @@ export default function Reports({ darkMode }: Props) {
   });
 
   const monetaryData = monthlyTrends.map(m => ({ month: m.month, amount: donations
-    .filter((d: any) => d.category === 'Monetary' && new Date(d.timestamp).toLocaleDateString('en-US', { month: 'short' }) === m.month)
+    .filter((d: any) => (d.category.toLowerCase().includes('money') || d.category.toLowerCase().includes('monetary')) && new Date(d.timestamp).toLocaleDateString('en-US', { month: 'short' }) === m.month)
     .reduce((sum, d) => sum + (d.quantity || 0), 0) }));
 
 
   // Inventory Table Data
-  const formattedInventory = inventory.map((inv: any) => ({
-    category: inv.category,
-    totalReceived: inv.quantity,
-    distributed: inv.distributed || 0,
-    color: catColors[inv.category] || '#9ca3af',
-    icon: catIcons[inv.category] || '📦'
-  }));
+  const formattedInventory = inventory.map((inv: any) => {
+    const catInfo = categories.find((c: any) => c.name.toLowerCase() === inv.category.toLowerCase());
+    return {
+      category: inv.category,
+      totalReceived: inv.quantity,
+      distributed: inv.distributed || 0,
+      color: colorMap[inv.category.toLowerCase()] || '#10b981',
+      icon: iconMap[(catInfo?.icon_name || '').toLowerCase()] || '📦'
+    };
+  });
 
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -154,10 +165,9 @@ export default function Reports({ darkMode }: Props) {
             <XAxis dataKey="month" tick={{ fill: axisColor, fontSize: 12 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: axisColor, fontSize: 12 }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="Food" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Clothes" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Books" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Environment" fill="#22c55e" radius={[4, 4, 0, 0]} />
+            {categories.slice(0, 5).map((cat) => (
+              <Bar key={cat.name} dataKey={cat.name} fill={colorMap[cat.name.toLowerCase()] || '#10b981'} radius={[4, 4, 0, 0]} />
+            ))}
           </BarChart>
         </ResponsiveContainer>
       </div>

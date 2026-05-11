@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Truck, Clock, CheckCircle2, Calendar, User, MapPin, X, Loader, Search } from 'lucide-react';
+import { Truck, Clock, CheckCircle2, Calendar, User, MapPin, X, Loader, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchAPI } from '../utils/api';
 import { useSearch } from '../context/SearchContext';
-
 
 interface Props { darkMode: boolean; }
 
@@ -17,6 +16,10 @@ export default function PickupManagement({ darkMode }: Props) {
   const [selectedTeam, setSelectedTeam] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed'>('upcoming');
+  
+  // Pagination
+  const [page, setPage] = useState(1);
+  const limit = 6; // 6 per page for cards (2x3 grid)
 
 
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
@@ -62,7 +65,11 @@ export default function PickupManagement({ darkMode }: Props) {
     return !q || p.donorName.toLowerCase().includes(q) || p.address.toLowerCase().includes(q) || p.id.toString().includes(q);
   });
 
-  const displayed = filtered;
+  const totalPages = Math.ceil(filtered.length / limit) || 1;
+  const paginatedData = filtered.slice((page - 1) * limit, page * limit);
+
+  // Reset page on tab/search change
+  useEffect(() => { setPage(1); }, [activeTab, searchQuery]);
 
   const statusColors: Record<string, string> = {
     Completed: 'bg-green-100 text-green-900 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-none',
@@ -170,12 +177,12 @@ export default function PickupManagement({ darkMode }: Props) {
 
         {/* Pickup Cards */}
         <div className="p-5 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {displayed.length === 0 ? (
+          {paginatedData.length === 0 ? (
             <div className={`col-span-3 py-16 text-center ${textSub}`}>
               <div className="text-4xl mb-2">📦</div>
               <p>No {activeTab} pickups in database</p>
             </div>
-          ) : displayed.map(d => (
+          ) : paginatedData.map(d => (
             <div key={d.id} className={`rounded-xl border p-4 shadow-sm transition-all hover:shadow-md ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-white border-gray-100'}`}>
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -234,6 +241,65 @@ export default function PickupManagement({ darkMode }: Props) {
             </div>
           ))}
         </div>
+
+        {/* Pagination Footer */}
+        {filtered.length > 0 && (
+          <div className={`px-5 py-4 border-t flex flex-col lg:flex-row items-center justify-between gap-4 ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+            <div className={`text-xs font-medium ${textSub}`}>
+              Showing <span className={textMain}>{((page - 1) * limit) + 1}</span> to <span className={textMain}>{Math.min(page * limit, filtered.length)}</span> of <span className={textMain}>{filtered.length}</span> entries
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                  darkMode ? 'hover:bg-gray-700 border-gray-700 text-gray-300' : 'hover:bg-gray-50 border-gray-200 text-gray-700'
+                }`}
+              >
+                Previous
+              </button>
+              
+              <div className="flex items-center gap-1.5 mx-1">
+                {Array.from({ length: totalPages }).map((_, i) => {
+                  const p = i + 1;
+                  const isCurrent = page === p;
+                  
+                  if (totalPages > 7) {
+                    if (p !== 1 && p !== totalPages && Math.abs(p - page) > 1) {
+                      if (p === 2 || p === totalPages - 1) return <span key={p} className="px-1 text-gray-400">...</span>;
+                      return null;
+                    }
+                  }
+
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`w-9 h-9 rounded-2xl text-xs font-bold transition-all ${
+                        isCurrent 
+                          ? 'bg-[#10b981] text-white border-[3px] border-[#1e293b] shadow-lg scale-105' 
+                          : `${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button 
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                  darkMode ? 'hover:bg-gray-700 border-gray-700 text-gray-300' : 'hover:bg-gray-50 border-gray-200 text-gray-700'
+                }`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Assign Modal */}
         {assignModal && (

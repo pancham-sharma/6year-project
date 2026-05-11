@@ -134,7 +134,7 @@ export default function Auth() {
         }).catch(console.error);
 
         setSuccessMsg("Verification email sent! Please verify to continue.");
-        navigate('/verify-email');
+        navigate('/check-email', { state: { email: cleanEmail, type: 'verification' } });
       } else {
         const userCred = await signInWithEmailAndPassword(auth, cleanEmail, form.password);
         await reload(userCred.user);
@@ -142,7 +142,7 @@ export default function Auth() {
         if (!userCred.user.emailVerified) {
           setErrorMsg("Please verify your email first. Check your inbox.");
           setLoading(false);
-          navigate('/verify-email');
+          navigate('/check-email', { state: { email: cleanEmail, type: 'verification' } });
           return;
         }
 

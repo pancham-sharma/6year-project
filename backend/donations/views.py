@@ -72,8 +72,8 @@ class DonationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def public_stats(self, request):
         from django.core.cache import cache
+        import math
         
-        # Try to get cached stats first to prevent timeouts on slow DB connections
         cached_stats = cache.get('public_stats_data')
         if cached_stats:
             return Response(cached_stats)
@@ -81,29 +81,38 @@ class DonationViewSet(viewsets.ModelViewSet):
         try:
             User = get_user_model()
             
+            # Base stats
             stats = {
-                'total_donations': Donation.objects.count(),
+                'total_donations': Donation.objects.exclude(status='Recycled').count(),
                 'total_donors': User.objects.count(),
-                'food_meals': Donation.objects.filter(category='Food').count() * 10,
-                'trees_planted': Donation.objects.filter(category='Environment').count() * 5,
-                
-                'distribution': {
-                    'food': InventoryItem.objects.filter(category='Food').count() * 20,
-                    'education': InventoryItem.objects.filter(category='Books').count() * 20,
-                    'green': InventoryItem.objects.filter(category='Environment').count() * 20,
-                }
+                'impacts': []
             }
             
-            # Cache for 5 minutes
+            # Dynamic Impact Calculations
+            from .models import Category
+            categories = Category.objects.filter(is_active=True)
+            
+            for cat in categories:
+                if not cat.impact_label:
+                    continue
+                    
+                total_qty = Donation.objects.filter(category=cat.name, status='Completed').aggregate(Sum('quantity'))['quantity__sum'] or 0
+                impact_divisor = cat.impact_per_quantity or 1
+                impact_count = math.ceil(total_qty / impact_divisor)
+                
+                stats['impacts'].append({
+                    'label': cat.impact_label,
+                    'count': impact_count,
+                    'category': cat.name,
+                    'icon': cat.icon_name
+                })
+
             cache.set('public_stats_data', stats, 300)
             return Response(stats)
             
         except Exception as e:
-            if settings.DEBUG:
-                print(f"Error in public_stats: {str(e)}")
             return Response({
-                'total_donations': 0, 'total_donors': 0, 'food_meals': 0, 'trees_planted': 0,
-                'distribution': {'food': 0, 'education': 0, 'green': 0}
+                'total_donations': 0, 'total_donors': 0, 'impacts': []
             })
 
     def perform_create(self, serializer):

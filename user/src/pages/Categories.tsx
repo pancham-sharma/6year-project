@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { ArrowRight, Utensils, BookOpen, Shirt, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins } from 'lucide-react';
@@ -53,22 +53,13 @@ const iconMap: Record<string, any> = {
 export default function Categories() {
   const { dark, t } = useApp();
 
-  const defaultCategories = useMemo(() => [
-    { id: 'p1', key: 'food', name: t.categories.food, description: t.categories.foodDesc, impact_badge: t.categories.foodImpact, icon_name: 'Utensils', image: "/images/stories-food.jpg", is_active: true },
-    { id: 'p2', key: 'clothes', name: t.categories.clothes, description: t.categories.clothesDesc, impact_badge: t.categories.clothesImpact, icon_name: 'Shirt', image: "/images/cat-clothes.jpg", is_active: true },
-    { id: 'p3', key: 'books', name: t.categories.books, description: t.categories.booksDesc, impact_badge: t.categories.booksImpact, icon_name: 'BookOpen', image: "/images/cat-books.jpg", is_active: true },
-    { id: 'p4', key: 'money', name: t.categories.money, description: t.categories.moneyDesc, impact_badge: t.categories.moneyImpact, icon_name: 'Banknote', image: "/images/cat-money.jpg", is_active: true },
-    { id: 'p5', key: 'trees', name: t.categories.trees, description: t.categories.treesDesc, impact_badge: t.categories.treesImpact, icon_name: 'Sprout', image: "/images/stories-trees.jpg", is_active: true },
-  ], [t]);
-
   const { data: categoryData } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
     staleTime: 1000 * 60 * 5, // 5 minutes
-    placeholderData: defaultCategories
   });
   
-  const [categories, setCategories] = useState<any[]>(defaultCategories);
+  const [categories, setCategories] = useState<any[]>([]);
 
   useEffect(() => {
     if (categoryData) {
@@ -81,15 +72,9 @@ export default function Categories() {
         return acc;
       }, []);
 
-      // Merge logic: Use DB version of categories if they exist, otherwise fallback to default images/descriptions
-      const merged = defaultCategories.map((def: any) => {
-        const dbMatch = unique.find((u: any) => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase());
-        return dbMatch ? { ...def, ...dbMatch, image: dbMatch.image ? getImageUrl(dbMatch.image) : def.image } : def;
-      }).concat(unique.filter((u: any) => !defaultCategories.some((def: any) => u.name.toLowerCase() === def.name.toLowerCase() || u.name.toLowerCase() === def.key.toLowerCase())));
-
-      setCategories(merged);
+      setCategories(unique);
     }
-  }, [categoryData, defaultCategories]);
+  }, [categoryData]);
 
 
   return (

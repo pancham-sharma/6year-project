@@ -3,9 +3,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { Heart, DollarSign, Clock, CheckCircle2, TrendingUp, ArrowUpRight, RefreshCw } from 'lucide-react';
+import { Heart, DollarSign, Clock, CheckCircle2, TrendingUp, ArrowUpRight, RefreshCw, Utensils, BookOpen, Shirt, Banknote, Sprout, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins, LayoutGrid } from 'lucide-react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getDashboardData } from '../api/dashboard';
+import { fetchAPI } from '../utils/api';
 
 // Skeleton components for ultra-fast perceived performance
 const CardSkeleton = () => (
@@ -59,6 +60,44 @@ export default function Dashboard({ darkMode }: Props) {
     Cancelled: 'bg-red-100 text-red-900 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-none',
   };
 
+  const iconMap: Record<string, any> = {
+    utensils: Utensils,
+    bookopen: BookOpen,
+    shirt: Shirt,
+    banknote: Banknote,
+    sprout: Sprout,
+    heart: Heart,
+    handheart: HandHeart,
+    users: Users,
+    treepine: TreePine,
+    gift: Gift,
+    shoppingbag: ShoppingBag,
+    graduationcap: GraduationCap,
+    coins: Coins,
+    layoutgrid: LayoutGrid
+  };
+
+  const colorMap: Record<string, string> = {
+    food: '#f59e0b',
+    clothes: '#8b5cf6',
+    books: '#3b82f6',
+    money: '#10b981',
+    monetary: '#10b981',
+    trees: '#22c55e',
+    environment: '#22c55e'
+  };
+
+  // React Query for Categories
+  const { data: catData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchAPI('/api/donations/categories/'),
+  });
+
+  const categoriesList = useMemo(() => {
+    const data = catData?.results || catData || [];
+    return Array.isArray(data) ? data : [];
+  }, [catData]);
+
   const getStatusColor = (status: string) => {
     const s = status?.charAt(0).toUpperCase() + status?.slice(1).toLowerCase();
     return statusColors[s] || 'bg-gray-100 text-gray-800 border border-gray-200';
@@ -80,11 +119,15 @@ export default function Dashboard({ darkMode }: Props) {
     return acc;
   }, {});
   
-  const catColors: any = { Food: '#f59e0b', Clothes: '#8b5cf6', Books: '#3b82f6', Monetary: '#10b981', Environment: '#22c55e' };
-  
-  const categoryPieData = Object.keys(catCounts).map(cat => ({
-    name: cat, value: catCounts[cat], color: catColors[cat] || '#9ca3af'
-  }));
+  const categoryPieData = useMemo(() => {
+    return Object.keys(catCounts).map(cat => {
+      return {
+        name: cat, 
+        value: catCounts[cat], 
+        color: colorMap[cat.toLowerCase()] || '#10b981'
+      };
+    });
+  }, [catCounts, categoriesList]);
 
   // Activity Feed derived from Notifications or fallback to Donations
   const recentActivity = notifications.length > 0 
@@ -93,18 +136,38 @@ export default function Dashboard({ darkMode }: Props) {
         time: new Date(n.timestamp).toLocaleTimeString(), icon: '🔔'
       }))
     : donations.slice(0, 5).map((d: any) => ({
-        id: d.id, action: `New Donation added`, donor: d.donor, category: d.category,
-        time: new Date(d.timestamp).toLocaleDateString(), icon: '✨'
+        id: d.id, 
+        action: `New Donation added`, 
+        donor: d.donor, 
+        category: d.category,
+        time: new Date(d.timestamp).toLocaleDateString(), 
+        icon: '✨'
       }));
+  const impactStats = useMemo(() => Array.isArray((data as any)?.impact_stats) ? (data as any).impact_stats : [], [data]);
 
-  // Inventory Snapshot derived from real Inventory items
-  const inventoryData = inventory.map((inv: any) => ({
-    category: inv.category,
-    totalReceived: inv.quantity, 
-    distributed: inv.distributed || 0, 
-    color: catColors[inv.category] || '#9ca3af',
-    icon: inv.category === 'Food' ? '🍲' : inv.category === 'Clothes' ? '👕' : '📦'
-  }));
+  // Inventory Snapshot aggregated by category
+  const inventoryData = useMemo(() => {
+    const agg = inventory.reduce((acc: any, inv: any) => {
+      acc[inv.category] = {
+        totalReceived: (acc[inv.category]?.totalReceived || 0) + inv.quantity,
+        distributed: (acc[inv.category]?.distributed || 0) + (inv.distributed || 0)
+      };
+      return acc;
+    }, {});
+
+    return Object.keys(agg).map(cat => {
+      const catInfo = categoriesList.find((c: any) => c.name.toLowerCase() === cat.toLowerCase());
+      const iconKey = (catInfo?.icon_name || '').toLowerCase();
+      
+      return {
+        category: cat,
+        totalReceived: agg[cat].totalReceived,
+        distributed: agg[cat].distributed,
+        color: colorMap[cat.toLowerCase()] || '#10b981',
+        icon: iconMap[iconKey] || '📦'
+      };
+    });
+  }, [inventory, categoriesList]);
 
   // Monthly trends (Mapped to show real counts on right side of chart)
   // Monthly trends dynamically generated from the last 4 months
@@ -175,8 +238,8 @@ export default function Dashboard({ darkMode }: Props) {
                   <p className={`text-xs font-medium uppercase tracking-wide ${textSub}`}>{c.label}</p>
                   <p className={`text-3xl font-bold mt-2 ${textMain}`}>{c.value}</p>
                   <div className="flex items-center gap-1 mt-2">
-                    {c.trend === 'up' && <ArrowUpRight size={12} className="text-green-500" />}
-                    <p className="text-xs text-green-500 font-medium">{c.sub}</p>
+                    {c.trend === 'up' && <ArrowUpRight size={10} className="text-green-500" />}
+                    <p className="text-[10px] text-green-500 font-bold uppercase tracking-tight">{c.sub}</p>
                   </div>
                 </div>
                 <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${c.bg} flex items-center justify-center shadow-md`}>
@@ -187,6 +250,61 @@ export default function Dashboard({ darkMode }: Props) {
           );
         })}
       </div>
+      
+      {/* Real-time Impact Section */}
+      {impactStats.length > 0 && (
+        <div className="space-y-4 mb-8">
+          <div className="flex items-center justify-between">
+            <h2 className={`font-bold text-lg ${textMain}`}>Real-time Impact</h2>
+            <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 text-green-500 text-[10px] font-bold rounded-full">
+              <TrendingUp size={12} /> DYNAMIC CALCULATION
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4">
+            {impactStats.map((impact: any, idx: number) => {
+              const IconComp = iconMap[impact.icon?.toLowerCase()] || LayoutGrid;
+              return (
+                <div 
+                  key={idx} 
+                  className={`relative overflow-hidden group rounded-2xl border p-5 transition-all duration-500 hover:scale-[1.02] hover:shadow-xl ${card}`}
+                >
+                  <div className="relative z-10 flex flex-col h-full">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white shadow-lg group-hover:rotate-6 transition-transform`}>
+                        <IconComp size={20} />
+                      </div>
+                      <div className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg text-[8px] font-black uppercase tracking-tighter opacity-50">
+                        1:{impact.impact_per_quantity} Ratio
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1">
+                      <p className={`text-4xl font-black mb-1 ${textMain} tracking-tighter`}>
+                        {impact.count.toLocaleString()}
+                      </p>
+                      <p className={`text-xs font-bold uppercase tracking-widest ${textSub} opacity-80`}>
+                        {impact.label}
+                      </p>
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                       <span className={`text-[9px] font-bold ${textSub}`}>{impact.category}</span>
+                       <div className="h-1.5 w-12 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div className="h-full bg-green-500 rounded-full w-2/3 animate-pulse" />
+                       </div>
+                    </div>
+                  </div>
+                  
+                  {/* Decorative Background Element */}
+                  <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity">
+                    <IconComp size={100} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -313,8 +431,8 @@ export default function Dashboard({ darkMode }: Props) {
                     />
                   </div>
                   <div className="flex justify-between mt-1">
-                    <span className="text-xs text-green-500">{item.distributed.toLocaleString()} distributed</span>
-                    <span className={`text-xs ${textSub}`}>{(item.totalReceived - item.distributed).toLocaleString()} left</span>
+                    <span className="text-xs text-green-500 font-medium">{item.distributed.toLocaleString()} distributed</span>
+                    <span className={`text-xs font-medium ${textSub}`}>{(item.totalReceived - item.distributed).toLocaleString()} left</span>
                   </div>
                 </div>
               );

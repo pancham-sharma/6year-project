@@ -26,9 +26,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         # Discard from all joined rooms
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
-        if self.user.is_staff or getattr(self.user, 'role', '') == 'ADMIN':
-            await self.channel_layer.group_discard("admins", self.channel_name)
+        if hasattr(self, 'group_name'):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+            
+        if self.user.is_authenticated and (self.user.is_staff or getattr(self.user, 'role', '') == 'ADMIN'):
+            try:
+                await self.channel_layer.group_discard("admins", self.channel_name)
+            except:
+                pass
         
         # Also discard from any active room the user joined
         if hasattr(self, 'active_room'):
@@ -148,7 +153,14 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             await self.accept()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        if hasattr(self, 'group_name'):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        
+        if self.user.is_authenticated and (self.user.is_staff or getattr(self.user, 'role', '') == 'ADMIN'):
+            try:
+                await self.channel_layer.group_discard("admin_notifications", self.channel_name)
+            except:
+                pass
 
     async def notify_update(self, event):
         await self.send(text_data=json.dumps({

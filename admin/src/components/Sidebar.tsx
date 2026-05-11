@@ -37,13 +37,8 @@ const mainNav = [
   { id: 'settings' as NavSection, label: 'Settings', icon: Settings },
 ];
 
-const initialCategoryNav = [
-  { id: 'food', label: 'Food', icon: Utensils, color: 'text-amber-500' },
-  { id: 'clothes', label: 'Clothes', icon: Shirt, color: 'text-purple-500' },
-  { id: 'books', label: 'Books', icon: BookOpen, color: 'text-blue-500' },
-  { id: 'money', label: 'Money', icon: Coins, color: 'text-emerald-500' },
-  { id: 'trees', label: 'Trees', icon: Leaf, color: 'text-green-500' },
-];
+// No initial categories - 100% dynamic from DB
+const initialCategoryNav: any[] = [];
 
 const iconMap: Record<string, any> = {
   utensils: Utensils,
@@ -101,15 +96,7 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
           };
         });
         
-        // Ensure initial categories are always present if not in DB (consistent with CategoryManagement)
-        const finalNav = [...dynamicNav];
-        initialCategoryNav.forEach(initial => {
-          if (!finalNav.some(f => f.label.toLowerCase() === initial.label.toLowerCase())) {
-            finalNav.unshift(initial); // Put system categories at top
-          }
-        });
-
-        setCategoryNav(finalNav);
+        setCategoryNav(dynamicNav);
       } catch (err) {
         console.error("Sidebar count fetch error:", err);
       }

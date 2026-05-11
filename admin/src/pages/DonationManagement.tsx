@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Search, Filter, Eye, Edit3, CheckCircle, Trash2, 
-  ChevronDown, X, Phone, MapPin, ChevronLeft, ChevronRight
+  ChevronDown, X, Phone, MapPin
 } from 'lucide-react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getDonations } from '../api/donations';
@@ -12,9 +12,6 @@ import { fetchAPI } from '../utils/api';
 import TableSkeleton from '../components/TableSkeleton';
 
 interface Props { darkMode: boolean; }
-
-const CATEGORIES = ['Food', 'Clothes', 'Books', 'Monetary', 'Environment'];
-const STATUSES = ['Pending', 'Scheduled', 'Completed', 'Cancelled'];
 
 const statusColors: Record<string, string> = {
   Completed: 'text-green-700 dark:text-green-400 font-extrabold',
@@ -28,17 +25,14 @@ const getStatusColor = (status: string) => {
   return statusColors[s] || 'text-gray-600';
 };
 
-const catColors: Record<string, string> = {
-  Food: 'text-orange-700 dark:text-orange-300 font-extrabold',
-  Clothes: 'text-purple-700 dark:text-purple-300 font-extrabold',
-  Books: 'text-blue-700 dark:text-blue-300 font-extrabold',
-  Monetary: 'text-emerald-700 dark:text-emerald-300 font-extrabold',
-  Environment: 'text-green-700 dark:text-green-300 font-extrabold',
-};
-
 const getCatColor = (cat: string) => {
-  const c = cat?.charAt(0).toUpperCase() + cat?.slice(1).toLowerCase();
-  return catColors[c] || 'text-gray-600';
+  const c = cat?.toLowerCase() || '';
+  if (c.includes('money') || c.includes('monetary')) return 'text-emerald-600 dark:text-emerald-400 font-bold';
+  if (c.includes('food')) return 'text-amber-600 dark:text-amber-400 font-bold';
+  if (c.includes('clothes')) return 'text-purple-600 dark:text-purple-400 font-bold';
+  if (c.includes('books')) return 'text-blue-600 dark:text-blue-400 font-bold';
+  if (c.includes('tree') || c.includes('environment')) return 'text-green-600 dark:text-green-400 font-bold';
+  return 'text-gray-600 dark:text-gray-400 font-bold';
 };
 
 export default function DonationManagement({ darkMode }: Props) {
@@ -47,7 +41,7 @@ export default function DonationManagement({ darkMode }: Props) {
   
   // State for filters and pagination
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10); 
+  const [limit] = useState(10); 
   const [filterCat, setFilterCat] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
@@ -61,6 +55,14 @@ export default function DonationManagement({ darkMode }: Props) {
   const [editForm, setEditForm] = useState<any>({ 
     status: '', assigned_team: '', scheduled_date: '', scheduled_time: '', notes: '' 
   });
+
+  const { data: catData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchAPI('/api/donations/categories/'),
+  });
+
+  const CATEGORIES = (catData?.results || catData || []).map((c: any) => c.name);
+  const STATUSES = ['Pending', 'Scheduled', 'Completed', 'Cancelled'];
 
   // Reset page when filters change
   useEffect(() => {
@@ -187,7 +189,7 @@ export default function DonationManagement({ darkMode }: Props) {
               <label className={`text-xs font-semibold ${textSub} mb-1 block`}>Category</label>
               <select className={`w-full px-3 py-2 rounded-xl border text-sm outline-none ${selectBg}`} value={filterCat} onChange={e => setFilterCat(e.target.value)}>
                 <option value="All">All Categories</option>
-                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                {CATEGORIES.map((c: string) => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div>
@@ -236,12 +238,12 @@ export default function DonationManagement({ darkMode }: Props) {
                   <tr key={d.id} className={`transition-colors ${rowHover} ${isPlaceholderData ? 'opacity-50' : ''}`}>
                     <td className={`px-5 py-3.5 font-mono text-xs font-bold ${greenText}`}>#{d.id}</td>
                     <td className={`px-4 py-4 font-medium ${textMain}`}>{d.donorName}</td>
-                    <td className={`px-4 py-4 text-[11px] font-medium ${textSub} max-w-[150px] truncate`}>{d.donorEmail}</td>
+                    <td className={`px-4 py-4 text-[11px] font-medium ${textSub}`}>{d.donorEmail}</td>
                     <td className={`px-4 py-4 ${textSub}`}>
                       <div className="flex items-center gap-1.5"><Phone size={12} /> {d.contact}</div>
                     </td>
                     <td className={`px-4 py-4 ${textSub}`}>
-                      <div className="flex items-start gap-1"><MapPin size={12} className="mt-0.5" /> <span className="truncate max-w-[150px]">{d.address}</span></div>
+                      <div className="flex items-start gap-1"><MapPin size={12} className="mt-0.5" /> <span className="truncate max-w-[120px]">{d.address.split(',')[0]}</span></div>
                     </td>
                     <td className="px-4 py-4 min-w-[120px]">
                       <span style={{ backgroundColor: 'var(--color-gray-100)' }} className={`px-2.5 py-1 rounded-full text-[10px] uppercase whitespace-nowrap inline-block ${getCatColor(d.category)}`}>{d.category}</span>
@@ -259,15 +261,15 @@ export default function DonationManagement({ darkMode }: Props) {
                       <span style={{ backgroundColor: 'var(--color-gray-100)' }} className={`px-2.5 py-1 rounded-full text-[10px] uppercase ${getStatusColor(d.status)}`}>{d.status}</span>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="flex items-center gap-2">
-                        <button title="View" onClick={() => setViewItem(d)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition-colors"><Eye size={16} /></button>
+                      <div className="flex items-center gap-1.5">
+                        <button title="View" onClick={() => setViewItem(d)} className={`p-2 rounded-xl border transition-all ${darkMode ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 border-blue-100 text-blue-600 hover:bg-blue-100'}`}><Eye size={15} /></button>
                         {d.status !== 'Completed' && (
                           <>
-                            <button title="Edit" onClick={() => { setEditItem(d); setEditForm({ ...d }); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-500 transition-colors"><Edit3 size={16} /></button>
-                            <button title="Complete" onClick={() => markComplete(d.id)} className="p-1.5 rounded-lg hover:bg-green-50 text-green-500 transition-colors"><CheckCircle size={16} /></button>
+                            <button title="Edit" onClick={() => { setEditItem(d); setEditForm({ ...d }); }} className={`p-2 rounded-xl border transition-all ${darkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20' : 'bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100'}`}><Edit3 size={15} /></button>
+                            <button title="Complete" onClick={() => markComplete(d.id)} className={`p-2 rounded-xl border transition-all ${darkMode ? 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20' : 'bg-green-50 border-green-100 text-green-600 hover:bg-green-100'}`}><CheckCircle size={15} /></button>
                           </>
                         )}
-                        <button title="Delete" onClick={() => deleteDon(d.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors"><Trash2 size={16} /></button>
+                        <button title="Delete" onClick={() => deleteDon(d.id)} className={`p-2 rounded-xl border transition-all ${darkMode ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20' : 'bg-red-50 border-red-100 text-red-600 hover:bg-red-100'}`}><Trash2 size={15} /></button>
                       </div>
                     </td>
                   </tr>
@@ -289,25 +291,35 @@ export default function DonationManagement({ darkMode }: Props) {
               <button
                 onClick={() => handlePageChange(page - 1)}
                 disabled={page === 1 || isPlaceholderData}
-                className={`p-2 rounded-xl border transition-all disabled:opacity-30 disabled:cursor-not-allowed ${darkMode ? 'hover:bg-gray-700 border-gray-700 text-gray-400' : 'hover:bg-gray-50 border-gray-200 text-gray-600'}`}
+                className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                  darkMode ? 'hover:bg-gray-700 border-gray-700 text-gray-300' : 'hover:bg-gray-50 border-gray-200 text-gray-700'
+                }`}
               >
-                <ChevronLeft size={18} />
+                Previous
               </button>
+              
               <div className="flex items-center gap-1.5 mx-2">
                 {Array.from({ length: data?.meta?.totalPages || 1 }).map((_, i) => {
                   const p = i + 1;
-                  // Only show 5 pages around current page
-                  if (data?.meta?.totalPages > 7 && (p < page - 2 || p > page + 2) && p !== 1 && p !== data?.meta?.totalPages) {
-                    if (p === 2 || p === data?.meta?.totalPages - 1) return <span key={p} className={textSub}>...</span>;
+                  const isCurrent = page === p;
+                  
+                  // Show current, first, last, and 1-2 pages around current
+                  const isFirst = p === 1;
+                  const isLast = p === data?.meta?.totalPages;
+                  const isNear = Math.abs(p - page) <= 1;
+                  
+                  if (!isFirst && !isLast && !isNear) {
+                    if (p === 2 || p === data?.meta?.totalPages - 1) return <span key={p} className="px-1 text-gray-400">...</span>;
                     return null;
                   }
+
                   return (
                     <button
                       key={p}
                       onClick={() => setPage(p)}
-                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
-                        page === p 
-                          ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' 
+                      className={`w-10 h-10 rounded-2xl text-sm font-bold transition-all ${
+                        isCurrent 
+                          ? 'bg-[#10b981] text-white border-[3px] border-[#1e293b] shadow-lg scale-105' 
                           : `${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`
                       }`}
                     >
@@ -319,10 +331,12 @@ export default function DonationManagement({ darkMode }: Props) {
 
               <button 
                 onClick={() => handlePageChange(page + 1)}
-                disabled={page === data.meta.totalPages}
-                className={`p-2 rounded-lg border transition-all ${page === data.meta.totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-50 hover:text-green-600'}`}
+                disabled={page === (data?.meta?.totalPages || 1) || isPlaceholderData}
+                className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                  darkMode ? 'hover:bg-gray-700 border-gray-700 text-gray-300' : 'hover:bg-gray-50 border-gray-200 text-gray-700'
+                }`}
               >
-                <ChevronRight size={16} />
+                Next
               </button>
             </div>
           </div>

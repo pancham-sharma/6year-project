@@ -33,6 +33,8 @@ interface Category {
   description: string;
   image: string | File | null;
   impact_badge: string;
+  impact_label: string;
+  impact_per_quantity: number;
   icon_name: string;
   unit_name: string;
   is_active: boolean;
@@ -53,6 +55,8 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
     description: '',
     image: null,
     impact_badge: '',
+    impact_label: '',
+    impact_per_quantity: 1,
     icon_name: 'Heart',
     unit_name: 'Units',
     is_active: true
@@ -94,6 +98,8 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
       description: cat.description || '',
       image: cat.image || null, // Preserve existing image URL
       impact_badge: cat.impact_badge || '',
+      impact_label: cat.impact_label || '',
+      impact_per_quantity: cat.impact_per_quantity || 1,
       icon_name: cat.icon_name || 'Heart',
       unit_name: cat.unit_name || 'Units',
       is_active: cat.is_active ?? true
@@ -302,7 +308,7 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
                   {cat.is_active ? 'Visible' : 'Hidden'}
                 </button>
               </div>
-              <span className={`text-[10px] font-medium px-2 py-1 rounded-md ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+              <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md ${darkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
                 {cat.impact_badge}
               </span>
             </div>
@@ -369,6 +375,28 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
                     className={`${inputClass} ${errors.impact_badge ? 'border-red-500 bg-red-500/5' : ''}`}
                   />
                   {errors.impact_badge && <p className="text-[10px] text-red-500 mt-1 font-bold italic pl-1">{errors.impact_badge}</p>}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Impact Label (Dynamic)</label>
+                    <input 
+                      type="text" 
+                      value={formData.impact_label} 
+                      onChange={e => setFormData({...formData, impact_label: e.target.value})}
+                      placeholder="e.g. Families Helped"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Impact Divisor</label>
+                    <input 
+                      type="number" 
+                      value={formData.impact_per_quantity} 
+                      onChange={e => setFormData({...formData, impact_per_quantity: parseInt(e.target.value) || 1})}
+                      placeholder="e.g. 1000"
+                      className={inputClass}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Display Unit (Backend Calculation)</label>

@@ -19,6 +19,8 @@ const EmailVerified = lazy(() => import('./pages/EmailVerified'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const PasswordResetSuccess = lazy(() => import('./pages/PasswordResetSuccess'));
 const Stories = lazy(() => import('./pages/Stories'));
+const CheckEmail = lazy(() => import('./pages/CheckEmail'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 
 function PageLoader() {
   return (
@@ -48,8 +50,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const { dark } = useApp();
   const location = useLocation();
-  const hideFooterRoutes = ['/auth', '/dashboard', '/notifications', '/verify-email', '/email-verified', '/forgot-password', '/password-reset-success'];
-  const hideNavbarRoutes = ['/auth', '/verify-email', '/email-verified', '/forgot-password', '/password-reset-success'];
+  const hideFooterRoutes = ['/auth', '/dashboard', '/notifications', '/verify-email', '/email-verified', '/forgot-password', '/password-reset-success', '/check-email', '/reset-password'];
+  const hideNavbarRoutes = ['/auth', '/verify-email', '/email-verified', '/forgot-password', '/password-reset-success', '/check-email', '/reset-password'];
   const shouldHideFooter = hideFooterRoutes.includes(location.pathname);
   const shouldHideNavbar = hideNavbarRoutes.includes(location.pathname);
 
@@ -89,6 +91,8 @@ function AppContent() {
             <Route path="/email-verified" element={<EmailVerified />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/password-reset-success" element={<PasswordResetSuccess />} />
+            <Route path="/check-email" element={<CheckEmail />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
           </Routes>
         </Suspense>
       </main>

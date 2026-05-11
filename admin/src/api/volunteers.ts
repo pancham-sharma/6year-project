@@ -1,13 +1,13 @@
 import { fetchAPI } from '../utils/api';
 
 export const getVolunteersData = async () => {
-  const [appsRes, usersRes] = await Promise.all([
+  const [appsRes, activeRes] = await Promise.all([
     fetchAPI('/api/users/volunteer/admin/list/'),
-    fetchAPI('/api/users/list/')
+    fetchAPI('/api/users/volunteer/admin/active/')
   ]);
   return {
     applications: appsRes.results || appsRes || [],
-    users: usersRes.results || usersRes || []
+    active: activeRes.results || activeRes || []
   };
 };
 

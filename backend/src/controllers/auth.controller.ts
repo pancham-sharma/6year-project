@@ -107,3 +107,28 @@ export const googleAuth = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const checkEmailStatus = async (req: Request, res: Response) => {
+  const { email } = req.params;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  try {
+    const userResult = await query('SELECT is_email_verified FROM users_user WHERE email = $1', [email.toLowerCase().trim()]);
+    const user = userResult.rows[0];
+
+    if (!user) {
+      return res.status(200).json({ exists: false, verified: false });
+    }
+
+    return res.status(200).json({ 
+      exists: true, 
+      verified: user.is_email_verified 
+    });
+  } catch (error: any) {
+    console.error('❌ Check Email Status Error:', error.message);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+};

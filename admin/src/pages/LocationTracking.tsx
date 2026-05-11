@@ -48,7 +48,10 @@ export default function LocationTracking({ darkMode }: Props) {
   const rowHover = darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50';
   const divider = darkMode ? 'divide-gray-700' : 'divide-gray-100';
 
-  const extractCity = (d: any) => d.pickup_details?.city || 'Unknown';
+  const extractCity = (d: any) => {
+    const city = d.pickup_details?.city || 'Unknown';
+    return city.charAt(0).toUpperCase() + city.slice(1).toLowerCase();
+  };
 
   const citySummary: [string, number][] = Object.entries(
     donations.reduce((acc, d) => {

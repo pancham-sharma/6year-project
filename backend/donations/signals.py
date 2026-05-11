@@ -1,18 +1,39 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from .models import Donation, PickupDetails
-from inventory.models import InventoryItem
-from chat.models import Notification
 import re
 from io import BytesIO
 from django.core.files.base import ContentFile
-from PIL import Image
 import os
 
-@receiver(post_save, sender=Donation)
+@receiver(post_save, sender='donations.Category')
+def sync_inventory_category(sender, instance, created, **kwargs):
+    """
+    Ensures that an InventoryItem exists for every Category.
+    """
+    from inventory.models import InventoryItem
+    if created:
+        InventoryItem.objects.get_or_create(
+            category=instance.name,
+            defaults={'unit_name': instance.unit_name}
+        )
+    else:
+        # Update unit_name if it changed
+        InventoryItem.objects.filter(category=instance.name).update(unit_name=instance.unit_name)
+
+@receiver(post_delete, sender='donations.Category')
+def delete_inventory_category(sender, instance, **kwargs):
+    """
+    Deletes the corresponding InventoryItem when a Category is deleted.
+    """
+    from inventory.models import InventoryItem
+    InventoryItem.objects.filter(category=instance.name).delete()
+
+@receiver(post_save, sender='donations.Donation')
 def handle_donation_notification(sender, instance, created, **kwargs):
     from users.models import User
+    from chat.models import Notification
     from django.db.models import Q
+    from inventory.models import InventoryItem
     
     if created:
         # 1. Notify the User (Donor)
@@ -49,15 +70,10 @@ def handle_donation_notification(sender, instance, created, **kwargs):
                 title="Donation Completed! 🌟",
                 message=f"Your {instance.category} donation has been processed and added to our inventory. Thank you for your support!"
             )
-        elif instance.status == 'Scheduled':
-            # Notification for scheduling is usually handled by PickupDetails signal
-            pass
 
-@receiver(post_save, sender=PickupDetails)
+@receiver(post_save, sender='donations.PickupDetails')
 def handle_pickup_notification(sender, instance, created, **kwargs):
-    from users.models import User
-    from django.db.models import Q
-    from datetime import date, timedelta
+    from chat.models import Notification
     
     # 1. Notify Donor when a team/volunteer is assigned
     if instance.assigned_team or instance.volunteer:
@@ -76,25 +92,7 @@ def handle_pickup_notification(sender, instance, created, **kwargs):
                 message=f"Great news! A team has been assigned for your donation #{instance.donation.id}. Scheduled for {instance.scheduled_date} at {instance.scheduled_time}."
             )
 
-    # 2. Notify Admins about upcoming pickups (Removed as per user request to avoid cluttering admin bar)
-    # if instance.scheduled_date:
-    #     today = date.today()
-    #     if today <= instance.scheduled_date <= (today + timedelta(days=7)):
-    #         admins = User.objects.filter(Q(role='ADMIN') | Q(is_superuser=True))
-    #         for admin in admins:
-    #             # Avoid unnecessary alerts for the current admin (optional logic)
-    #             exists = Notification.objects.filter(
-    #                 user=admin,
-    #                 title="Upcoming Pickup Alert",
-    #                 message__contains=f"donation #{instance.donation.id}"
-    #             ).exists()
-    #             if not exists:
-    #                 Notification.objects.create(
-    #                     user=admin,
-    #                     title="Upcoming Pickup Alert",
-    #                     message=f"Action Required: Pickup scheduled for donation #{instance.donation.id} on {instance.scheduled_date}."
-    #                 )
-@receiver(post_save, sender=Donation)
+@receiver(post_save, sender='donations.Donation')
 def optimize_donation_image(sender, instance, **kwargs):
     """
     Automatically converts donation images to WebP and compresses them.
@@ -107,6 +105,7 @@ def optimize_donation_image(sender, instance, **kwargs):
         return
 
     try:
+        from PIL import Image
         # Open the image using Pillow
         img = Image.open(instance.image.path)
         
@@ -124,7 +123,8 @@ def optimize_donation_image(sender, instance, **kwargs):
         instance.image.save(new_name, ContentFile(output.read()), save=False)
         
         # Update the model instance directly
-        Donation.objects.filter(pk=instance.pk).update(image=instance.image)
+        # Use sender.objects to avoid importing Donation
+        sender.objects.filter(pk=instance.pk).update(image=instance.image)
         
     except Exception as e:
         print(f"Image optimization failed: {e}")

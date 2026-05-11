@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, Mail, ChevronRight, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Lock, Mail, ChevronRight } from 'lucide-react';
 import { fetchAPI } from '../utils/api';
 
 interface AuthProps {

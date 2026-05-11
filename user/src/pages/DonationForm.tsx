@@ -122,38 +122,15 @@ export default function DonationForm() {
 
   // Derived Dynamic Types
   const dynamicTypes = useMemo(() => {
-    if (!categoryData) return [
-      { value: 'food', label: 'Food', icon: Utensils, color: categoryColors[0] },
-      { value: 'clothes', label: 'Clothes', icon: Shirt, color: categoryColors[1] },
-      { value: 'books', label: 'Books', icon: BookOpen, color: categoryColors[2] },
-      { value: 'monetary', label: 'Monetary', icon: Banknote, color: categoryColors[3] },
-      { value: 'environment', label: 'Environment', icon: Sprout, color: categoryColors[4] },
-    ];
+    const data = Array.isArray(categoryData) ? categoryData : (categoryData?.results || []);
     
-    const data = Array.isArray(categoryData) ? categoryData : (categoryData.results || []);
-    
-    const defaults = [
-      { name: 'Food', icon_name: 'Utensils' },
-      { name: 'Clothes', icon_name: 'Shirt' },
-      { name: 'Books', icon_name: 'BookOpen' },
-      { name: 'Monetary', icon_name: 'Banknote' },
-      { name: 'Environment', icon_name: 'Sprout' },
-      { name: 'Gift', icon_name: 'Gift' }
-    ];
+    // Filter and map database categories
+    const activeCategories = data.filter((c: any) => c && c.is_active !== false);
 
-    const merged = defaults.map(def => {
-      const dbVer = data.find((c: any) => c.name.toLowerCase() === def.name.toLowerCase());
-      return dbVer || def;
-    });
+    if (activeCategories.length === 0) return [];
 
-    const dbOnly = Array.isArray(data) ? data.filter((c: any) => 
-      !defaults.some(def => def.name.toLowerCase() === c.name.toLowerCase())
-    ) : [];
-
-    const all = [...merged, ...dbOnly].filter(c => c && c.is_active !== false);
-
-    return all.map((c, index) => ({
-      value: c.name,
+    return activeCategories.map((c: any, index: number) => ({
+      value: c.name.toLowerCase().replace(/\s+/g, '_'),
       label: c.name,
       icon: getCategoryIcon(c.icon_name),
       color: categoryColors[index % categoryColors.length]
@@ -284,8 +261,10 @@ export default function DonationForm() {
     if (s === 1) {
       if (form.types.length === 0) return false;
       return form.types.every(type => {
+        const dt = dynamicTypes.find((t: any) => t.value === type);
         const hasQuantity = form.quantities[type]?.toString().trim();
-        if (type === 'monetary' || type === 'money') {
+        const isMoney = type === 'monetary' || type === 'money' || dt?.label?.toLowerCase().includes('money') || dt?.label?.toLowerCase().includes('monetary');
+        if (isMoney) {
           return hasQuantity && form.transactionId?.trim();
         }
         return hasQuantity && form.descriptions[type]?.trim();
@@ -310,8 +289,8 @@ export default function DonationForm() {
     setErrorMsg('');
     try {
       // Create a separate donation record for each type selected
-      const promises = form.types.map(async type => {
-        const dt = dynamicTypes.find(d => d.value === type);
+      const promises = form.types.map(async (type: string) => {
+        const dt = dynamicTypes.find((d: any) => d.value === type);
         const categoryLabel = dt ? dt.label : type;
 
         const formData = new FormData();
@@ -319,7 +298,9 @@ export default function DonationForm() {
         formData.append('quantity', (form.quantities[type] || '1').toString());
         formData.append('unit', form.units[type] || 'Units');
         
-        const description = type === 'monetary' || type === 'money'
+        const isMoney = type === 'monetary' || type === 'money' || categoryLabel.toLowerCase().includes('money') || categoryLabel.toLowerCase().includes('monetary');
+        
+        const description = isMoney
           ? `₹${form.quantities[type] || '0'} (Txn: ${form.transactionId})`
           : `${form.quantities[type] || 'N/A'} ${form.units[type] || 'Units'} - ${form.descriptions[type] || ''}`;
         formData.append('quantity_description', description);
@@ -424,7 +405,7 @@ export default function DonationForm() {
               <div>
                 <label className={`block text-sm font-semibold mb-3 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>{t.donate.type} (Select multiple)</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {dynamicTypes.map(dt => {
+                  {dynamicTypes.map((dt: any) => {
                     const isSelected = form.types.includes(dt.value);
                     return (
                       <button key={dt.value} onClick={() => {
@@ -444,8 +425,8 @@ export default function DonationForm() {
 
               {form.types.length > 0 && (
                 <div className={`mt-8 grid gap-6 ${form.types.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
-                  {form.types.map(type => {
-                     const dt = dynamicTypes.find(d => d.value === type);
+                  {form.types.map((type: string) => {
+                     const dt = dynamicTypes.find((d: any) => d.value === type);
                      if (!dt) return null;
                      return (
                        <div key={type} className="p-6 rounded-2xl border-2 border-primary-100 bg-primary-50/20 space-y-4 animate-fade-in">
@@ -455,7 +436,7 @@ export default function DonationForm() {
                            </div>
                            <h4 className={`font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{dt.label} Details</h4>
                          </div>
-                         {type === 'monetary' || type === 'money' ? (
+                          { (type === 'monetary' || type === 'money' || dt.label.toLowerCase().includes('money') || dt.label.toLowerCase().includes('monetary')) ? (
                            <div className="space-y-4">
                              <div>
                                <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Amount (₹) (Required)</label>
@@ -687,8 +668,8 @@ export default function DonationForm() {
                 <h3 className={`font-semibold mb-4 ${dark ? 'text-white' : 'text-gray-900'}`}>Review Your Donation</h3>
                 <div className="space-y-3">
                   {[
-                    { label: 'Type(s)', value: form.types.length ? form.types.map(t => dynamicTypes.find(d => d.value === t)?.label || t).join(', ') : '—' },
-                    { label: 'Quantities', value: form.types.length ? form.types.map(t => `${dynamicTypes.find(d => d.value === t)?.label || t}: ${form.quantities[t] || '0'}`).join(' | ') : '—' },
+                    { label: 'Type(s)', value: form.types.length ? form.types.map((t: string) => dynamicTypes.find((d: any) => d.value === t)?.label || t).join(', ') : '—' },
+                    { label: 'Quantities', value: form.types.length ? form.types.map((t: string) => `${dynamicTypes.find((d: any) => d.value === t)?.label || t}: ${form.quantities[t] || '0'}`).join(' | ') : '—' },
                     { label: 'Address', value: form.address ? `${form.address}, ${form.city}, ${form.state} ${form.pincode}` : '—' },
                     { label: 'Pickup', value: form.date && form.time ? `${form.date} at ${form.time}` : '—' },
                     { label: 'Location', value: form.useCurrentLocation ? 'Current location' : 'Manual address' },

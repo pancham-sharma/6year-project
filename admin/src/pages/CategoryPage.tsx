@@ -3,28 +3,54 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
 import { TrendingUp, Package, ArrowDownCircle, Archive, Loader } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from '../utils/api';
 import { useSearch } from '../context/SearchContext';
+import { useMemo } from 'react';
 
 export type DonationCategory = string;
 
 interface Props { darkMode: boolean; category: DonationCategory; }
 
-const categoryConfig: Record<DonationCategory, { icon: string; color: string; gradient: string; unit: string; barColor: string }> = {
-  Food: { icon: '🍱', color: 'text-amber-500', gradient: 'from-amber-400 to-orange-500', unit: 'kg', barColor: '#f59e0b' },
-  Clothes: { icon: '👗', color: 'text-purple-500', gradient: 'from-purple-400 to-violet-500', unit: 'items', barColor: '#8b5cf6' },
-  Books: { icon: '📚', color: 'text-blue-500', gradient: 'from-blue-400 to-indigo-500', unit: 'books', barColor: '#3b82f6' },
-  Monetary: { icon: '💰', color: 'text-emerald-500', gradient: 'from-emerald-400 to-green-500', unit: 'INR', barColor: '#10b981' },
-
-  Environment: { icon: '🌱', color: 'text-green-500', gradient: 'from-green-400 to-teal-500', unit: 'saplings', barColor: '#22c55e' },
-};
-
-const defaultCfg = { icon: '📦', color: 'text-green-500', gradient: 'from-green-400 to-emerald-500', unit: 'units', barColor: '#10b981' };
+// Dynamic config handled inside component
 
 export default function CategoryPage({ darkMode, category }: Props) {
   const [donations, setDonations] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { data: catData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchAPI('/api/donations/categories/'),
+  });
+
+  const cfg = useMemo(() => {
+    const categories = catData?.results || catData || [];
+    const cat = Array.isArray(categories) ? categories.find((c: any) => c.name.toLowerCase() === category.toLowerCase()) : null;
+    
+    const iconMap: Record<string, string> = {
+      utensils: '🍲', bookopen: '📚', shirt: '👕', banknote: '💵', sprout: '🌱',
+      heart: '❤️', handheart: '🤝', users: '👥', treepine: '🌲', gift: '🎁',
+      shoppingbag: '🛍️', graduationcap: '🎓', coins: '💰', layoutgrid: '📦'
+    };
+
+    const colorMap: Record<string, { color: string; gradient: string; barColor: string }> = {
+      food: { color: 'text-amber-500', gradient: 'from-amber-400 to-orange-500', barColor: '#f59e0b' },
+      clothes: { color: 'text-purple-500', gradient: 'from-purple-400 to-violet-500', barColor: '#8b5cf6' },
+      books: { color: 'text-blue-500', gradient: 'from-blue-400 to-indigo-500', barColor: '#3b82f6' },
+      money: { color: 'text-emerald-500', gradient: 'from-emerald-400 to-green-500', barColor: '#10b981' },
+      monetary: { color: 'text-emerald-500', gradient: 'from-emerald-400 to-green-500', barColor: '#10b981' },
+      environment: { color: 'text-green-500', gradient: 'from-green-400 to-teal-500', barColor: '#22c55e' },
+    };
+
+    const colors = colorMap[category.toLowerCase()] || { color: 'text-green-500', gradient: 'from-green-400 to-emerald-500', barColor: '#10b981' };
+    
+    return {
+      icon: iconMap[(cat?.icon_name || '').toLowerCase()] || '📦',
+      unit: cat?.unit_name || 'units',
+      ...colors
+    };
+  }, [catData, category]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,8 +72,6 @@ export default function CategoryPage({ darkMode, category }: Props) {
     };
     fetchData();
   }, [category]);
-
-  const cfg = (categoryConfig as any)[category] || defaultCfg;
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
   const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';

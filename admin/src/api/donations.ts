@@ -45,8 +45,10 @@ export const getDonations = async (
   if (status && status !== 'All') queryParams.append('status', status);
 
   const response = await fetchAPI(`/api/donations/?${queryParams.toString()}`);
-  const rawData = Array.isArray(response) ? response : (response.results || response.data || []);
-  const count = response.count || (Array.isArray(response) ? response.length : 0);
+  
+  // Handle CustomPagination format: { data: [...], meta: { total: ... } }
+  const rawData = response.data || [];
+  const count = response.meta?.total || (Array.isArray(response) ? response.length : 0);
   
   // Map backend fields to frontend structure
   const formattedData = rawData.map((d: any) => ({

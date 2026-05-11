@@ -6,6 +6,8 @@ class Category(models.Model):
     description = models.TextField(blank=True)
     image = models.ImageField(upload_to='category_images/', blank=True, null=True)
     impact_badge = models.CharField(max_length=100, blank=True, help_text="e.g. ₹500 feeds 5 people")
+    impact_label = models.CharField(max_length=100, blank=True, help_text="e.g. Families Helped, People Fed")
+    impact_per_quantity = models.IntegerField(default=1, help_text="Quantity needed to achieve 1 impact unit")
     icon_name = models.CharField(max_length=50, default='Heart', help_text="Lucide icon name")
     unit_name = models.CharField(max_length=50, default='Units', help_text="e.g. Meals, Clothes, Trees")
     is_active = models.BooleanField(default=True)

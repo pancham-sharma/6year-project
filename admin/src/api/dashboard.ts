@@ -6,6 +6,7 @@ export const getDashboardData = async () => {
     donations: data.recent_donations || [],
     inventory: data.inventory || [],
     stats: data.stats || {},
-    categories: data.categories || []
+    categories: data.categories || [],
+    impact_stats: data.impact_stats || []
   };
 };

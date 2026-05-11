@@ -14,52 +14,69 @@ User = get_user_model()
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_dashboard_summary(request):
-    """
-    Combined API for the Admin Dashboard to reduce multiple network requests.
-    Cached for 1 minute to ensure high performance under load.
-    """
-    if not request.user.is_staff and not request.user.is_admin():
-        return Response({"detail": "Permission denied"}, status=403)
+    try:
+        if not request.user.is_staff and not request.user.is_admin():
+            return Response({"detail": "Permission denied"}, status=403)
 
-    cache_key = 'admin_dashboard_stats'
-    cached_data = cache.get(cache_key)
-    if cached_data:
-        return Response(cached_data)
+        # 1. Base Stats
+        from django.db.models import Q
+        stats = {
+            'total_donations': Donation.objects.exclude(status='Recycled').count(),
+            'total_users': User.objects.count(),
+            'active_volunteers': User.objects.filter(Q(role='VOLUNTEER') | Q(volunteer_applications__status='Approved')).distinct().count(),
+            'pending_donations': Donation.objects.filter(status='Pending').count()
+        }
 
-    # 1. Base Stats
-    from django.db.models import Q
-    stats = {
-        'total_donations': Donation.objects.exclude(status='Recycled').count(),
-        'total_users': User.objects.count(),
-        'active_volunteers': User.objects.filter(Q(role='VOLUNTEER') | Q(volunteer_applications__status='Approved')).distinct().count(),
-        'pending_donations': Donation.objects.filter(status='Pending').count()
-    }
+        # 2. Category Distribution & Dynamic Impact Calculations
+        import math
+        category_stats = list(Donation.objects.exclude(status='Recycled').values('category').annotate(count=Count('id'), total_qty=Sum('quantity')).order_by('-count'))
+        
+        # Fetch all active categories to get their impact rules
+        category_configs = {c.name.lower(): c for c in Category.objects.all()}
+        
+        impact_stats = []
+        for cat in category_stats:
+            cat_name = cat['category']
+            config = category_configs.get(cat_name.lower())
+            
+            if config and config.impact_label:
+                # Formula: impact = ceil(total_quantity / impact_per_quantity)
+                impact_divisor = config.impact_per_quantity or 1
+                impact_count = math.ceil(cat['total_qty'] / impact_divisor)
+                
+                impact_stats.append({
+                    'category': cat_name,
+                    'label': config.impact_label,
+                    'count': impact_count,
+                    'icon': config.icon_name,
+                    'impact_per_quantity': config.impact_per_quantity
+                })
 
-    # 2. Category Distribution
-    categories = list(Donation.objects.values('category').annotate(count=Count('id')).order_by('-count'))
+        # 3. Recent Activity
+        recent_donations = Donation.objects.select_related('donor').order_by('-timestamp')[:5]
+        recent_data = [{
+            'id': d.id,
+            'donor': d.donor.username if d.donor else 'Anonymous',
+            'category': d.category,
+            'status': d.status,
+            'time': d.timestamp.isoformat() if d.timestamp else None
+        } for d in recent_donations]
 
-    # 3. Recent Activity (Last 5 donations)
-    recent_donations = Donation.objects.select_related('donor').order_by('-timestamp')[:5]
-    recent_data = [{
-        'id': d.id,
-        'donor': d.donor.username,
-        'category': d.category,
-        'status': d.status,
-        'time': d.timestamp
-    } for d in recent_donations]
+        # 4. Inventory Overview
+        inventory = list(InventoryItem.objects.values('category', 'quantity', 'distributed', 'unit_name'))
 
-    # 4. Inventory Overview
-    inventory = list(InventoryItem.objects.values('category', 'quantity', 'unit_name'))
+        response_data = {
+            'stats': stats,
+            'categories': category_stats,
+            'impact_stats': impact_stats,
+            'recent_donations': recent_data,
+            'inventory': inventory,
+            'timestamp': timezone.now().isoformat()
+        }
 
-    response_data = {
-        'stats': stats,
-        'categories': categories,
-        'recent_donations': recent_data,
-        'inventory': inventory,
-        'timestamp': timezone.now()
-    }
-
-    # Cache for 60 seconds
-    cache.set(cache_key, response_data, 60)
-
-    return Response(response_data)
+        return Response(response_data)
+    except Exception as e:
+        import traceback
+        error_msg = f"❌ Dashboard Summary Error: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return Response({"error": str(e), "traceback": traceback.format_exc()}, status=500)

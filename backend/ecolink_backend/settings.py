@@ -139,15 +139,11 @@ CHANNEL_LAYERS = {
 }
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',
-        'USER': 'postgres.rudaqhxsaaowiqvrmzix',
-        'PASSWORD': env('DB_PASSWORD', default='Panchamsharma6'),
-        'HOST': 'aws-1-ap-northeast-2.pooler.supabase.com',
-        'PORT': '6543',
-        'CONN_MAX_AGE': 600, # 10 minutes connection persistence
-    }
+    'default': env.db('DATABASE_URL', default='postgres://postgres:pancham6@localhost:5433/donation_db')
+}
+# Add connection timeout to prevent hanging
+DATABASES['default']['OPTIONS'] = {
+    'connect_timeout': 5,
 }
 
 CACHES = {
@@ -223,6 +219,8 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
+    'PAGE_SIZE_QUERY_PARAM': 'page_size',
+    'MAX_PAGE_SIZE': 100,
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle'

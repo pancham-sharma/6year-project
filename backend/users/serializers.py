@@ -13,7 +13,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone_number', 'city', 'profile_picture', 'is_staff', 'is_superuser', 'date_joined', 'donation_count']
 
     def get_donation_count(self, obj):
-        return obj.donations.count()
+        return getattr(obj, 'annotated_donation_count', obj.donations.count())
 
     def get_profile_picture(self, obj):
         if not obj.profile_picture:
@@ -100,3 +100,34 @@ class AdminVolunteerApplicationSerializer(serializers.ModelSerializer):
         model = VolunteerApplication
         fields = '__all__'
         read_only_fields = ['created_at']
+
+class ActiveVolunteerSerializer(serializers.ModelSerializer):
+    activities = serializers.SerializerMethodField()
+    profile_picture = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'phone_number', 'city', 'profile_picture', 'activities', 'date_joined']
+
+    def get_activities(self, obj):
+        apps = obj.volunteer_applications.filter(status='Approved').order_by('-created_at')
+        return [{
+            'id': a.id,
+            'role': a.volunteering_role,
+            'date': a.created_at,
+            'city': a.city
+        } for a in apps]
+
+    def get_profile_picture(self, obj):
+        if not obj.profile_picture:
+            return None
+        pic_str = str(obj.profile_picture)
+        if pic_str.startswith('http://') or pic_str.startswith('https://'):
+            return pic_str
+        try:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_picture.url)
+            return obj.profile_picture.url
+        except Exception:
+            return pic_str
