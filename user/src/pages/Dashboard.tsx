@@ -1,22 +1,18 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLocation } from 'react-router-dom';
 import { 
   User, MapPin, Clock, HandHeart, TreePine, Utensils,
   CheckCircle, Package, Loader, Mail, Send, Truck, Calendar, LogOut, 
   Users, GraduationCap, Megaphone, HeartPulse, Shirt, Apple, 
-  MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, BookOpen, Banknote, Sprout, Heart, LayoutGrid, Gift, ShoppingBag, Coins
+  MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Sprout, Heart
 } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { fetchAPI, getWSUrl } from '../utils/api';
 import { getUserDonations } from '../api/donations';
 import { DonationItem } from '../components/dashboard/DonationItem';
 
-const getCategoryIcon = (iconName: string) => {
-  const iconMap: Record<string, any> = { Utensils, Shirt, BookOpen, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins };
-  const key = iconName ? iconName.charAt(0).toUpperCase() + iconName.slice(1).toLowerCase() : 'LayoutGrid';
-  return iconMap[key] || iconMap[iconName] || LayoutGrid;
-};
+
 
 const SkeletonItem = ({ dark }: { dark: boolean }) => (
   <div className={`h-24 w-full rounded-2xl skeleton-shimmer ${dark ? 'bg-white/5' : 'bg-gray-100'}`} />
@@ -42,7 +38,7 @@ export default function Dashboard() {
   const limit = 5;
 
   const [savingProfile, setSavingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({ first_name: '', last_name: '', email: '', phone_number: '', city: '' });
+  const [profileForm, setProfileForm] = useState({ first_name: '', last_name: '', email: '', phone_number: '', city: '', address: '' });
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
   
@@ -61,7 +57,7 @@ export default function Dashboard() {
     enabled: !!appUser.id,
   });
 
-  const { data: chatHistory, isLoading: loadingMessages } = useQuery({
+  const { data: chatHistory } = useQuery({
     queryKey: ['chat-messages', adminId],
     queryFn: () => fetchAPI(`/api/chat/messages/?other_user_id=${adminId}`),
     enabled: !!appUser.id && !!adminId,
@@ -95,10 +91,7 @@ export default function Dashboard() {
     }
   }, [notificationData, setNotifications]);
 
-  const { data: publicStats } = useQuery({
-    queryKey: ['public-stats'],
-    queryFn: () => fetchAPI('/api/donations/public_stats/'),
-  });
+  // Sync profile form when data loads
 
   // Sync profile form when data loads
   useEffect(() => {
@@ -108,7 +101,8 @@ export default function Dashboard() {
         last_name: profileData.last_name || '',
         email: profileData.email || '',
         phone_number: profileData.phone_number || '',
-        city: profileData.city || ''
+        city: profileData.city || '',
+        address: profileData.address || ''
       });
       setAppUser({
         id: profileData.id,
@@ -118,7 +112,9 @@ export default function Dashboard() {
         email: profileData.email || '',
         phone: profileData.phone_number || '',
         city: profileData.city || '',
+        address: profileData.address || '',
         role: profileData.role || '',
+        image: profileData.profile_picture || profileData.image || '',
       });
     }
   }, [profileData, setAppUser]);
@@ -134,7 +130,7 @@ export default function Dashboard() {
     }
   }, [location.state]);
 
-  const queryClient = useQueryClient();
+
 
   useEffect(() => {
     // Attempt to fetch dedicated admin ID once on mount
@@ -269,7 +265,9 @@ export default function Dashboard() {
         email: res.email || '',
         phone: res.phone_number || '',
         city: res.city || '',
+        address: res.address || '',
         role: res.role || '',
+        image: res.profile_picture || res.image || '',
       });
       setTimeout(() => setProfileSuccess(''), 3000);
     } catch (err: any) {
@@ -429,21 +427,37 @@ export default function Dashboard() {
 
   // Extract unique addresses for display
   const uniqueAddresses = useMemo(() => {
-    if (!Array.isArray(safeDonations)) return [];
+    const safeDonationsArray = Array.isArray(safeDonations) ? safeDonations : [];
     const seen = new Set();
     const result: any[] = [];
     
-    safeDonations.forEach((d: any) => {
+    safeDonationsArray.forEach((d: any) => {
       const p = d.pickup_details;
       if (!p || !p.full_address) return;
       const key = `${p.full_address}-${p.city}-${p.state}-${p.pincode}`;
       if (!seen.has(key)) {
         seen.add(key);
-        result.push(p);
+        result.push({ ...p, isProfile: false });
       }
     });
+
+    // Add profile address if it exists and isn't already included
+    if (appUser.address) {
+      const key = `${appUser.address}-${appUser.city}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.unshift({
+          full_address: appUser.address,
+          city: appUser.city || '',
+          state: '',
+          pincode: '',
+          isProfile: true
+        });
+      }
+    }
+
     return result;
-  }, [safeDonations]);
+  }, [safeDonations, appUser.address, appUser.city]);
 
   const loading = loadingDonations;
 
@@ -498,7 +512,6 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </div>
         </div>
 
         {/* Tabs */}
@@ -720,6 +733,11 @@ export default function Dashboard() {
                           className={`w-full px-4 py-3 rounded-xl border-2 text-sm ${dark ? 'bg-slate-700 border-slate-600 text-white focus:border-primary-500' : 'bg-gray-50 border-gray-200 focus:border-primary-500 focus:bg-white'} outline-none transition-colors`} />
                       </div>
                     </div>
+                    <div>
+                      <label className={`block text-sm font-semibold mb-1 ${dark ? 'text-gray-300' : 'text-gray-600'}`}>Full Address</label>
+                      <textarea value={profileForm.address} onChange={e => setProfileForm(p => ({ ...p, address: e.target.value }))} rows={2}
+                        className={`w-full px-4 py-3 rounded-xl border-2 text-sm ${dark ? 'bg-slate-700 border-slate-600 text-white focus:border-primary-500' : 'bg-gray-50 border-gray-200 focus:border-primary-500 focus:bg-white'} outline-none transition-colors resize-none`} />
+                    </div>
                     <button 
                       onClick={handleProfileSave} 
                       disabled={savingProfile} 
@@ -738,6 +756,18 @@ export default function Dashboard() {
               {/* Volunteer Status */}
               {activeTab === 'volunteer' && (
                 <div className="animate-fade-in">
+                  {appUser.role === 'VOLUNTEER' && (
+                    <div className={`mb-8 p-6 rounded-3xl border-2 flex items-center gap-6 ${dark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
+                      <div className="w-16 h-16 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-lg">
+                        <CheckCircle className="w-8 h-8" />
+                      </div>
+                      <div>
+                        <h4 className={`text-xl font-bold ${dark ? 'text-white' : 'text-emerald-900'}`}>You are an Active Volunteer! 🌟</h4>
+                        <p className={`text-sm ${dark ? 'text-emerald-300' : 'text-emerald-700'}`}>Thank you for your dedication to making the world a better place.</p>
+                      </div>
+                    </div>
+                  )}
+                  
                   <h3 className={`text-lg font-bold mb-6 ${dark ? 'text-white' : 'text-gray-900'}`}>Volunteer Applications</h3>
                   <div className="space-y-4">
                     {volunteerApps.length === 0 ? (
@@ -798,12 +828,12 @@ export default function Dashboard() {
                     ) : uniqueAddresses.map((addr, i) => (
                       <div key={i} className={`p-4 rounded-2xl border-2 ${i === 0 ? 'border-primary-500' : dark ? 'border-slate-600' : 'border-gray-200'} ${dark ? 'bg-slate-700/50' : 'bg-gray-50'}`}>
                         <div className="flex items-center gap-2 mb-2">
-                          <MapPin className={`w-4 h-4 ${i === 0 ? 'text-primary-500' : dark ? 'text-gray-500' : 'text-gray-400'}`} />
-                          <span className={`font-semibold text-sm ${dark ? 'text-white' : 'text-gray-900'}`}>{i === 0 ? 'Primary Address' : 'Past Address'}</span>
-                          {i === 0 && <span className="px-2 py-0.5 bg-primary-100 text-primary-700 text-xs rounded-full font-medium">Default</span>}
+                          <MapPin className={`w-4 h-4 ${addr.isProfile || i === 0 ? 'text-primary-500' : dark ? 'text-gray-500' : 'text-gray-400'}`} />
+                          <span className={`font-semibold text-sm ${dark ? 'text-white' : 'text-gray-900'}`}>{addr.isProfile ? 'Profile Address' : i === 0 ? 'Primary Address' : 'Past Address'}</span>
+                          {(addr.isProfile || i === 0) && <span className="px-2 py-0.5 bg-primary-100 text-primary-700 text-xs rounded-full font-medium">Default</span>}
                         </div>
                         <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {addr.full_address}, {addr.city}, {addr.state} {addr.pincode}
+                          {addr.full_address}{addr.city ? `, ${addr.city}` : ''}{addr.state ? `, ${addr.state}` : ''} {addr.pincode}
                         </p>
                       </div>
                     ))}

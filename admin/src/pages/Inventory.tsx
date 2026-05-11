@@ -81,7 +81,7 @@ export default function Inventory({ darkMode }: Props) {
     );
 
     return raw
-      .filter((item: any) => activeCategoryNames.has(item.category.toLowerCase()))
+      .filter((item: any) => item?.category && activeCategoryNames.has(item.category.toLowerCase()))
       .map((item: any) => {
         const catInfo = categoriesList.find((c: any) => c.name.toLowerCase() === item.category.toLowerCase());
         const iconKey = (catInfo?.icon_name || '').toLowerCase();

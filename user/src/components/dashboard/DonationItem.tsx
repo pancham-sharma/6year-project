@@ -39,7 +39,12 @@ export const DonationItem = React.memo(({ donation: d, dark, onDownload }: Donat
         <p className={`text-xs ${dark ? 'text-slate-400' : 'text-gray-400'} mt-1`}>#DON-{d.id} • {new Date(d.timestamp).toLocaleDateString()} • {d.quantity_description}</p>
         <div className={`mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-tighter ${dark ? 'text-brand-light' : 'text-primary-600'}`}>
           <span className={dark ? 'text-slate-400/80' : 'opacity-60'}>Impact:</span>
-          <span className={dark ? 'text-white' : ''}>{d.category === 'Food' ? '10 Meals provided' : d.category === 'Environment' ? '5 Trees planted' : 'Supporting local families'}</span>
+          <span className={dark ? 'text-white' : ''}>
+            {d.category?.toLowerCase() === 'food' ? `${d.quantity * 5} Meals provided` : 
+             d.category?.toLowerCase() === 'environment' ? `${d.quantity} Trees supported` : 
+             d.category?.toLowerCase() === 'monetary' || d.category?.toLowerCase() === 'money' ? `Directly funding missions` :
+             `Making a difference with ${d.category}`}
+          </span>
         </div>
       </div>
       <div className="flex items-center gap-2">

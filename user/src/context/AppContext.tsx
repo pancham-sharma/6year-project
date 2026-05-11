@@ -43,8 +43,8 @@ interface AppContextType {
   isLoggedIn: boolean;
   setIsLoggedIn: (v: boolean) => void;
   logout: () => void;
-  user: { id: any; name: string; email: string; phone: string; city: string; role: string; image?: string };
-  setUser: (u: { id: any; name: string; email: string; phone: string; city: string; role: string; image?: string }) => void;
+  user: { id: any; name: string; email: string; phone: string; city: string; role: string; address: string; image: string };
+  setUser: (u: { id: any; name: string; email: string; phone: string; city: string; role: string; address: string; image: string }) => void;
   notifications: { id: number; title: string; text: string; time: string; read: boolean; message?: string; timestamp?: string }[];
   markRead: (id: number) => void;
   setNotifications: (n: any[]) => void;
@@ -57,7 +57,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>('en');
   // Initialize from localStorage so page refreshes preserve auth state
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('access_token'));
-  const [user, setUser] = useState({ id: null as any, name: '', email: '', phone: '', city: '', role: '', image: '' });
+  const [user, setUser] = useState({ id: null as any, name: '', email: '', phone: '', city: '', role: '', address: '', image: '' });
   const [notifications, setNotifications] = useState<any[]>([]);
 
   const toggleDark = () => setDark(p => !p);
@@ -79,7 +79,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('refresh_token');
     setIsLoggedIn(false);
     setNotifications([]);
-    setUser({ id: null, name: '', email: '', phone: '', city: '', role: '', image: '' });
+    setUser({ id: null, name: '', email: '', phone: '', city: '', role: '', address: '', image: '' });
   };
 
   // Fetch real user profile from DB on mount (and whenever login state changes)
@@ -96,6 +96,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           phone: profile.phone_number || '',
           city: profile.city || '',
           role: profile.role || '',
+          address: profile.address || '',
           image: profile.profile_picture || '',
         });
       })

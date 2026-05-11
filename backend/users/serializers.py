@@ -10,7 +10,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone_number', 'city', 'profile_picture', 'is_staff', 'is_superuser', 'date_joined', 'donation_count']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone_number', 'city', 'address', 'profile_picture', 'is_staff', 'is_superuser', 'date_joined', 'donation_count']
 
     def get_donation_count(self, obj):
         return getattr(obj, 'annotated_donation_count', obj.donations.count())
@@ -40,7 +40,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'confirm_password', 'first_name', 'last_name', 'role', 'phone_number', 'city']
+        fields = ['username', 'email', 'password', 'confirm_password', 'first_name', 'last_name', 'role', 'phone_number', 'city', 'address']
         
     def validate_email(self, value):
         import re
@@ -85,7 +85,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             last_name=validated_data.get('last_name', ''),
             role=validated_data.get('role', 'DONOR'),
             phone_number=validated_data.get('phone_number', ''),
-            city=validated_data.get('city', '')
+            city=validated_data.get('city', ''),
+            address=validated_data.get('address', '')
         )
         return user
 

@@ -120,8 +120,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def delete_message_db(self, msg_id):
         try:
             msg = Message.objects.get(id=msg_id)
-            # Only sender can delete
-            if msg.sender == self.user:
+            # Sender can delete their own message, or Admin can delete any message
+            is_admin = self.user.is_staff or getattr(self.user, 'role', '') == 'ADMIN'
+            if msg.sender == self.user or is_admin:
                 sender_id = msg.sender.id
                 receiver_id = msg.receiver.id
                 msg.delete()

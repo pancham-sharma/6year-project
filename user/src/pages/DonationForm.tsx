@@ -162,17 +162,30 @@ export default function DonationForm() {
     const seen = new Set();
     const result: any[] = [];
     
+    // Add profile address first if it exists
+    if (user.address) {
+      result.push({
+        full_address: user.address,
+        city: user.city || '',
+        state: '',
+        pincode: '',
+        landmark: '',
+        isProfile: true
+      });
+      seen.add(`${user.address}-${user.city}`);
+    }
+
     existingDonations.forEach((d: any) => {
       const p = d.pickup_details;
       if (!p || !p.full_address) return;
       const key = `${p.full_address}-${p.city}-${p.state}-${p.pincode}`;
       if (!seen.has(key)) {
         seen.add(key);
-        result.push(p);
+        result.push({ ...p, isProfile: false });
       }
     });
     return result;
-  }, [existingDonations]);
+  }, [existingDonations, user.address, user.city]);
 
   // Pre-fill user details if available
   useEffect(() => {
