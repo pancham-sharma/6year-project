@@ -29,16 +29,24 @@ class IsAdminOrReadOnly(permissions.BasePermission):
             return request.user.is_staff or getattr(request.user, 'role', '') == 'ADMIN'
         return False
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrReadOnly]
     pagination_class = None
+
+    @method_decorator(cache_page(60 * 5)) # Cache for 5 minutes
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         user = self.request.user
         if user.is_authenticated and (user.is_staff or getattr(user, 'role', '') == 'ADMIN'):
             return Category.objects.all()
         return Category.objects.filter(is_active=True)
+
 
 from utils.pagination import CustomPagination
 

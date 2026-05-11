@@ -72,9 +72,11 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
     };
 
     setupWS();
-    const interval = setInterval(fetchNotifications, 5000);
-    return () => clearInterval(interval);
+    // Removed redundant 5-second polling to reduce database connection load. 
+    // WebSockets handle real-time updates.
+    return () => {};
   }, []);
+
 
   // Handle Global Search
   useEffect(() => {

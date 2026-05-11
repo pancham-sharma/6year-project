@@ -165,9 +165,6 @@ class SocialAuthGoogleView(APIView):
                 'refresh': str(refresh),
                 'user': user_data
             })
-        except ValueError as val_err:
-            print(f"❌ Firebase Configuration/Value Error: {str(val_err)}")
-            return Response({"error": f"Authentication configuration error: {str(val_err)}"}, status=401)
         except Exception as e:
             print(f"❌ SocialAuthGoogleView Critical Error: {str(e)}")
             import traceback

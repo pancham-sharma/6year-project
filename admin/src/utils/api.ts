@@ -124,9 +124,8 @@ export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Pro
 
       const retryResponse = await fetch(fullUrl, { ...options, headers: retryHeaders });
       if (!retryResponse.ok) {
-        const errorData = await retryResponse.json().catch(() => ({}));
-        const errorMessage = errorData.error || errorData.detail || errorData.message || `API Error ${retryResponse.status}`;
-        throw new Error(`[${retryResponse.status}] ${String(errorMessage)}`);
+        const errData = await retryResponse.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Request failed after token refresh.');
       }
       if (retryResponse.status === 204) return null;
       if (retryResponse.headers.get('Content-Type')?.includes('application/pdf')) {
@@ -160,10 +159,11 @@ export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Pro
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    const errorMessage = errorData.error || errorData.detail || errorData.message || 
+    // Extract error message from common fields or the first key-value pair
+    const errorMessage = errorData.error || errorData.detail || 
                         (typeof errorData === 'object' ? Object.values(errorData)[0] : null) || 
-                        `API Error ${response.status}`;
-    throw new Error(`[${response.status}] ${String(errorMessage)}`);
+                        'Something went wrong with the API request';
+    throw new Error(String(errorMessage));
   }
 
 

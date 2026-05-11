@@ -20,13 +20,20 @@ class CategorySerializer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         if not obj.image: return None
-        pic_str = str(obj.image)
-        if pic_str.startswith('http'): return pic_str
         try:
+            url = obj.image.url
+            if 'res.cloudinary.com' in url:
+                # Add optimization parameters: f_auto (format), q_auto (quality), w_800 (width)
+                if '/upload/' in url:
+                    url = url.replace('/upload/', '/upload/f_auto,q_auto,w_800/', 1)
+            
             request = self.context.get('request')
-            if request: return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        except: return pic_str
+            if request and not url.startswith('http'):
+                return request.build_absolute_uri(url)
+            return url
+        except Exception:
+            return str(obj.image)
+
 
 class PickupDetailsSerializer(serializers.ModelSerializer):
     # Make address fields optional so partial submissions don't 400
@@ -54,13 +61,19 @@ class DonationSerializer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         if not obj.image: return None
-        pic_str = str(obj.image)
-        if pic_str.startswith('http'): return pic_str
         try:
+            url = obj.image.url
+            if 'res.cloudinary.com' in url:
+                if '/upload/' in url:
+                    url = url.replace('/upload/', '/upload/f_auto,q_auto,w_600/', 1)
+            
             request = self.context.get('request')
-            if request: return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        except: return pic_str
+            if request and not url.startswith('http'):
+                return request.build_absolute_uri(url)
+            return url
+        except Exception:
+            return str(obj.image)
+
 
     def to_internal_value(self, data):
         # Handle FormData sending pickup_details as a JSON string

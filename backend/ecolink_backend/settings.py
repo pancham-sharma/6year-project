@@ -98,7 +98,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'utils.middleware.Log500Middleware',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True # Broad support for production stability
@@ -158,9 +157,16 @@ if DATABASE_URL:
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     
+    # Force Supabase Pooler to Transaction Mode (Port 6543) if using port 5432
+    # This prevents EMAXCONNSESSION errors (max 15 clients)
+    if 'pooler.supabase.com' in DATABASE_URL and ':5432/' in DATABASE_URL:
+        print("💡 Switching Supabase port to 6543 for Transaction Mode pooling")
+        DATABASE_URL = DATABASE_URL.replace(':5432/', ':6543/')
+    
     DATABASES = {
         'default': env.db_url_config(DATABASE_URL)
     }
+
 else:
     print("--- WARNING: No DATABASE_URL found. Using local fallback (localhost:5433) ---")
     DATABASES = {
@@ -228,7 +234,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 SECURE_REFERRER_POLICY = 'no-referrer-when-downgrade'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
