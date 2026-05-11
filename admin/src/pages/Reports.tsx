@@ -24,11 +24,12 @@ export default function Reports({ darkMode }: Props) {
           fetchAPI('/api/users/list/').catch(() => []),
           fetchAPI('/api/donations/categories/').catch(() => [])
         ]);
-        setDonations(Array.isArray(donsRes) ? donsRes : (donsRes?.results || []));
-        setInventory(Array.isArray(invRes) ? invRes : (invRes?.results || []));
-        setUsers(Array.isArray(usersRes) ? usersRes : (usersRes?.results || []));
-        const categories = Array.isArray(catRes) ? catRes : (catRes?.results || []);
+        setDonations(Array.isArray(donsRes) ? donsRes : (donsRes?.data || donsRes?.results || []));
+        setInventory(Array.isArray(invRes) ? invRes : (invRes?.data || invRes?.results || []));
+        setUsers(Array.isArray(usersRes) ? usersRes : (usersRes?.data || usersRes?.results || []));
+        const categories = Array.isArray(catRes) ? catRes : (catRes?.data || catRes?.results || []);
         setCategories(categories);
+
       } catch (err) {
         console.error("Analytics fetch error:", err);
       } finally {
@@ -237,9 +238,12 @@ export default function Reports({ darkMode }: Props) {
             return (
               <div key={item.category} className={`p-4 rounded-xl border ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-100'}`}>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-2xl">{item.icon}</span>
+                  <span className="text-2xl flex items-center justify-center">
+                    {typeof item.icon === 'string' ? item.icon : <item.icon size={24} />}
+                  </span>
                   <span className={`font-semibold text-sm ${textMain}`}>{item.category}</span>
                 </div>
+
                 <div className="space-y-2">
                   <div>
                     <div className="flex justify-between text-xs mb-1">

@@ -41,9 +41,10 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
           fetchAPI('/api/users/list/').catch(() => [])
         ]);
         setAllData({
-          donations: Array.isArray(dons?.results) ? dons.results : (Array.isArray(dons) ? dons : []),
-          users: Array.isArray(users?.results) ? users.results : (Array.isArray(users) ? users : [])
+          donations: Array.isArray(dons?.data) ? dons.data : (Array.isArray(dons?.results) ? dons.results : (Array.isArray(dons) ? dons : [])),
+          users: Array.isArray(users?.data) ? users.data : (Array.isArray(users?.results) ? users.results : (Array.isArray(users) ? users : []))
         });
+
       } catch (err) { console.error(err); }
     };
     fetchSearchData();
@@ -193,7 +194,7 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
             />
           </div>
 
-          {showSearch && searchQuery && pageTitle === 'Dashboard' && (
+          {showSearch && searchQuery && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowSearch(false)} />
               <div className={`absolute left-0 top-12 w-80 rounded-2xl border shadow-2xl z-50 overflow-hidden ${notifBg} animate-fade-in`}>
@@ -202,11 +203,14 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
                     <div className={`px-4 py-8 text-center text-sm ${textSub}`}>No results found for "{searchQuery}"</div>
                   ) : (
                     <div className="py-2">
-                      {searchResults.donations.length > 0 && (
+                      {searchResults.donations.length > 0 && (pageTitle === 'Dashboard' || pageTitle.toLowerCase().includes('donation')) && (
                         <div>
                           <p className={`px-4 py-1 text-[10px] font-bold uppercase tracking-wider ${textSub}`}>Donations</p>
                           {searchResults.donations.map(d => (
-                            <div key={d.id} className={`px-4 py-2.5 ${notifHover} cursor-pointer`}>
+                            <div key={d.id} className={`px-4 py-2.5 ${notifHover} cursor-pointer`} onClick={() => {
+                              window.dispatchEvent(new CustomEvent('navigate', { detail: 'donations' }));
+                              setShowSearch(false);
+                            }}>
                               <p className={`text-sm font-semibold ${notifItemText}`}>{d.donor}</p>
                               <div className="flex items-center justify-between">
                                 <p className={`text-xs ${notifSubText}`}>{d.category} · {d.quantity_description}</p>
@@ -216,11 +220,14 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
                           ))}
                         </div>
                       )}
-                      {searchResults.users.length > 0 && (
+                      {searchResults.users.length > 0 && (pageTitle === 'Dashboard' || pageTitle.toLowerCase().includes('user') || pageTitle.toLowerCase().includes('volunteer')) && (
                         <div className="mt-2">
                           <p className={`px-4 py-1 text-[10px] font-bold uppercase tracking-wider ${textSub}`}>Users</p>
                           {searchResults.users.map(u => (
-                            <div key={u.id} className={`px-4 py-2.5 ${notifHover} cursor-pointer`}>
+                            <div key={u.id} className={`px-4 py-2.5 ${notifHover} cursor-pointer`} onClick={() => {
+                              window.dispatchEvent(new CustomEvent('navigate', { detail: 'users' }));
+                              setShowSearch(false);
+                            }}>
                               <p className={`text-sm font-semibold ${notifItemText}`}>{u.username}</p>
                               <p className={`text-xs ${notifSubText}`}>{u.email}</p>
                             </div>
@@ -233,6 +240,7 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
               </div>
             </>
           )}
+
         </div>
 
 

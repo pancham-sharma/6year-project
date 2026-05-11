@@ -204,9 +204,10 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
       await fetchAPI('/api/users/change-password/', {
         method: 'POST',
         body: JSON.stringify({
-          current_password: passwords.current,
+          old_password: passwords.current,
           new_password: passwords.new
         })
+
       });
       setPasswords({ current: '', new: '' });
       showToast("Password updated successfully!", "success");

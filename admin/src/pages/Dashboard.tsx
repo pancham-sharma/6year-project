@@ -419,9 +419,12 @@ export default function Dashboard({ darkMode }: Props) {
                 <div key={item.category}>
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-base">{item.icon}</span>
+                      <span className="text-base flex items-center justify-center">
+                        {typeof item.icon === 'string' ? item.icon : <item.icon size={16} className="text-gray-500" />}
+                      </span>
                       <span className={`text-sm font-medium ${textMain}`}>{item.category}</span>
                     </div>
+
                     <span className={`text-xs font-semibold ${textSub}`}>{pct}% distributed</span>
                   </div>
                   <div className={`h-2 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>

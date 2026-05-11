@@ -11,9 +11,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-default-key-for-dev')
-DEBUG = env.bool('DEBUG', default=True)
+DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = ['donation-admin-panel.onrender.com', 'sewa-marg.vercel.app', 'admin-panel-blush-ten.vercel.app', 'localhost', '127.0.0.1', '*']
+ALLOWED_HOSTS = [
+    'donation-admin-panel.onrender.com', 
+    'sewa-marg.vercel.app', 
+    'admin-panel-blush-ten.vercel.app', 
+    'localhost', 
+    '127.0.0.1', 
+    '*'
+]
+
 
 CORS_ALLOWED_ORIGINS = [
     "https://sewa-marg.vercel.app",
@@ -138,16 +146,19 @@ CHANNEL_LAYERS = {
     },
 }
 
-DATABASE_URL = env('DATABASE_URL', default=None)
+DATABASE_URL = env('DATABASE_URL', default='')
 
 if DATABASE_URL:
+    print(f"DEBUG: Using DATABASE_URL (starts with {DATABASE_URL[:15]}...)")
     # Ensure the scheme is 'postgresql' for django-environ/psycopg2
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    
     DATABASES = {
         'default': env.db_url_config(DATABASE_URL)
     }
 else:
+    print("DEBUG: DATABASE_URL not found, using local fallback")
     # Local fallback
     DATABASES = {
         'default': {
@@ -160,13 +171,19 @@ else:
         }
     }
 
-# Safety check to prevent "ImproperlyConfigured" error
+# Production Database Tweaks
+DATABASES['default']['CONN_MAX_AGE'] = 600 # Re-use connections
+
 if not DATABASES['default'].get('ENGINE'):
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
-# Add connection timeout to prevent hanging
-DATABASES['default']['OPTIONS'] = {
-    'connect_timeout': 5,
-}
+
+# Ensure SSL for production databases (Supabase/Render)
+if not DEBUG and 'localhost' not in DATABASES['default'].get('HOST', ''):
+    if 'OPTIONS' not in DATABASES['default']:
+        DATABASES['default']['OPTIONS'] = {}
+    DATABASES['default']['OPTIONS']['sslmode'] = 'require'
+    DATABASES['default']['OPTIONS']['connect_timeout'] = 10
+
 
 CACHES = {
     'default': {

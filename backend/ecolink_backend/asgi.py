@@ -24,12 +24,16 @@ try:
         ),
     })
 except Exception as e:
-    print("\n" + "="*50)
-    print("CRITICAL: ASGI IMPORT ERROR")
-    print("="*50)
+    import logging
+    logger = logging.getLogger(__name__)
+    print("\n" + "!"*60)
+    print("FATAL: ASGI SERVER FAILED TO INITIALIZE")
+    print(f"Error Type: {type(e).__name__}")
+    print(f"Error Message: {str(e)}")
+    print("!"*60 + "\n")
     traceback.print_exc()
-    print("="*50 + "\n")
     raise e
+
 
 
 

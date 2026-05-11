@@ -5,7 +5,8 @@ set -o errexit
 echo "📦 Installing dependencies..."
 pip install -r requirements.txt
 
-# Migrations should be run in the Render 'Pre-Deploy Command' section instead
-# python manage.py migrate
+echo "✨ Collecting static files..."
+python manage.py collectstatic --no-input
 
-echo "✅ Build and Migration complete!"
+echo "✅ Build complete!"
+

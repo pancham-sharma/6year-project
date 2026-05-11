@@ -321,12 +321,11 @@ export default function Inventory({ darkMode }: Props) {
                         </div>
                       ) : (
                         <div className="flex gap-2">
-                          {!(item.category.toLowerCase().includes('money') || item.category.toLowerCase().includes('monetary')) && (
-                            <button onClick={() => { setDistributeModal(item); setDistAmount(''); }} 
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-500 text-white hover:bg-green-600 transition-colors shadow-sm`}>
-                              Distribute
-                            </button>
-                          )}
+                          <button onClick={() => { setDistributeModal(item); setDistAmount(''); }} 
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-500 text-white hover:bg-green-600 transition-colors shadow-sm`}>
+                            Distribute
+                          </button>
+
                           <button onClick={() => startEdit(item)} className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-amber-900/30 text-amber-400' : 'hover:bg-amber-50 text-amber-600'}`}><Edit3 size={14} /></button>
                         </div>
                       )}
