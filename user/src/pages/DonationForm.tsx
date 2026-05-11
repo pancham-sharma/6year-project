@@ -94,7 +94,7 @@ export default function DonationForm() {
     descriptions: {} as Record<string, string>, 
     images: {} as Record<string, File | string | null>,
     address: '', city: '', state: '', pincode: '', landmark: '', phone: '', date: '', time: '',
-    useCurrentLocation: false, consent: false, transactionId: '',
+    useCurrentLocation: false, consent: false, transactionId: '', donorMobile: '',
   });
   const [existingDonations, setExistingDonations] = useState<any[]>([]);
 
@@ -133,7 +133,9 @@ export default function DonationForm() {
       value: c.name.toLowerCase().replace(/\s+/g, '_'),
       label: c.name,
       icon: getCategoryIcon(c.icon_name),
-      color: categoryColors[index % categoryColors.length]
+      color: categoryColors[index % categoryColors.length],
+      impact_label: c.impact_label || 'Families Helped',
+      impact_per_quantity: c.impact_per_quantity || 1
     }));
   }, [categoryData]);
 
@@ -265,7 +267,7 @@ export default function DonationForm() {
         const hasQuantity = form.quantities[type]?.toString().trim();
         const isMoney = type === 'monetary' || type === 'money' || dt?.label?.toLowerCase().includes('money') || dt?.label?.toLowerCase().includes('monetary');
         if (isMoney) {
-          return hasQuantity && form.transactionId?.trim();
+          return hasQuantity && form.transactionId?.trim() && form.donorMobile?.trim();
         }
         return hasQuantity && form.descriptions[type]?.trim();
       });
@@ -297,6 +299,8 @@ export default function DonationForm() {
         formData.append('category', categoryLabel);
         formData.append('quantity', (form.quantities[type] || '1').toString());
         formData.append('unit', form.units[type] || 'Units');
+        if (form.transactionId) formData.append('transaction_id', form.transactionId);
+        if (form.donorMobile) formData.append('donor_mobile', form.donorMobile);
         
         const isMoney = type === 'monetary' || type === 'money' || categoryLabel.toLowerCase().includes('money') || categoryLabel.toLowerCase().includes('monetary');
         
@@ -448,6 +452,37 @@ export default function DonationForm() {
                                  <input type="text" value={form.transactionId} onChange={e => update('transactionId', e.target.value)} placeholder="e.g. UTR Number"
                                    className={`w-full px-4 py-2.5 rounded-xl border-2 text-sm ${dark ? 'bg-slate-800 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-white border-gray-200 focus:border-primary-500'} outline-none transition-colors`} />
                              </div>
+                             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
+                                 <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Mobile Number (Required)</label>
+                                 <input type="text" value={form.donorMobile} onChange={e => update('donorMobile', e.target.value)} placeholder="e.g. 9876543210"
+                                   className={`w-full px-4 py-2.5 rounded-xl border-2 text-sm ${dark ? 'bg-slate-800 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-white border-gray-200 focus:border-primary-500'} outline-none transition-colors`} />
+                             </div>
+                             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
+                                 <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Payment Proof (Optional)</label>
+                                 <label className={`flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${dark ? 'border-slate-600 hover:border-slate-500' : 'border-gray-300 hover:border-primary-400'} ${form.images[type] ? 'border-primary-500' : ''}`}>
+                                   {form.images[type] ? (
+                                     <img 
+                                       src={form.images[type] instanceof File ? URL.createObjectURL(form.images[type] as File) : (form.images[type] as string)} 
+                                       alt="Preview" 
+                                       className="h-full w-full object-cover rounded-xl" 
+                                     />
+                                   ) : (
+                                     <div className="flex flex-col items-center p-2 text-center">
+                                       <Upload className={`w-6 h-6 mb-2 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
+                                       <span className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Click to upload</span>
+                                     </div>
+                                   )}
+                                   <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(type, e)} />
+                                 </label>
+                             </div>
+                             
+                             {/* Real-time Impact for Money */}
+                             <div className={`mt-4 p-4 rounded-xl ${dark ? 'bg-emerald-900/20 border border-emerald-500/30' : 'bg-emerald-50 border border-emerald-100'} animate-bounce-subtle`}>
+                               <p className={`text-xs font-bold ${dark ? 'text-emerald-400' : 'text-emerald-600'} uppercase tracking-wider mb-1`}>Your Impact</p>
+                               <p className={`text-sm font-black ${dark ? 'text-white' : 'text-emerald-900'}`}>
+                                 ₹{form.quantities[type] || '0'} = {Math.ceil((parseInt(form.quantities[type]) || 0) / (dt.impact_per_quantity || 1))} {dt.impact_label}
+                               </p>
+                             </div>
                            </div>
                          ) : (
                             <>
@@ -478,6 +513,14 @@ export default function DonationForm() {
                                 <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Description (Required)</label>
                                 <textarea value={form.descriptions[type] || ''} onChange={e => updateDescriptions(type, e.target.value)} rows={2} placeholder="Describe the items..."
                                   className={`w-full px-4 py-3 rounded-xl border-2 text-sm resize-none ${dark ? 'bg-slate-700 border-slate-600 text-white focus:border-primary-500' : 'bg-white border-gray-200 focus:border-primary-500'} outline-none`} />
+                              </div>
+
+                              {/* Real-time Impact for Quantity */}
+                              <div className={`p-4 rounded-xl ${dark ? 'bg-brand/20 border border-brand/30' : 'bg-primary-50 border border-primary-100'} animate-bounce-subtle`}>
+                                <p className={`text-xs font-bold ${dark ? 'text-brand' : 'text-primary-600'} uppercase tracking-wider mb-1`}>Your Impact</p>
+                                <p className={`text-sm font-black ${dark ? 'text-white' : 'text-primary-900'}`}>
+                                  {form.quantities[type] || '0'} {form.units[type] || 'Units'} = {Math.ceil((parseInt(form.quantities[type]) || 0) / (dt.impact_per_quantity || 1))} {dt.impact_label}
+                                </p>
                               </div>
                               <div>
                                 <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Upload Image (Optional)</label>

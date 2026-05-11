@@ -5,12 +5,18 @@ import {
   User, MapPin, Clock, HandHeart, TreePine, Utensils,
   CheckCircle, Package, Loader, Mail, Send, Truck, Calendar, LogOut, 
   Users, GraduationCap, Megaphone, HeartPulse, Shirt, Apple, 
-  MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight
+  MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, BookOpen, Banknote, Sprout, Heart, LayoutGrid, Gift, ShoppingBag, Coins
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAPI, getWSUrl } from '../utils/api';
 import { getUserDonations } from '../api/donations';
 import { DonationItem } from '../components/dashboard/DonationItem';
+
+const getCategoryIcon = (iconName: string) => {
+  const iconMap: Record<string, any> = { Utensils, Shirt, BookOpen, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins };
+  const key = iconName ? iconName.charAt(0).toUpperCase() + iconName.slice(1).toLowerCase() : 'LayoutGrid';
+  return iconMap[key] || iconMap[iconName] || LayoutGrid;
+};
 
 const SkeletonItem = ({ dark }: { dark: boolean }) => (
   <div className={`h-24 w-full rounded-2xl skeleton-shimmer ${dark ? 'bg-white/5' : 'bg-gray-100'}`} />
@@ -62,9 +68,12 @@ export default function Dashboard() {
   });
 
   const { data: volunteerData } = useQuery({
-    queryKey: ['volunteer-apps'],
-    queryFn: () => fetchAPI('/api/users/volunteer/'),
     enabled: !!appUser.id,
+  });
+  
+  const { data: publicStats } = useQuery({
+    queryKey: ['public-stats'],
+    queryFn: () => fetchAPI('/api/donations/public_stats/'),
   });
 
   // Sync profile form when data loads
@@ -468,18 +477,35 @@ export default function Dashboard() {
             <h2 className="text-xl font-bold mb-1">{t.dashboard.impact}</h2>
             <p className="text-white/80 text-sm mb-6">{t.dashboard.helped} <span className="text-2xl font-bold">{familiesHelped}</span> {t.dashboard.people}</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { icon: Package, label: 'Total Donations', value: totalDonations.toString() },
-                { icon: Utensils, label: 'Meals Provided', value: foodMeals.toString() },
-                { icon: TreePine, label: 'Trees Planted', value: treesPlanted.toString() },
-                { icon: HandHeart, label: 'Families Helped', value: familiesHelped.toString() },
-              ].map((s, i) => (
-                <div key={i} className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
-                  <s.icon className={`w-6 h-6 mx-auto mb-2 ${dark ? 'text-brand' : 'text-brand'}`} />
-                  <div className="text-2xl font-bold">{s.value}</div>
-                  <div className="text-xs text-white/70">{s.label}</div>
-                </div>
-              ))}
+              <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                <Package className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                <div className="text-2xl font-bold">{publicStats?.total_donations || totalDonations}</div>
+                <div className="text-xs text-white/70">Total Donations</div>
+              </div>
+              {(publicStats?.impacts || []).slice(0, 3).map((imp: any, i: number) => {
+                const Icon = getCategoryIcon(imp.icon);
+                return (
+                  <div key={i} className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                    <Icon className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                    <div className="text-2xl font-bold">{imp.count}</div>
+                    <div className="text-xs text-white/70">{imp.label}</div>
+                  </div>
+                );
+              })}
+              {(!publicStats?.impacts || publicStats.impacts.length === 0) && (
+                <>
+                  <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                    <Utensils className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                    <div className="text-2xl font-bold">{foodMeals}</div>
+                    <div className="text-xs text-white/70">Meals Provided</div>
+                  </div>
+                  <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                    <TreePine className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                    <div className="text-2xl font-bold">{treesPlanted}</div>
+                    <div className="text-xs text-white/70">Trees Planted</div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

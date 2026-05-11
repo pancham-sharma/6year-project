@@ -37,7 +37,9 @@ class Donation(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     image = models.ImageField(upload_to='donations/', blank=True, null=True)
     unit = models.CharField(max_length=20, blank=True, null=True, default='Units')
-    status = models.CharField(max_length=20, default='Pending', db_index=True) # Pending, Approved, Rejected, Recycled
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending', db_index=True)
+    transaction_id = models.CharField(max_length=100, blank=True, null=True)
+    donor_mobile = models.CharField(max_length=15, blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     
     class Meta:

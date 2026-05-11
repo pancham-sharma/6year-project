@@ -49,7 +49,7 @@ class DonationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Donation
-        fields = ['id', 'donor', 'donor_email', 'donor_phone', 'category', 'quantity_description', 'quantity', 'unit', 'image', 'status', 'timestamp', 'pickup_details']
+        fields = ['id', 'donor', 'donor_email', 'donor_phone', 'category', 'quantity_description', 'quantity', 'unit', 'image', 'status', 'timestamp', 'pickup_details', 'transaction_id', 'donor_mobile']
         read_only_fields = ['timestamp', 'donor', 'donor_email', 'donor_phone']
 
     def get_image(self, obj):
