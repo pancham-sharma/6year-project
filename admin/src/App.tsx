@@ -2,21 +2,34 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar, { NavSection } from './components/Sidebar';
 import Topbar from './components/Topbar';
 
-const Auth = lazy(() => import('./pages/Auth'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const DonationManagement = lazy(() => import('./pages/DonationManagement'));
-const Inventory = lazy(() => import('./pages/Inventory'));
-const LocationTracking = lazy(() => import('./pages/LocationTracking'));
-const PickupManagement = lazy(() => import('./pages/PickupManagement'));
-const UserManagement = lazy(() => import('./pages/UserManagement'));
-const Messages = lazy(() => import('./pages/Messages'));
-const Reports = lazy(() => import('./pages/Reports'));
-const Settings = lazy(() => import('./pages/Settings'));
-const CategoryPage = lazy(() => import('./pages/CategoryPage'));
-const Notifications = lazy(() => import('./pages/Notifications'));
-const Volunteers = lazy(() => import('./pages/Volunteers'));
-const CategoryManagement = lazy(() => import("./pages/CategoryManagement.tsx"));
-const RecycleBin = lazy(() => import('./pages/RecycleBin'));
+const lazyRetry = (componentImport: () => Promise<any>) =>
+  lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error) {
+      // If there's an error loading the chunk (e.g. 404 after redeploy), 
+      // refresh the page once to load the new version.
+      console.error("Chunk load failed, refreshing...", error);
+      window.location.reload();
+      return { default: () => null }; // Return a dummy component while reloading
+    }
+  });
+
+const Auth = lazyRetry(() => import('./pages/Auth'));
+const Dashboard = lazyRetry(() => import('./pages/Dashboard'));
+const DonationManagement = lazyRetry(() => import('./pages/DonationManagement'));
+const Inventory = lazyRetry(() => import('./pages/Inventory'));
+const LocationTracking = lazyRetry(() => import('./pages/LocationTracking'));
+const PickupManagement = lazyRetry(() => import('./pages/PickupManagement'));
+const UserManagement = lazyRetry(() => import('./pages/UserManagement'));
+const Messages = lazyRetry(() => import('./pages/Messages'));
+const Reports = lazyRetry(() => import('./pages/Reports'));
+const Settings = lazyRetry(() => import('./pages/Settings'));
+const CategoryPage = lazyRetry(() => import('./pages/CategoryPage'));
+const Notifications = lazyRetry(() => import('./pages/Notifications'));
+const Volunteers = lazyRetry(() => import('./pages/Volunteers'));
+const CategoryManagement = lazyRetry(() => import("./pages/CategoryManagement.tsx"));
+const RecycleBin = lazyRetry(() => import('./pages/RecycleBin'));
 
 import { SearchProvider } from './context/SearchContext';
 import { ToastProvider } from './context/ToastContext';

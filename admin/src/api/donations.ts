@@ -9,6 +9,7 @@ export interface Donation {
   city: string;
   category: string;
   quantity: string;
+  description: string;
   unit: string;
   date: string;
   status: string;
@@ -59,7 +60,8 @@ export const getDonations = async (
     address: d.pickup_details ? d.pickup_details.full_address : 'N/A',
     city: d.pickup_details ? d.pickup_details.city : 'N/A',
     category: d.category,
-    quantity: d.quantity_description,
+    quantity: d.quantity,
+    description: d.quantity_description,
     unit: d.unit || 'Units',
     date: new Date(d.timestamp).toLocaleDateString(),
     status: d.status,

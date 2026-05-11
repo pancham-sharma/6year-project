@@ -209,7 +209,7 @@ export default function DonationManagement({ darkMode }: Props) {
           <table className="w-full text-sm text-left">
             <thead>
               <tr className={theadBg}>
-                {['ID', 'Donor Name', 'Email', 'Contact', 'Address', 'Category', 'Quantity', 'Date', 'Status', 'Actions'].map(h => (
+                {['ID', 'Donor Name', 'Email', 'Contact', 'Address', 'Category', 'Quantity', 'Description', 'Date', 'Status', 'Actions'].map(h => (
                   <th key={h} className={`px-4 py-4 text-xs font-bold uppercase tracking-wider ${textSub}`}>{h}</th>
                 ))}
               </tr>
@@ -248,13 +248,14 @@ export default function DonationManagement({ darkMode }: Props) {
                     <td className="px-4 py-4 min-w-[120px]">
                       <span style={{ backgroundColor: 'var(--color-gray-100)' }} className={`px-2.5 py-1 rounded-full text-[10px] uppercase whitespace-nowrap inline-block ${getCatColor(d.category)}`}>{d.category}</span>
                     </td>
-                    <td className={`px-4 py-4 font-medium ${textMain} min-w-[200px]`}>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[13px] leading-tight break-words">{d.quantity}</span>
-                        {!d.quantity?.toLowerCase().includes('unit') && (
-                          <span className={`text-[10px] uppercase font-bold tracking-wider ${textSub}`}>{d.unit || 'Units'}</span>
-                        )}
+                    <td className={`px-4 py-4 font-medium ${textMain}`}>
+                      <div className="flex flex-col">
+                        <span className="text-[13px]">{d.quantity}</span>
+                        <span className={`text-[10px] uppercase font-bold tracking-wider ${textSub}`}>{d.unit || 'Units'}</span>
                       </div>
+                    </td>
+                    <td className={`px-4 py-4 ${textSub} max-w-[150px]`}>
+                      <p className="text-xs line-clamp-2" title={d.description}>{d.description || 'N/A'}</p>
                     </td>
                     <td className={`px-4 py-4 ${textSub}`}>{d.date}</td>
                     <td className="px-4 py-4">
