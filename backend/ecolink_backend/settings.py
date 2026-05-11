@@ -138,20 +138,31 @@ CHANNEL_LAYERS = {
     },
 }
 
-DATABASES = {
-    'default': env.db('DATABASE_URL', default=None)
-}
+DATABASE_URL = env('DATABASE_URL', default=None)
 
-# Fallback for local development if DATABASE_URL is not set
-if DATABASES['default'] is None:
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'donation_db',
-        'USER': 'postgres',
-        'PASSWORD': 'pancham6',
-        'HOST': 'localhost',
-        'PORT': '5433',
+if DATABASE_URL:
+    # Ensure the scheme is 'postgresql' for django-environ/psycopg2
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    DATABASES = {
+        'default': env.db_url_config(DATABASE_URL)
     }
+else:
+    # Local fallback
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'donation_db',
+            'USER': 'postgres',
+            'PASSWORD': 'pancham6',
+            'HOST': 'localhost',
+            'PORT': '5433',
+        }
+    }
+
+# Safety check to prevent "ImproperlyConfigured" error
+if not DATABASES['default'].get('ENGINE'):
+    DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
 # Add connection timeout to prevent hanging
 DATABASES['default']['OPTIONS'] = {
     'connect_timeout': 5,
