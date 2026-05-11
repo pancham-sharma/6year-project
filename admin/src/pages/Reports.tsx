@@ -103,16 +103,19 @@ export default function Reports({ darkMode }: Props) {
 
 
   // Inventory Table Data
-  const formattedInventory = inventory.map((inv: any) => {
-    const catInfo = categories.find((c: any) => c.name.toLowerCase() === inv.category.toLowerCase());
-    return {
-      category: inv.category,
-      totalReceived: inv.quantity,
-      distributed: inv.distributed || 0,
-      color: colorMap[inv.category.toLowerCase()] || '#10b981',
-      icon: iconMap[(catInfo?.icon_name || '').toLowerCase()] || '📦'
-    };
-  });
+  const formattedInventory = inventory
+    .filter((inv: any) => inv.quantity > 0)
+    .map((inv: any) => {
+      const catInfo = categories.find((c: any) => c.name.toLowerCase() === inv.category.toLowerCase());
+      return {
+        category: inv.category,
+        totalReceived: inv.quantity,
+        distributed: inv.distributed || 0,
+        color: colorMap[inv.category.toLowerCase()] || '#10b981',
+        icon: iconMap[(catInfo?.icon_name || '').toLowerCase()] || '📦'
+      };
+    });
+
 
 
   const CustomTooltip = ({ active, payload, label }: any) => {

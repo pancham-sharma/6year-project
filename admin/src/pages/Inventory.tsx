@@ -410,7 +410,8 @@ export default function Inventory({ darkMode }: Props) {
               <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'} flex justify-between items-center`}>
                 <div>
                   <p className={`text-xs ${textSub}`}>Available to Distribute</p>
-                  <p className={`text-lg font-bold ${textMain}`}>{distributeModal.totalReceived - distributeModal.distributed} {distributeModal.unit}</p>
+                  <p className={`text-lg font-bold ${textMain}`}>{distributeModal.totalReceived - distributeModal.distributed} {distributeModal.category.toLowerCase().includes('money') || distributeModal.category.toLowerCase().includes('monetary') ? '' : distributeModal.unit}</p>
+
                 </div>
                 <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white shadow-lg`}>
                   <distributeModal.icon size={28} />
@@ -423,7 +424,8 @@ export default function Inventory({ darkMode }: Props) {
                     type="number" 
                     autoFocus
                     className="bg-transparent outline-none flex-1 text-sm" 
-                    placeholder={`Enter amount in ${distributeModal.unit}...`}
+                    placeholder={distributeModal.category.toLowerCase().includes('money') || distributeModal.category.toLowerCase().includes('monetary') ? 'Enter amount in ₹...' : `Enter amount in ${distributeModal.unit}...`}
+
                     value={distAmount}
                     onChange={e => setDistAmount(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleDistribute()}

@@ -34,15 +34,22 @@ def admin_dashboard_summary(request):
         # Fetch all active categories to get their impact rules
         category_configs = {c.name.lower(): c for c in Category.objects.all()}
         
+        # Fetch inventory for actual distribution numbers
+        inventory_stats = {i.category.lower(): i for i in InventoryItem.objects.all()}
+        
         impact_stats = []
         for cat in category_stats:
             cat_name = cat['category']
             config = category_configs.get(cat_name.lower())
+            inv_item = inventory_stats.get(cat_name.lower())
             
             if config and config.impact_label:
-                # Formula: impact = ceil(total_quantity / impact_per_quantity)
+                # Use distributed quantity for impact, or fallback to 0
+                distributed_qty = inv_item.distributed if inv_item else 0
+                
+                # Formula: impact = ceil(distributed_quantity / impact_per_quantity)
                 impact_divisor = config.impact_per_quantity or 1
-                impact_count = math.ceil(cat['total_qty'] / impact_divisor)
+                impact_count = math.ceil(distributed_qty / impact_divisor)
                 
                 impact_stats.append({
                     'category': cat_name,
@@ -51,6 +58,7 @@ def admin_dashboard_summary(request):
                     'icon': config.icon_name,
                     'impact_per_quantity': config.impact_per_quantity
                 })
+
 
         # 3. Recent Activity
         recent_donations = Donation.objects.select_related('donor').order_by('-timestamp')[:5]
