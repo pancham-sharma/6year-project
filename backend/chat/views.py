@@ -74,17 +74,35 @@ class MessageViewSet(viewsets.ModelViewSet):
         from users.serializers import UserSerializer
 
         user = request.user
+        is_admin = user.is_staff or getattr(user, 'role', '') == 'ADMIN'
         
-        # 1. Find all users who have exchanged messages with current user
-        messages = Message.objects.filter(Q(sender=user) | Q(receiver=user)).order_by('-timestamp')
-        participant_ids = list(messages.values_list('sender_id', flat=True)) + \
-                          list(messages.values_list('receiver_id', flat=True))
-        
-        # Filter and unique IDs
-        participant_ids = list(set(filter(None, participant_ids)))
-        if user.id in participant_ids:
-            participant_ids.remove(user.id)
-        
+        # 1. Find all users who have exchanged messages
+        if is_admin:
+            # Admins see conversations between ANY staff/admin and users
+            messages = Message.objects.filter(
+                Q(sender__is_staff=True) | Q(receiver__is_staff=True) |
+                Q(sender__role='ADMIN') | Q(receiver__role='ADMIN')
+            ).order_by('-timestamp')
+        else:
+            messages = Message.objects.filter(Q(sender=user) | Q(receiver=user)).order_by('-timestamp')
+
+        # Get unique participant IDs (excluding admins if current user is admin, or excluding self if regular user)
+        participant_ids = set()
+        for m in messages.values('sender_id', 'receiver_id', 'sender__is_staff', 'sender__role', 'receiver__is_staff', 'receiver__role'):
+            # If current user is admin, we want the OTHER side of the conversation (the regular user)
+            # A conversation is between (Staff/Admin) and (Non-Staff/Non-Admin)
+            s_is_staff = m['sender__is_staff'] or m['sender__role'] == 'ADMIN'
+            r_is_staff = m['receiver__is_staff'] or m['receiver__role'] == 'ADMIN'
+            
+            if s_is_staff and not r_is_staff:
+                participant_ids.add(m['receiver_id'])
+            elif r_is_staff and not s_is_staff:
+                participant_ids.add(m['sender_id'])
+            elif not s_is_staff and not r_is_staff:
+                # User to User (shouldn't happen in this system but handle it)
+                if m['sender_id'] != user.id: participant_ids.add(m['sender_id'])
+                if m['receiver_id'] != user.id: participant_ids.add(m['receiver_id'])
+
         results = []
         already_added = set()
         
@@ -92,10 +110,16 @@ class MessageViewSet(viewsets.ModelViewSet):
         for p_id in participant_ids:
             try:
                 p_user = User.objects.get(id=p_id)
-                last_msg = Message.objects.filter(
-                    (Q(sender=user) & Q(receiver=p_user)) | 
-                    (Q(sender=p_user) & Q(receiver=user))
-                ).order_by('-timestamp').first()
+                if is_admin:
+                    last_msg = Message.objects.filter(
+                        (Q(sender__is_staff=True) | Q(sender__role='ADMIN')) & Q(receiver=p_user) |
+                        (Q(receiver__is_staff=True) | Q(receiver__role='ADMIN')) & Q(sender=p_user)
+                    ).order_by('-timestamp').first()
+                else:
+                    last_msg = Message.objects.filter(
+                        (Q(sender=user) & Q(receiver=p_user)) | 
+                        (Q(sender=p_user) & Q(receiver=user))
+                    ).order_by('-timestamp').first()
                 
                 unread_count = Message.objects.filter(
                     sender=p_user, receiver=user, is_read=False
@@ -113,8 +137,8 @@ class MessageViewSet(viewsets.ModelViewSet):
                 continue
                 
         # 2. If admin, add users who have NO messages yet
-        if user.is_staff or getattr(user, 'role', '') == 'ADMIN':
-            other_users = User.objects.exclude(id__in=already_added).exclude(id=user.id)
+        if is_admin:
+            other_users = User.objects.exclude(id__in=already_added).exclude(is_staff=True).exclude(role='ADMIN')
             for o_user in other_users:
                 user_data = UserSerializer(o_user, context={'request': request}).data
                 results.append({
@@ -124,7 +148,7 @@ class MessageViewSet(viewsets.ModelViewSet):
                     'unread_count': 0
                 })
         
-        # Sort by last message time (latest first), then by username
+        # Sort by last message time (latest first)
         results.sort(key=lambda x: (x['last_message_time'] is not None, x['last_message_time'] or '', x['username']), reverse=True)
         
         return Response(results)

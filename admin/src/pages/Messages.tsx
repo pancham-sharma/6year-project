@@ -134,7 +134,7 @@ export default function Messages({ darkMode }: Props) {
       messages: allMessages.map(m => ({
         id: m.id,
         text: m.message,
-        type: String(m.sender) === myId ? 'sent' : 'received',
+        type: m.sender_is_staff ? 'sent' : 'received',
         is_read: m.is_read,
         is_edited: m.is_edited,
         timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -296,11 +296,7 @@ export default function Messages({ darkMode }: Props) {
                     <span className="text-xs text-green-500 font-mono">{conv.donationRef}</span>
                   )}
                 </div>
-                <div className={`flex flex-col items-end gap-1 transition-all duration-300 transform ${conv.unread > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}>
-                  <span className="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm ring-2 ring-white">
-                    {conv.unread}
-                  </span>
-                </div>
+                {/* Unread count hidden as requested */}
               </button>
             );
           })}
