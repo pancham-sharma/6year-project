@@ -102,19 +102,36 @@ export default function Reports({ darkMode }: Props) {
     .reduce((sum, d) => sum + (d.quantity || 0), 0) }));
 
 
-  // Inventory Table Data
-  const formattedInventory = inventory
-    .filter((inv: any) => inv.quantity > 0)
-    .map((inv: any) => {
-      const catInfo = categories.find((c: any) => c.name.toLowerCase() === inv.category.toLowerCase());
-      return {
-        category: inv.category,
-        totalReceived: inv.quantity,
-        distributed: inv.distributed || 0,
-        color: colorMap[inv.category.toLowerCase()] || '#10b981',
-        icon: iconMap[(catInfo?.icon_name || '').toLowerCase()] || '📦'
-      };
+  // Inventory Table Data - Derived from CATEGORIES model to ensure sync
+  const formattedInventory = categories.map((cat: any) => {
+    // Normalization mapping (Sync with Dashboard)
+    const normMap: Record<string, string> = {
+      'cake': 'Food', 'meals': 'Food', 'meal': 'Food', 'grocery': 'Food',
+      'shirts': 'Clothes', 'shirt': 'Clothes', 'jeans': 'Clothes', 'pants': 'Clothes',
+      'monetary': 'Money', 'fund': 'Money'
+    };
+
+    // Find all inventory items that match this category or map to it
+    const relevantInv = inventory.filter((i: any) => {
+      const name = i.category.toLowerCase();
+      if (name === cat.name.toLowerCase()) return true;
+      if (normMap[name]?.toLowerCase() === cat.name.toLowerCase()) return true;
+      return false;
     });
+
+    const totalReceived = relevantInv.reduce((acc, i) => acc + i.quantity, 0);
+    const distributed = relevantInv.reduce((acc, i) => acc + (i.distributed || 0), 0);
+
+    return {
+      category: cat.name,
+      totalReceived,
+      distributed,
+      color: colorMap[cat.name.toLowerCase()] || '#10b981',
+      icon: iconMap[(cat.icon_name || '').toLowerCase()] || '📦'
+    };
+  });
+
+
 
 
 
@@ -169,9 +186,10 @@ export default function Reports({ darkMode }: Props) {
             <XAxis dataKey="month" tick={{ fill: axisColor, fontSize: 12 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: axisColor, fontSize: 12 }} axisLine={false} tickLine={false} />
               <Tooltip content={<CustomTooltip />} />
-            {categories.slice(0, 5).map((cat) => (
+            {categories.map((cat) => (
               <Bar key={cat.name} dataKey={cat.name} fill={colorMap[cat.name.toLowerCase()] || '#10b981'} radius={[4, 4, 0, 0]} />
             ))}
+
           </BarChart>
         </ResponsiveContainer>
       </div>

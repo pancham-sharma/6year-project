@@ -145,29 +145,60 @@ export default function Dashboard({ darkMode }: Props) {
       }));
   const impactStats = useMemo(() => Array.isArray((data as any)?.impact_stats) ? (data as any).impact_stats : [], [data]);
 
-  // Inventory Snapshot aggregated by category
+  // Inventory Snapshot aggregated by category with normalization
   const inventoryData = useMemo(() => {
+    // Normalization mapping for consolidation
+    const normMap: Record<string, string> = {
+      'cake': 'Food',
+      'meals': 'Food',
+      'meal': 'Food',
+      'grocery': 'Food',
+      'shirts': 'Clothes',
+      'shirt': 'Clothes',
+      'jeans': 'Clothes',
+      'pants': 'Clothes',
+      'footwear': 'Clothes',
+      'monetary': 'Money',
+      'fund': 'Money'
+    };
+
     const agg = inventory.reduce((acc: any, inv: any) => {
-      acc[inv.category] = {
-        totalReceived: (acc[inv.category]?.totalReceived || 0) + inv.quantity,
-        distributed: (acc[inv.category]?.distributed || 0) + (inv.distributed || 0)
-      };
+      const rawCat = inv.category;
+      let targetCat = categoriesList.find((c: any) => c.name.toLowerCase() === rawCat.toLowerCase())?.name;
+      
+      // If not an exact match, try the normalization map
+      if (!targetCat) {
+        const mappedName = normMap[rawCat.toLowerCase()];
+        if (mappedName) {
+          targetCat = categoriesList.find((c: any) => c.name.toLowerCase() === mappedName.toLowerCase())?.name;
+        }
+      }
+
+      // Only aggregate if it belongs to an official category
+      if (targetCat) {
+        acc[targetCat] = {
+          totalReceived: (acc[targetCat]?.totalReceived || 0) + inv.quantity,
+          distributed: (acc[targetCat]?.distributed || 0) + (inv.distributed || 0)
+        };
+      }
       return acc;
     }, {});
 
-    return Object.keys(agg).map(cat => {
-      const catInfo = categoriesList.find((c: any) => c.name.toLowerCase() === cat.toLowerCase());
-      const iconKey = (catInfo?.icon_name || '').toLowerCase();
+    // Ensure ALL official categories are shown, even with 0 data
+    return categoriesList.map(cat => {
+      const iconKey = (cat.icon_name || '').toLowerCase();
+      const stats = agg[cat.name] || { totalReceived: 0, distributed: 0 };
       
       return {
-        category: cat,
-        totalReceived: agg[cat].totalReceived,
-        distributed: agg[cat].distributed,
-        color: colorMap[cat.toLowerCase()] || '#10b981',
+        category: cat.name,
+        totalReceived: stats.totalReceived,
+        distributed: stats.distributed,
+        color: colorMap[cat.name.toLowerCase()] || '#10b981',
         icon: iconMap[iconKey] || '📦'
       };
     });
   }, [inventory, categoriesList]);
+
 
   // Monthly trends (Mapped to show real counts on right side of chart)
   // Monthly trends dynamically generated from the last 4 months
