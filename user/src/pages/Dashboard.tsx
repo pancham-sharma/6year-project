@@ -143,6 +143,17 @@ export default function Dashboard() {
     });
   }, []);
 
+  useEffect(() => {
+    if (activeTab === 'messages' && adminId) {
+      fetchAPI('/api/chat/messages/mark_read/', {
+        method: 'POST',
+        body: JSON.stringify({ other_user_id: adminId })
+      }).then(() => {
+        // Optionally refetch notifications or chat history if needed
+      }).catch(e => console.error("Mark read error:", e));
+    }
+  }, [activeTab, adminId]);
+
   // Sync chatMessages from chatHistory query
   useEffect(() => {
     if (chatHistory) {
@@ -652,7 +663,10 @@ export default function Dashboard() {
                            )}
                            {d.pickup_details?.assigned_team && (
                              <div className={`mt-4 p-4 rounded-2xl flex items-center gap-4 ${dark ? 'bg-white/5' : 'bg-white border border-gray-100 shadow-sm'}`}>
-                               <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-xl">🚚</div>
+                               <div className="relative">
+                                 <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-xl">🚚</div>
+                                 <div className="absolute top-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse" />
+                               </div>
                                <div className="flex-1">
                                  <p className="text-[10px] font-bold uppercase tracking-wider text-primary-600">Assigned Team</p>
                                  <p className={`font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{d.pickup_details.assigned_team}</p>
@@ -845,20 +859,43 @@ export default function Dashboard() {
 
               {/* Messages from Admin (Chat Inbox) */}
               {activeTab === 'messages' && (
-                <div className="animate-fade-in flex flex-col h-[500px]">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className={`text-lg font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>Chat with Administrator</h3>
-                    <div className="flex items-center gap-2">
-                       <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                       <span className={`text-xs font-medium ${dark ? 'text-gray-400' : 'text-slate-600'}`}>Support Online</span>
-                    </div>
-                  </div>
+                <div className={`animate-fade-in flex flex-col h-[calc(100vh-16rem)] min-h-[600px] border shadow-2xl rounded-[2rem] overflow-hidden relative ${dark ? 'border-white/10' : 'border-gray-100'}`}>
+                  {/* Glassmorphism Background Overlay */}
+                  <div className={`absolute inset-0 z-0 ${dark ? 'bg-[#0f172b]/60' : 'bg-white/70'} backdrop-blur-3xl`} />
                   
-                  {/* Message List */}
-                  <div 
-                    ref={chatContainerRef}
-                    className={`flex-1 overflow-y-auto mb-4 space-y-4 pr-2 custom-scrollbar`}
-                  >
+                  <div className="relative z-10 flex flex-col h-full">
+                    {/* Header */}
+                    <div className={`px-8 py-6 border-b flex items-center justify-between ${dark ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50/50'}`}>
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white shadow-lg">
+                            <Users className="w-6 h-6" />
+                          </div>
+                          {messages.filter((m: any) => !m.is_read && m.sender_is_staff).length > 0 && (
+                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-lg animate-bounce-short">
+                              {messages.filter((m: any) => !m.is_read && m.sender_is_staff).length}
+                            </div>
+                          )}
+                          {messages.filter((m: any) => !m.is_read && m.sender_is_staff).length === 0 && (
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow-sm animate-pulse" />
+                          )}
+                        </div>
+                        <div>
+                          <h3 className={`text-xl font-black ${dark ? 'text-white' : 'text-gray-900'}`}>Support Center</h3>
+                          <p className={`text-xs font-bold ${dark ? 'text-teal-400/80' : 'text-teal-600'}`}>Chatting with Administrator</p>
+                        </div>
+                      </div>
+                      <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 ${dark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'}`}>
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${dark ? 'text-gray-400' : 'text-slate-500'}`}>Agent Online</span>
+                      </div>
+                    </div>
+                    
+                    {/* Message List */}
+                    <div 
+                      ref={chatContainerRef}
+                      className={`flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar`}
+                    >
                     {messages.length === 0 ? (
                       <div className="h-full flex items-center justify-center">
                         <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>No messages yet. Send a message to start the conversation.</p>
@@ -980,7 +1017,8 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
             </>
           )}
         </div>

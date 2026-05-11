@@ -18,10 +18,18 @@ class MessageViewSet(viewsets.ModelViewSet):
             
             other_user_id = self.request.query_params.get('other_user_id')
             if other_user_id:
-                queryset = queryset.filter(
-                    (Q(sender=user) & Q(receiver_id=other_user_id)) |
-                    (Q(sender_id=other_user_id) & Q(receiver=user))
-                )
+                if user.is_staff or getattr(user, 'role', '') == 'ADMIN':
+                    queryset = queryset.filter(
+                        (Q(sender__is_staff=True, receiver_id=other_user_id)) |
+                        (Q(sender_id=other_user_id, receiver__is_staff=True)) |
+                        (Q(sender__role='ADMIN', receiver_id=other_user_id)) |
+                        (Q(sender_id=other_user_id, receiver__role='ADMIN'))
+                    ).distinct()
+                else:
+                    queryset = queryset.filter(
+                        (Q(sender=user) & Q(receiver_id=other_user_id)) |
+                        (Q(sender_id=other_user_id) & Q(receiver=user))
+                    )
             elif user.is_staff or getattr(user, 'role', None) == 'ADMIN':
                 # Admins can see all messages involving any admin or staff member
                 queryset = queryset.filter(

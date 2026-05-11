@@ -142,6 +142,18 @@ export default function Messages({ darkMode }: Props) {
     };
   }, [convList, activeId, allMessages, myId]);
 
+  // Auto-mark as read when new messages arrive in active chat
+  useEffect(() => {
+    if (activeId && allMessages.length > 0) {
+      const hasUnread = allMessages.some(m => !m.is_read && String(m.sender) === activeId);
+      if (hasUnread) {
+        markChatAsRead(activeId).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        });
+      }
+    }
+  }, [allMessages, activeId, queryClient]);
+
   // Load more trigger
   const observer = useRef<IntersectionObserver | null>(null);
   const topRef = useCallback((node: HTMLDivElement) => {
@@ -162,7 +174,6 @@ export default function Messages({ darkMode }: Props) {
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
   const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';
   const inputBg = darkMode ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-700 placeholder-gray-400';
-  const sidebarBg = darkMode ? 'bg-gray-800' : 'bg-white';
   const chatBg = darkMode ? 'bg-gray-900' : 'bg-slate-50';
   const userItemActive = darkMode ? 'bg-green-900/30 border-green-700/50' : 'bg-emerald-50 border-emerald-200 shadow-sm z-10';
   const userItemInactive = darkMode ? 'hover:bg-gray-700/50 border-transparent' : 'hover:bg-gray-50 border-transparent';
@@ -244,9 +255,14 @@ export default function Messages({ darkMode }: Props) {
   }
 
   return (
-    <div className={`rounded-2xl border shadow-sm overflow-hidden flex h-[calc(100vh-10rem)] min-h-[500px] ${card}`}>
+    <div className={`border shadow-2xl overflow-hidden flex h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] ${card} rounded-3xl transition-all duration-500`}>
       {/* Sidebar */}
-      <div className={`${mobileShowChat ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-72 lg:w-80 border-r ${divider} flex-shrink-0 ${sidebarBg}`}>
+      <div className={`${mobileShowChat ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-80 lg:w-96 border-r ${divider} flex-shrink-0 relative overflow-hidden`}>
+        {/* Glassmorphism Background Overlay */}
+        <div className={`absolute inset-0 z-0 ${darkMode ? 'bg-gray-800/70' : 'bg-white/70'} backdrop-blur-xl`} />
+        
+        {/* Sidebar Content (needs relative z-10) */}
+        <div className="relative z-10 flex flex-col h-full">
         {/* Header */}
         <div className={`px-4 py-4 border-b ${divider}`}>
           <h2 className={`font-bold text-base mb-3 ${textMain}`}>Messages</h2>
@@ -281,27 +297,31 @@ export default function Messages({ darkMode }: Props) {
             
             return (
               <button key={conv.id} onClick={() => selectConv(conv.id)}
-                className={`w-full flex items-start gap-3 px-4 py-3.5 border transition-all text-left ${isSelected ? userItemActive : userItemInactive}`}>
-                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarColors[i % avatarColors.length]} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                  <span className="text-white text-xs font-bold">{conv.avatar}</span>
+                className={`w-full flex items-center gap-4 px-5 py-4 border-b transition-all text-left ${isSelected ? userItemActive : userItemInactive} ${isSelected ? 'relative z-20' : ''}`}>
+                <div className="relative flex-shrink-0">
+                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${avatarColors[i % avatarColors.length]} flex items-center justify-center shadow-md ring-2 ring-white/50 transform transition-transform group-hover:scale-105`}>
+                    <span className="text-white text-sm font-black">{conv.avatar}</span>
+                  </div>
+                  {conv.unread > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-lg animate-bounce-short">
+                      {conv.unread}
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
-                    <p className={`text-sm font-semibold truncate ${textMain}`}>{conv.userName}</p>
-                    <span className={`text-xs flex-shrink-0 ml-2 ${textSub}`}>{conv.lastTime}</span>
+                    <p className={`text-sm font-bold truncate ${textMain}`}>{conv.userName}</p>
+                    <span className={`text-[10px] font-medium flex-shrink-0 ml-2 ${textSub} opacity-70`}>{conv.lastTime}</span>
                   </div>
-                  {conv.userEmail && <p className={`text-[10px] truncate ${textSub} mb-1 opacity-80`}>{conv.userEmail}</p>}
-                  <p className={`text-xs truncate ${textSub}`}>{conv.lastMessage}</p>
-                  {conv.donationRef && (
-                    <span className="text-xs text-green-500 font-mono">{conv.donationRef}</span>
-                  )}
+                  {conv.userEmail && <p className={`text-[11px] truncate ${textSub} mb-1 opacity-60`}>{conv.userEmail}</p>}
+                  <p className={`text-xs truncate ${isSelected ? 'text-green-600 dark:text-green-400 font-medium' : textSub} opacity-80`}>{conv.lastMessage}</p>
                 </div>
-                {/* Unread count hidden as requested */}
               </button>
             );
           })}
         </div>
       </div>
+    </div>
 
       {/* Chat Area */}
       <div className={`${!mobileShowChat ? 'hidden md:flex' : 'flex'} flex-1 flex-col min-w-0`}>
