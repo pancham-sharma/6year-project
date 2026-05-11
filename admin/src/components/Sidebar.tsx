@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Heart, Package, MapPin, Truck,
   Users, MessageSquare, Bell, BarChart3, Settings, ArrowLeft,
-  Utensils, Shirt, BookOpen, Coins, Leaf, X, Handshake, LayoutGrid, Banknote, Sprout, HandHeart, TreePine, Gift, ShoppingBag, GraduationCap
+  Utensils, Shirt, BookOpen, Coins, X, Handshake, LayoutGrid, Banknote, Sprout, HandHeart, TreePine, Gift, ShoppingBag, GraduationCap
 } from 'lucide-react';
 import { useSearch } from '../context/SearchContext';
 import { useState, useEffect } from 'react';
@@ -68,9 +68,10 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const [invRes, catRes] = await Promise.all([
+        const [invRes, catRes, chatRes] = await Promise.all([
           fetchAPI('/api/inventory/items/'),
-          fetchAPI('/api/donations/categories/')
+          fetchAPI('/api/donations/categories/'),
+          fetchAPI('/api/chat/messages/total_unread/')
         ]);
         
         const data = invRes.results || invRes || [];
@@ -78,6 +79,12 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
         data.forEach((item: any) => {
           countMap[item.category.toLowerCase()] = item.quantity;
         });
+
+        // Add chat unread count
+        if (chatRes && chatRes.count !== undefined) {
+          countMap['messages'] = chatRes.count;
+        }
+
         setCounts(countMap);
 
         // Update categories using the same logic as CategoryManagement
@@ -153,7 +160,11 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
         {!collapsed && counts[item.id] !== undefined && (
           <>
             {!isCategory ? (
-              <span className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold ${isActiveItem ? 'bg-green-500 text-white' : (darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500')}`}>
+              <span className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                item.id === 'messages' && counts[item.id] > 0 
+                  ? 'bg-red-500 text-white animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.4)]' 
+                  : isActiveItem ? 'bg-green-500 text-white' : (darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500')
+              }`}>
                 {counts[item.id]}
               </span>
             ) : (

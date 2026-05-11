@@ -55,12 +55,79 @@ class MessageViewSet(viewsets.ModelViewSet):
         return Response({"status": "success"})
 
     @action(detail=False, methods=['get'])
+    def total_unread(self, request):
+        count = Message.objects.filter(receiver=request.user, is_read=False).count()
+        return Response({"count": count})
+
+    @action(detail=False, methods=['get'])
     def unread_counts(self, request):
         from django.db.models import Count
         counts = Message.objects.filter(receiver=request.user, is_read=False)\
             .values('sender')\
             .annotate(unread_count=Count('id'))
         return Response([{"user_id": c['sender'], "unread_count": c['unread_count']} for c in counts])
+
+    @action(detail=False, methods=['get'])
+    def conversations(self, request):
+        from django.db.models import Q
+        from users.models import User
+        from users.serializers import UserSerializer
+
+        user = request.user
+        
+        # 1. Find all users who have exchanged messages with current user
+        messages = Message.objects.filter(Q(sender=user) | Q(receiver=user)).order_by('-timestamp')
+        participant_ids = list(messages.values_list('sender_id', flat=True)) + \
+                          list(messages.values_list('receiver_id', flat=True))
+        
+        # Filter and unique IDs
+        participant_ids = list(set(filter(None, participant_ids)))
+        if user.id in participant_ids:
+            participant_ids.remove(user.id)
+        
+        results = []
+        already_added = set()
+        
+        # Process users with messages
+        for p_id in participant_ids:
+            try:
+                p_user = User.objects.get(id=p_id)
+                last_msg = Message.objects.filter(
+                    (Q(sender=user) & Q(receiver=p_user)) | 
+                    (Q(sender=p_user) & Q(receiver=user))
+                ).order_by('-timestamp').first()
+                
+                unread_count = Message.objects.filter(
+                    sender=p_user, receiver=user, is_read=False
+                ).count()
+                
+                user_data = UserSerializer(p_user, context={'request': request}).data
+                results.append({
+                    **user_data,
+                    'last_message': last_msg.message if last_msg else None,
+                    'last_message_time': last_msg.timestamp.isoformat() if last_msg else None,
+                    'unread_count': unread_count
+                })
+                already_added.add(p_id)
+            except User.DoesNotExist:
+                continue
+                
+        # 2. If admin, add users who have NO messages yet
+        if user.is_staff or getattr(user, 'role', '') == 'ADMIN':
+            other_users = User.objects.exclude(id__in=already_added).exclude(id=user.id)
+            for o_user in other_users:
+                user_data = UserSerializer(o_user, context={'request': request}).data
+                results.append({
+                    **user_data,
+                    'last_message': None,
+                    'last_message_time': None,
+                    'unread_count': 0
+                })
+        
+        # Sort by last message time (latest first), then by username
+        results.sort(key=lambda x: (x['last_message_time'] is not None, x['last_message_time'] or '', x['username']), reverse=True)
+        
+        return Response(results)
 
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer

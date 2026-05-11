@@ -123,6 +123,8 @@ export default function Dashboard() {
     if (location.state?.donated) {
       setShowDonationToast(true);
       const timer = setTimeout(() => setShowDonationToast(false), 4000);
+      // Clear navigation state so it doesn't show again on refresh
+      window.history.replaceState({}, document.title);
       return () => clearTimeout(timer);
     }
     if (location.state?.tab) {

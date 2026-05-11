@@ -121,9 +121,9 @@ export default function Messages({ darkMode }: Props) {
       userEmail: u.email,
       avatar: (u.first_name || u.username || 'U').charAt(0).toUpperCase(),
       unread: u.unread_count || 0,
-      lastMessage: '...',
-      lastTime: '',
-    })).sort((a: any, b: any) => b.unread - a.unread);
+      lastMessage: u.last_message || 'No messages yet',
+      lastTime: u.last_message_time ? new Date(u.last_message_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+    }));
   }, [rawConversations]);
 
   const activeConv = useMemo(() => {

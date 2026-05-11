@@ -1,18 +1,7 @@
 import { fetchAPI } from '../utils/api';
 
 export const getConversations = async () => {
-  const [users, unread] = await Promise.all([
-    fetchAPI('/api/users/list/'),
-    fetchAPI('/api/chat/messages/unread_counts/')
-  ]);
-  
-  const usersList = users.results || users || [];
-  const unreadCounts = unread || [];
-  
-  return usersList.map((u: any) => ({
-    ...u,
-    unread_count: unreadCounts.find((c: any) => String(c.user_id) === String(u.id))?.unread_count || 0
-  }));
+  return fetchAPI('/api/chat/messages/conversations/');
 };
 
 export const getMessages = async ({ pageParam = 1, otherUserId }: { pageParam?: number, otherUserId: string }) => {
