@@ -16,6 +16,7 @@ class Message(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_edited = models.BooleanField(default=False)
     is_read = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
 
     class Meta:
@@ -63,7 +64,7 @@ def handle_message_sync(sender, instance, created, **kwargs):
                 message=instance.message[:100] + ("..." if len(instance.message) > 100 else "")
             )
 
-    # 2. Broadcast Message Update (for both create and edit)
+    # 2. Broadcast Message Update (for create, edit, or soft-delete)
     try:
         from channels.layers import get_channel_layer
         from asgiref.sync import async_to_sync
@@ -72,7 +73,13 @@ def handle_message_sync(sender, instance, created, **kwargs):
         channel_layer = get_channel_layer()
         if channel_layer:
             msg_data = MessageSerializer(instance).data
-            event_type = "chat_update" if created else "chat_edit"
+            
+            if getattr(instance, '_was_deleted', False) or instance.is_deleted:
+                event_type = "chat_delete"
+            elif created:
+                event_type = "chat_update"
+            else:
+                event_type = "chat_edit"
             
             # Determine room group
             ids = sorted([int(instance.sender.id), int(instance.receiver.id)])
@@ -81,11 +88,11 @@ def handle_message_sync(sender, instance, created, **kwargs):
             # Broadcast to room
             async_to_sync(channel_layer.group_send)(
                 room_group,
-                {"type": event_type, "message": msg_data}
+                {"type": event_type, "message": msg_data, "message_id": instance.id}
             )
             
             # For new messages, also notify receiver's personal group
-            if created:
+            if created and not instance.is_deleted:
                 async_to_sync(channel_layer.group_send)(
                     f"user_{instance.receiver.id}",
                     {"type": "chat_update", "message": msg_data}

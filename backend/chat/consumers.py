@@ -18,6 +18,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.group_name = f"user_{self.user_id}"
             await self.channel_layer.group_add(self.group_name, self.channel_name)
             
+            # Update online status
+            await self.update_user_online_status(True)
+            
             # If admin, join the shared admin group to see all incoming messages
             if self.user.is_staff or getattr(self.user, 'role', '') == 'ADMIN':
                 await self.channel_layer.group_add("admins", self.channel_name)
@@ -25,6 +28,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.accept()
 
     async def disconnect(self, close_code):
+        # Update online status
+        if self.user.is_authenticated:
+            await self.update_user_online_status(False)
+            
+            # Broadcast offline status if in a room
+            if hasattr(self, 'active_room'):
+                await self.channel_layer.group_send(
+                    self.active_room,
+                    {
+                        "type": "chat_user_status",
+                        "user_id": str(self.user.id),
+                        "is_online": False
+                    }
+                )
+            
         # Discard from all joined rooms
         if hasattr(self, 'group_name'):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
@@ -60,6 +78,40 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.channel_layer.group_add(self.active_room, self.channel_name)
                 self.old_room = self.active_room
                 print(f"User {self.user.username} joined room {self.active_room}")
+                
+                # Broadcast that I'm online to this room
+                await self.channel_layer.group_send(
+                    self.active_room,
+                    {
+                        "type": "chat_user_status",
+                        "user_id": str(self.user.id),
+                        "is_online": True
+                    }
+                )
+
+        elif action == 'typing':
+            if hasattr(self, 'active_room'):
+                await self.channel_layer.group_send(
+                    self.active_room,
+                    {
+                        "type": "chat_typing",
+                        "user_id": str(self.user.id),
+                        "username": self.user.username,
+                        "is_typing": True
+                    }
+                )
+
+        elif action == 'stop_typing':
+            if hasattr(self, 'active_room'):
+                await self.channel_layer.group_send(
+                    self.active_room,
+                    {
+                        "type": "chat_typing",
+                        "user_id": str(self.user.id),
+                        "username": self.user.username,
+                        "is_typing": False
+                    }
+                )
 
         elif action == 'edit_message':
             msg_id = data.get('message_id')
@@ -68,7 +120,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         elif action == 'delete_message':
             msg_id = data.get('message_id')
-            await self.delete_message_db(msg_id)
+            # Handle "Delete for everyone" vs "Delete for me"
+            delete_type = data.get('delete_type', 'everyone') 
+            if delete_type == 'everyone':
+                await self.soft_delete_message(msg_id)
+            else:
+                await self.delete_message_db(msg_id) # Hard delete for me (simulated)
 
         elif action == 'send_message':
             receiver_id = data.get('receiver_id')
@@ -76,6 +133,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             # Save message to database (this triggers post_save signal which handles all broadcasts)
             await self.save_message(self.user, receiver_id, message_body)
+
+    async def chat_typing(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "typing",
+            "user_id": event["user_id"],
+            "username": event["username"],
+            "is_typing": event["is_typing"]
+        }))
 
     async def chat_update(self, event):
         # Send message to WebSocket
@@ -127,6 +192,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 receiver_id = msg.receiver.id
                 msg.delete()
                 return {'sender': sender_id, 'receiver': receiver_id}
+        except:
+            pass
+        return None
+
+    @database_sync_to_async
+    def update_user_online_status(self, is_online):
+        try:
+            # We use a filter update to avoid signal loops if any
+            User.objects.filter(id=self.user.id).update(is_online=is_online)
+        except:
+            pass
+
+    async def chat_user_status(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "user_status",
+            "user_id": event["user_id"],
+            "is_online": event["is_online"]
+        }))
+
+    @database_sync_to_async
+    def soft_delete_message(self, msg_id):
+        try:
+            msg = Message.objects.get(id=msg_id)
+            is_admin = self.user.is_staff or getattr(self.user, 'role', '') == 'ADMIN'
+            if msg.sender == self.user or is_admin:
+                msg.is_deleted = True
+                msg.save()
+                return MessageSerializer(msg).data
         except:
             pass
         return None

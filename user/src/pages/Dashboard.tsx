@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useLocation } from 'react-router-dom';
 import { 
   User, MapPin, Clock, HandHeart, TreePine, Utensils,
-  CheckCircle, Package, Loader, Mail, Send, Truck, Calendar, LogOut, 
+  CheckCircle, Check, CheckCheck, Package, Loader, Mail, Send, Truck, Calendar, LogOut, 
   Users, GraduationCap, Megaphone, HeartPulse, Shirt, Apple, 
   MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Sprout, Heart
 } from 'lucide-react';
@@ -82,6 +82,18 @@ export default function Dashboard() {
     enabled: !!appUser.id,
     refetchInterval: 30000,
   });
+  
+  const { data: unreadChatCount, refetch: refetchUnreadChat } = useQuery({
+    queryKey: ['unread-chat-count'],
+    queryFn: () => fetchAPI('/api/chat/messages/total_unread/'),
+    refetchInterval: 30000,
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => refetchUnreadChat();
+    window.addEventListener('chatMessagesUpdated', handleUpdate);
+    return () => window.removeEventListener('chatMessagesUpdated', handleUpdate);
+  }, [refetchUnreadChat]);
 
   // Sync notifications to context
   useEffect(() => {
@@ -165,6 +177,9 @@ export default function Dashboard() {
   }, [chatHistory]);
 
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [isRemoteTyping, setIsRemoteTyping] = useState(false);
+  const [adminOnline, setAdminOnline] = useState(false);
+  const typingTimeoutRef = useRef<any>(null);
 
   // WebSocket Connection
   useEffect(() => {
@@ -207,12 +222,21 @@ export default function Dashboard() {
           }
           return [...prev, m];
         });
+        window.dispatchEvent(new Event('chatMessagesUpdated'));
       } else if (data.type === 'edit_message') {
         const m = data.message;
         setMessages((prev: any[]) => prev.map((msg: any) => String(msg.id) === String(m.id) ? m : msg));
       } else if (data.type === 'delete_message') {
         const mid = data.message_id;
         setMessages((prev: any[]) => prev.map((msg: any) => String(msg.id) === String(mid) ? { ...msg, message: '[Message Deleted]', isDeleted: true } : msg));
+      } else if (data.type === 'typing') {
+        if (String(data.user_id) === String(adminId)) {
+          setIsRemoteTyping(data.is_typing);
+        }
+      } else if (data.type === 'user_status') {
+        if (String(data.user_id) === String(adminId)) {
+          setAdminOnline(data.is_online);
+        }
       }
     };
 
@@ -538,6 +562,11 @@ export default function Dashboard() {
               }`}>
               <tab.icon className="w-4 h-4" />
               {tab.label}
+              {tab.key === 'messages' && unreadChatCount?.count > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
+                  {unreadChatCount.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -882,12 +911,18 @@ export default function Dashboard() {
                         </div>
                         <div>
                           <h3 className={`text-xl font-black ${dark ? 'text-white' : 'text-gray-900'}`}>Support Center</h3>
-                          <p className={`text-xs font-bold ${dark ? 'text-teal-400/80' : 'text-teal-600'}`}>Chatting with Administrator</p>
+                          {isRemoteTyping ? (
+                            <p className="text-[10px] font-bold text-teal-500 animate-pulse">Administrator is typing...</p>
+                          ) : (
+                            <p className={`text-xs font-bold ${dark ? 'text-teal-400/80' : 'text-teal-600'}`}>Chatting with Administrator</p>
+                          )}
                         </div>
                       </div>
                       <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 ${dark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'}`}>
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${dark ? 'text-gray-400' : 'text-slate-500'}`}>Agent Online</span>
+                        <div className={`w-1.5 h-1.5 rounded-full ${adminOnline ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse' : 'bg-gray-400'}`} />
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${dark ? 'text-gray-400' : 'text-slate-500'}`}>
+                          {adminOnline ? 'Agent Online' : 'Agent Offline'}
+                        </span>
                       </div>
                     </div>
                     
@@ -936,15 +971,26 @@ export default function Dashboard() {
                             ) : (
                               <>
                                 <p className={`text-sm leading-relaxed whitespace-pre-wrap ${m.isDeleted ? 'italic opacity-50 text-[11px]' : ''}`}>
-                                  {m.message}
+                                  {m.isDeleted ? '🚫 This message was deleted' : m.message}
                                 </p>
                                 <div className="flex items-center justify-between mt-1 gap-4">
                                   <span className="text-[8px] opacity-40 uppercase tracking-tighter">
                                     {m.is_edited ? 'edited' : ''}
                                   </span>
-                                  <p className={`text-[9px] text-right opacity-60`}>
-                                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </p>
+                                    <div className="flex items-center gap-1.5">
+                                      <p className={`text-[9px] text-right opacity-60`}>
+                                        {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </p>
+                                      {isMe && (
+                                        <div className="flex items-center">
+                                          {m.is_read ? (
+                                            <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                                          ) : (
+                                            <Check className="w-3.5 h-3.5 text-white/50" />
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
                                 </div>
                               </>
                             )}
@@ -993,7 +1039,16 @@ export default function Dashboard() {
                     <input 
                       type="text" 
                       value={replyText} 
-                      onChange={e => setReplyText(e.target.value)}
+                      onChange={e => {
+                        setReplyText(e.target.value);
+                        if (ws?.readyState === WebSocket.OPEN) {
+                          ws.send(JSON.stringify({ action: 'typing' }));
+                          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                          typingTimeoutRef.current = setTimeout(() => {
+                            ws.send(JSON.stringify({ action: 'stop_typing' }));
+                          }, 3000);
+                        }
+                      }}
                       onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
                       placeholder="Type your message to admin..." 
                       className={`w-full pl-5 pr-14 py-4 rounded-2xl border-2 transition-all ${

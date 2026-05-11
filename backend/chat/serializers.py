@@ -12,7 +12,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['id', 'sender', 'sender_username', 'sender_is_staff', 'sender_full_name', 'sender_email', 'receiver', 'receiver_username', 'receiver_full_name', 'receiver_email', 'message', 'attachment_url', 'timestamp', 'updated_at', 'is_edited', 'is_read', 'status']
+        fields = ['id', 'sender', 'sender_username', 'sender_is_staff', 'sender_full_name', 'sender_email', 'receiver', 'receiver_username', 'receiver_full_name', 'receiver_email', 'message', 'attachment_url', 'timestamp', 'updated_at', 'is_edited', 'is_read', 'is_deleted', 'status']
         read_only_fields = ['sender', 'timestamp', 'updated_at', 'is_edited', 'is_read']
 
     def get_sender_full_name(self, obj):

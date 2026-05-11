@@ -26,6 +26,9 @@ export default function Messages({ darkMode }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [mobileShowChat, setMobileShowChat] = useState(false);
+  const [isRemoteTyping, setIsRemoteTyping] = useState(false);
+  const [isRemoteOnline, setIsRemoteOnline] = useState(false);
+  const typingTimeoutRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -92,6 +95,15 @@ export default function Messages({ darkMode }: Props) {
       if (data.type === 'new_message' || data.type === 'edit_message' || data.type === 'delete_message') {
         queryClient.invalidateQueries({ queryKey: ['messages', activeId] });
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        window.dispatchEvent(new Event('chatMessagesUpdated'));
+      } else if (data.type === 'typing') {
+        if (String(data.user_id) === String(activeId)) {
+          setIsRemoteTyping(data.is_typing);
+        }
+      } else if (data.type === 'user_status') {
+        if (String(data.user_id) === String(activeId)) {
+          setIsRemoteOnline(data.is_online);
+        }
       }
     };
 
@@ -137,6 +149,7 @@ export default function Messages({ darkMode }: Props) {
         type: m.sender_is_staff ? 'sent' : 'received',
         is_read: m.is_read,
         is_edited: m.is_edited,
+        isDeleted: m.is_deleted,
         timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }))
     };
@@ -233,9 +246,9 @@ export default function Messages({ darkMode }: Props) {
   };
 
   const deleteMessage = async (msgId: any) => {
-    if (!confirm("Delete?")) return;
+    const type = confirm("Delete for everyone? (Cancel for just me)") ? 'everyone' : 'me';
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action: 'delete_message', message_id: msgId }));
+      wsRef.current.send(JSON.stringify({ action: 'delete_message', message_id: msgId, delete_type: type }));
     } else {
       await fetchAPI(`/api/chat/messages/${msgId}/`, { method: 'DELETE' });
       queryClient.invalidateQueries({ queryKey: ['messages', activeId] });
@@ -337,9 +350,10 @@ export default function Messages({ darkMode }: Props) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className={`font-bold text-sm ${textMain}`}>{activeConv?.userName}</p>
-                <p className={`text-xs ${textSub} truncate`}>{activeConv?.userEmail}</p>
-                {activeConv?.donationRef && (
-                  <p className="text-xs text-green-500 font-mono">Ref: {activeConv.donationRef}</p>
+                {isRemoteTyping ? (
+                  <p className="text-[10px] text-green-500 font-bold animate-pulse">Typing...</p>
+                ) : (
+                  <p className={`text-xs ${textSub} truncate`}>{isRemoteOnline ? 'Online' : (activeConv?.userEmail || 'Offline')}</p>
                 )}
               </div>
               <div className="flex gap-1">
@@ -398,7 +412,9 @@ export default function Messages({ darkMode }: Props) {
                         </div>
                       ) : (
                         <div className="flex flex-col">
-                          <p className={msg.isDeleted ? 'italic opacity-50' : ''}>{msg.text}</p>
+                          <p className={msg.isDeleted ? 'italic opacity-50' : ''}>
+                            {msg.isDeleted ? '🚫 This message was deleted' : msg.text}
+                          </p>
                           {msg.is_edited && !msg.isDeleted && (
                             <span className={`text-[8px] mt-1 opacity-50 uppercase tracking-tighter ${msg.type === 'sent' ? 'text-white' : textSub}`}>
                               Edited
@@ -463,7 +479,16 @@ export default function Messages({ darkMode }: Props) {
                     className="bg-transparent outline-none text-sm flex-1"
                     placeholder="Type a message..."
                     value={input}
-                    onChange={e => setInput(e.target.value)}
+                    onChange={e => {
+                      setInput(e.target.value);
+                      if (wsRef.current?.readyState === WebSocket.OPEN) {
+                        wsRef.current.send(JSON.stringify({ action: 'typing' }));
+                        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                        typingTimeoutRef.current = setTimeout(() => {
+                          wsRef.current?.send(JSON.stringify({ action: 'stop_typing' }));
+                        }, 3000);
+                      }
+                    }}
                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendMessage(input))}
                   />
                 </div>

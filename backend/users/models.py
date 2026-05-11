@@ -15,6 +15,9 @@ class User(AbstractUser):
     
     is_email_verified = models.BooleanField(default=False)
     firebase_uid = models.CharField(max_length=128, blank=True, null=True, unique=True)
+    
+    is_online = models.BooleanField(default=False)
+    last_seen = models.DateTimeField(auto_now=True)
 
     def is_admin(self):
         return self.role == 'ADMIN'

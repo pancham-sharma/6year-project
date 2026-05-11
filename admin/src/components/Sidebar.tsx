@@ -112,11 +112,13 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
     
     const handleUpdate = () => fetchCounts();
     window.addEventListener('categoriesUpdated', handleUpdate);
+    window.addEventListener('chatMessagesUpdated', handleUpdate);
     
     const interval = setInterval(fetchCounts, 30000);
     return () => {
       clearInterval(interval);
       window.removeEventListener('categoriesUpdated', handleUpdate);
+      window.removeEventListener('chatMessagesUpdated', handleUpdate);
     };
   }, []);
 
@@ -160,11 +162,11 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
         {!collapsed && counts[item.id] !== undefined && (
           <>
             {!isCategory ? (
-               item.id !== 'messages' && (
-                <span className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold ${isActiveItem ? 'bg-green-500 text-white' : (darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500')}`}>
+            (
+                <span className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white`}>
                   {counts[item.id]}
                 </span>
-               )
+            )
             ) : (
               hasNew && <span className="ml-auto w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)] animate-pulse" />
             )}
