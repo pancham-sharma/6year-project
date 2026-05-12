@@ -89,8 +89,8 @@ export default function App() {
 
     const fetchCategories = async () => {
       try {
-        const res = await fetchAPI('/api/donations/categories/');
-        const categoriesData = Array.isArray(res) ? res : (res.data || res.results || []);
+        const res = await fetchAPI('/api/donations/categories/?limit=100');
+        const categoriesData = Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
         
         const newTitles = { ...initialPageTitles };
         const newMap = { ...initialCategoryMap };

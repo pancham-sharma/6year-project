@@ -39,14 +39,17 @@ class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all().order_by('name')
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrReadOnly]
-
-
+    pagination_class = CustomPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['is_active']
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'id']
 
     def get_queryset(self):
         user = self.request.user
         if user.is_authenticated and (user.is_staff or getattr(user, 'role', '') == 'ADMIN'):
-            return Category.objects.all()
-        return Category.objects.filter(is_active=True)
+            return Category.objects.all().order_by('name')
+        return Category.objects.filter(is_active=True).order_by('name')
 
 
 from utils.pagination import CustomPagination

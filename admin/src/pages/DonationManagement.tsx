@@ -58,10 +58,13 @@ export default function DonationManagement({ darkMode }: Props) {
 
   const { data: catData } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => fetchAPI('/api/donations/categories/'),
+    queryFn: async () => {
+      const res = await fetchAPI('/api/donations/categories/?limit=100');
+      return Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
+    },
   });
 
-  const CATEGORIES = (catData?.data || catData?.results || catData || []).map((c: any) => c.name);
+  const CATEGORIES = Array.isArray(catData) ? catData.map((c: any) => c.name) : [];
   const STATUSES = ['Pending', 'Scheduled', 'Completed', 'Cancelled'];
 
   // Reset page when filters change

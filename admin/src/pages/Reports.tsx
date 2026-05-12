@@ -22,12 +22,12 @@ export default function Reports({ darkMode }: Props) {
           fetchAPI('/api/donations/').catch(() => []),
           fetchAPI('/api/inventory/items/').catch(() => []),
           fetchAPI('/api/users/list/').catch(() => []),
-          fetchAPI('/api/donations/categories/').catch(() => [])
+          fetchAPI('/api/donations/categories/?limit=100').catch(() => [])
         ]);
         setDonations(Array.isArray(donsRes) ? donsRes : (donsRes?.data || donsRes?.results || []));
         setInventory(Array.isArray(invRes) ? invRes : (invRes?.data || invRes?.results || []));
         setUsers(Array.isArray(usersRes) ? usersRes : (usersRes?.data || usersRes?.results || []));
-        const categories = Array.isArray(catRes) ? catRes : (catRes?.data || catRes?.results || []);
+        const categories = Array.isArray(catRes) ? catRes : (catRes?.data ?? catRes?.results ?? []);
         setCategories(categories);
 
       } catch (err) {

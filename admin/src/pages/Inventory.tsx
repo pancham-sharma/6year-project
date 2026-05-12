@@ -54,12 +54,14 @@ export default function Inventory({ darkMode }: Props) {
   // React Query for Categories to get icons/units
   const { data: catData } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => fetchAPI('/api/donations/categories/'),
+    queryFn: async () => {
+      const res = await fetchAPI('/api/donations/categories/?limit=100');
+      return Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
+    },
   });
 
   const categoriesList = useMemo(() => {
-    const data = catData?.data || catData?.results || catData || [];
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(catData) ? catData : [];
   }, [catData]);
   
   // React Query for Inventory Items

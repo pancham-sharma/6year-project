@@ -21,12 +21,15 @@ export default function CategoryPage({ darkMode, category }: Props) {
 
   const { data: catData } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => fetchAPI('/api/donations/categories/'),
+    queryFn: async () => {
+      const res = await fetchAPI('/api/donations/categories/?limit=100');
+      return Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
+    },
   });
 
   const cfg = useMemo(() => {
-    const categories = catData?.results || catData || [];
-    const cat = Array.isArray(categories) ? categories.find((c: any) => c.name.toLowerCase() === category.toLowerCase()) : null;
+    const categories = Array.isArray(catData) ? catData : [];
+    const cat = categories.find((c: any) => c.name.toLowerCase() === category.toLowerCase());
     
     const iconMap: Record<string, string> = {
       utensils: '🍲', bookopen: '📚', shirt: '👕', banknote: '💵', sprout: '🌱',

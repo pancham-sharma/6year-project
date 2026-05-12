@@ -10,7 +10,8 @@ export const getUserDonations = async (page: number = 1, limit: number = 5) => {
 };
 
 export const getCategories = async () => {
-  return await fetchAPI('/api/donations/categories/');
+  const res = await fetchAPI('/api/donations/categories/?limit=100');
+  return Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
 };
 
 export const getUserStats = async () => {

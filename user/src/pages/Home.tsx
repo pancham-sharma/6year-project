@@ -120,7 +120,10 @@ export default function Home() {
 
   const { data: categoriesDataRaw } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => fetchAPI('/api/donations/categories/'),
+    queryFn: async () => {
+      const res = await fetchAPI('/api/donations/categories/?limit=100');
+      return Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
+    },
     staleTime: 10 * 60 * 1000,
     placeholderData: defaultCategories
   });
@@ -138,7 +141,7 @@ export default function Home() {
   }), [statsData]);
 
   const categories = useMemo(() => {
-    const raw = Array.isArray(categoriesDataRaw) ? categoriesDataRaw : (categoriesDataRaw?.results || []);
+    const raw = Array.isArray(categoriesDataRaw) ? categoriesDataRaw : [];
     
     // Filter out inactive and deduplicate by name
     const unique = raw.reduce((acc: any[], current: any) => {

@@ -90,12 +90,14 @@ export default function Dashboard({ darkMode }: Props) {
   // React Query for Categories
   const { data: catData } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => fetchAPI('/api/donations/categories/'),
+    queryFn: async () => {
+      const res = await fetchAPI('/api/donations/categories/?limit=100');
+      return Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
+    },
   });
 
   const categoriesList = useMemo(() => {
-    const data = catData?.results || catData || [];
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(catData) ? catData : [];
   }, [catData]);
 
   const getStatusColor = (status: string) => {

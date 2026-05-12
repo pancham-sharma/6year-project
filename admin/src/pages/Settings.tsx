@@ -102,8 +102,8 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const data = await fetchAPI('/api/donations/categories/');
-      const res = Array.isArray(data) ? data : (data.results || []);
+      const data = await fetchAPI('/api/donations/categories/?limit=100');
+      const res = Array.isArray(data) ? data : (data?.data ?? data?.results ?? []);
       const dbCategories = res.filter((cat: any) => 
         !permanentCategories.some(p => p.name.toLowerCase() === cat.name.toLowerCase())
       );

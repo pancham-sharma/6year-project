@@ -70,7 +70,7 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
       try {
         const [invRes, catRes, chatRes] = await Promise.all([
           fetchAPI('/api/inventory/items/'),
-          fetchAPI('/api/donations/categories/'),
+          fetchAPI('/api/donations/categories/?limit=100'),
           fetchAPI('/api/chat/messages/total_unread/')
         ]);
         
