@@ -101,6 +101,7 @@ export default function Auth() {
         image: res.user.profile_picture || ''
       });
       setIsLoggedIn(true);
+      localStorage.setItem('dashboard_tab', 'history');
       navigate('/dashboard');
     }
   };

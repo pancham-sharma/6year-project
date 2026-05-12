@@ -528,7 +528,7 @@ export default function Dashboard() {
           <div className="absolute inset-0 opacity-10 bg-gradient-to-br from-brand to-transparent" />
           <div className="relative z-10">
             <h2 className="text-xl font-bold mb-1">{t.dashboard.impact}</h2>
-            <p className="text-white/80 text-sm mb-6">You've helped approximately <span className="text-2xl font-bold">{impactMetrics[0]?.value || 0}</span> people through your kindness.</p>
+            <p className="text-white/80 text-sm mb-6">You've helped approximately <span className="text-2xl font-bold">{impactMetrics.reduce((acc: number, m: any) => acc + (m.value || 0), 0) || totalDonations}</span> people through your kindness.</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
                 <Package className={`w-6 h-6 mx-auto mb-2 text-brand`} />
@@ -813,17 +813,6 @@ export default function Dashboard() {
               {/* Volunteer Status */}
               {activeTab === 'volunteer' && (
                 <div className="animate-fade-in">
-                  {appUser.role === 'VOLUNTEER' && (
-                    <div className={`mb-8 p-6 rounded-3xl border-2 flex items-center gap-6 ${dark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
-                      <div className="w-16 h-16 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-lg">
-                        <CheckCircle className="w-8 h-8" />
-                      </div>
-                      <div>
-                        <h4 className={`text-xl font-bold ${dark ? 'text-white' : 'text-emerald-900'}`}>You are an Active Volunteer! 🌟</h4>
-                        <p className={`text-sm ${dark ? 'text-emerald-300' : 'text-emerald-700'}`}>Thank you for your dedication to making the world a better place.</p>
-                      </div>
-                    </div>
-                  )}
                   
                   <h3 className={`text-lg font-bold mb-6 ${dark ? 'text-white' : 'text-gray-900'}`}>Volunteer Applications</h3>
                   <div className="space-y-4">

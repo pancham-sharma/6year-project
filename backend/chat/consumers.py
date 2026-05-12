@@ -88,6 +88,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         "is_online": True
                     }
                 )
+                
+                # Also send the status of the other user in the room to the joining user
+                try:
+                    other_uid = str(room_id).replace(str(self.user.id), '').replace('_', '')
+                    if other_uid:
+                        other_user_status = await self.get_user_status(other_uid)
+                        await self.send(text_data=json.dumps({
+                            "type": "user_status",
+                            "user_id": str(other_uid),
+                            "is_online": other_user_status
+                        }))
+                except:
+                    pass
 
         elif action == 'typing':
             if hasattr(self, 'active_room'):
@@ -229,6 +242,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             u = User.objects.get(id=user_id)
             return u.is_staff or getattr(u, 'role', '') == 'ADMIN'
+        except User.DoesNotExist:
+            return False
+
+    @database_sync_to_async
+    def get_user_status(self, user_id):
+        try:
+            u = User.objects.get(id=user_id)
+            return u.is_online
         except User.DoesNotExist:
             return False
 
