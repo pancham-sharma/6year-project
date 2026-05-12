@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLocation } from 'react-router-dom';
 import { 
@@ -7,7 +7,7 @@ import {
   Users, GraduationCap, Megaphone, HeartPulse, Shirt, Apple, 
   MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Sprout, Heart
 } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, getWSUrl } from '../utils/api';
 import { getUserDonations, getUserStats } from '../api/donations';
 import { DonationItem } from '../components/dashboard/DonationItem';
@@ -64,10 +64,22 @@ export default function Dashboard() {
     enabled: !!appUser.id,
   });
 
-  const { data: chatHistory } = useQuery({
+  const { 
+    data: chatHistory, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage,
+    isLoading: loadingChat
+  } = useInfiniteQuery({
     queryKey: ['chat-messages', adminId],
-    queryFn: () => fetchAPI(`/api/chat/messages/?other_user_id=${adminId}`),
+    queryFn: ({ pageParam = 1 }) => fetchAPI(`/api/chat/messages/?other_user_id=${adminId}&page=${pageParam}&limit=20`),
     enabled: !!appUser.id && !!adminId,
+    getNextPageParam: (lastPage: any) => {
+      const meta = lastPage.meta;
+      if (meta && meta.hasNext) return meta.page + 1;
+      return undefined;
+    },
+    initialPageParam: 1,
     refetchInterval: activeTab === 'messages' ? 10000 : false,
   });
 
@@ -178,12 +190,34 @@ export default function Dashboard() {
   // Sync chatMessages from chatHistory query
   useEffect(() => {
     if (chatHistory) {
-      const msgData = chatHistory.results || chatHistory.data || chatHistory || [];
-      const rawMsgs = Array.isArray(msgData) ? msgData.filter((m: any) => m.status !== 'Recycled') : [];
+      const allPages = chatHistory.pages || [];
+      const rawMsgs = allPages.flatMap((page: any) => {
+        const msgData = page.results || page.data || page || [];
+        return Array.isArray(msgData) ? msgData.filter((m: any) => m.status !== 'Recycled') : [];
+      });
+      
+      // Sort chronologically (oldest first for chat display)
       const sorted = [...rawMsgs].sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
       setMessages(sorted);
     }
   }, [chatHistory]);
+
+  const topRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!topRef.current || !hasNextPage || isFetchingNextPage) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    observer.observe(topRef.current);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isRemoteTyping, setIsRemoteTyping] = useState(false);
@@ -932,7 +966,14 @@ export default function Dashboard() {
                       ref={chatContainerRef}
                       className={`flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar`}
                     >
-                    {messages.length === 0 ? (
+                      <div ref={topRef} className="h-1" />
+                      {isFetchingNextPage && (
+                        <div className="flex justify-center py-2">
+                          <Loader className="w-5 h-5 animate-spin text-[#0d9488]" />
+                        </div>
+                      )}
+                      
+                      {messages.length === 0 && !loadingChat ? (
                       <div className="h-full flex items-center justify-center">
                         <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>No messages yet. Send a message to start the conversation.</p>
                       </div>

@@ -110,16 +110,24 @@ export default function Messages({ darkMode }: Props) {
         queryClient.setQueryData(['conversations'], (old: any) => {
           if (!old) return old;
           const convs = [...old];
-          const idx = convs.findIndex((c: any) => String(c.id) === String(msg.sender) || String(c.id) === String(msg.receiver));
+          const isFromMe = String(msg.sender) === String(myId);
+          const otherId = isFromMe ? String(msg.receiver) : String(msg.sender);
+          
+          const idx = convs.findIndex((c: any) => String(c.id) === otherId);
+          
           if (idx !== -1) {
             const [target] = convs.splice(idx, 1);
             target.last_message = msg.message;
             target.last_message_time = msg.timestamp;
             // If message is from user and not current active chat, increase unread
-            if (String(msg.sender) === String(target.id) && String(activeId) !== String(target.id)) {
+            if (!isFromMe && String(activeId) !== otherId) {
               target.unread_count = (target.unread_count || 0) + 1;
             }
             convs.unshift(target);
+          } else {
+            // New conversation! (Need to fetch user info or use what we have)
+            // For now, let's just invalidate to be safe, or add a placeholder
+            queryClient.invalidateQueries({ queryKey: ['conversations'] });
           }
           return convs;
         });
@@ -297,7 +305,15 @@ export default function Messages({ darkMode }: Props) {
     const stringId = String(id);
     setActiveId(stringId);
     setMobileShowChat(true);
-    markChatAsRead(stringId).then(() => {
+    
+    // Optimistically clear unread count in sidebar
+    queryClient.setQueryData(['conversations'], (old: any) => {
+      if (!old) return old;
+      return old.map((c: any) => String(c.id) === stringId ? { ...c, unread_count: 0 } : c);
+    });
+
+    markChatAsRead(stringId).catch(err => {
+      console.error("Failed to mark as read", err);
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     });
   };

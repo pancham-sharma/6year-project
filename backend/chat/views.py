@@ -64,7 +64,20 @@ class MessageViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def total_unread(self, request):
-        count = Message.objects.filter(receiver=request.user, is_read=False).count()
+        user = request.user
+        is_admin = user.is_staff or getattr(user, 'role', '') == 'ADMIN'
+        
+        if is_admin:
+            # Count unread messages from non-staff to ANY staff/admin
+            count = Message.objects.filter(
+                is_read=False
+            ).exclude(sender__is_staff=True).exclude(sender__role='ADMIN').filter(
+                Q(receiver__is_staff=True) | Q(receiver__role='ADMIN')
+            ).count()
+        else:
+            # Regular user counts messages sent to them
+            count = Message.objects.filter(receiver=user, is_read=False).count()
+            
         return Response({"count": count})
 
     @action(detail=False, methods=['get'])
