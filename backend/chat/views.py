@@ -1,8 +1,11 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, filters
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
 from .models import Message, Notification
 from .serializers import MessageSerializer, NotificationSerializer
+from django_filters.rest_framework import DjangoFilterBackend
+
 
 from utils.pagination import CustomPagination
 
@@ -10,6 +13,9 @@ class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['status']
+    search_fields = ['message_body']
 
     def get_queryset(self):
         try:
@@ -47,7 +53,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)
 
-    from rest_framework.decorators import action
+
     @action(detail=False, methods=['post'])
     def mark_read(self, request):
         other_user_id = request.data.get('other_user_id')
@@ -184,10 +190,14 @@ class MessageViewSet(viewsets.ModelViewSet):
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['status']
+    search_fields = ['title', 'message']
 
     def get_queryset(self):
         try:
-            return Notification.objects.filter(user=self.request.user)
+            return Notification.objects.filter(user=self.request.user).select_related('user').order_by('-timestamp')
         except Exception as e:
             print(f"Notification Query Error: {e}")
             return Notification.objects.none()

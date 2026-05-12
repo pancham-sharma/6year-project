@@ -14,7 +14,6 @@ class CustomPagination(PageNumberPagination):
                 'page': self.page.number,
                 'totalPages': self.page.paginator.num_pages,
                 'hasNext': self.get_next_link() is not None,
-                'hasPrev': self.get_previous_link() is not None,
-                'limit': self.get_page_size(self.request)
+                'hasPrev': self.get_previous_link() is not None
             }
         })

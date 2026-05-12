@@ -52,21 +52,6 @@ class Donation(models.Model):
         ordering = ['-timestamp']
 
     def save(self, *args, **kwargs):
-        # If status is changing to Completed, update inventory
-        if self.pk:
-            old_status = Donation.objects.get(pk=self.pk).status
-            if old_status != 'Completed' and self.status == 'Completed':
-                from inventory.models import InventoryItem
-                item, created = InventoryItem.objects.get_or_create(category=self.category)
-                # Try to get the real unit name from Category model
-                try:
-                    cat_obj = Category.objects.get(name__iexact=self.category)
-                    item.unit_name = cat_obj.unit_name
-                except Category.DoesNotExist:
-                    pass
-                
-                item.quantity += self.quantity
-                item.save()
         super().save(*args, **kwargs)
 
     def __str__(self):

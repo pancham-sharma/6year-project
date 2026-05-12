@@ -62,6 +62,9 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
     is_active: true
   });
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [meta, setMeta] = useState({ total: 0, totalPages: 1 });
   const { searchQuery } = useSearch();
   const [localSearch, setLocalSearch] = useState('');
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -69,7 +72,7 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [page, limit, searchQuery]);
 
   useEffect(() => {
     if (message) {
@@ -79,10 +82,24 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
   }, [message]);
 
   const fetchCategories = async () => {
+    setLoading(true);
     try {
-      const data = await fetchAPI(`/api/donations/categories/?t=${new Date().getTime()}`);
-      const res = Array.isArray(data) ? data : (data.results || []);
-      setCategories(res);
+      const data = await fetchAPI(`/api/donations/categories/?page=${page}&limit=${limit}&search=${searchQuery}&t=${new Date().getTime()}`);
+      
+      if (data && data.data) {
+        setCategories(data.data);
+        setMeta({
+          total: data.meta.total,
+          totalPages: data.meta.totalPages
+        });
+      } else {
+        const res = Array.isArray(data) ? data : (data.results || []);
+        setCategories(res);
+        setMeta({
+          total: res.length,
+          totalPages: 1
+        });
+      }
     } catch (err) {
       console.error("Failed to fetch categories", err);
     } finally {
@@ -114,6 +131,8 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
       description: '',
       image: null,
       impact_badge: '',
+      impact_label: '',
+      impact_per_quantity: 1,
       icon_name: 'Heart',
       unit_name: 'Units',
       is_active: true
@@ -130,7 +149,9 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
     if (!formData.description.trim()) newErrors.description = 'This field is required';
     if (!formData.impact_badge.trim()) newErrors.impact_badge = 'This field is required';
     if (!formData.unit_name?.trim()) newErrors.unit_name = 'This field is required';
-    if (!formData.image) newErrors.image = 'This field is required';
+    
+    // Image only required for NEW categories
+    if (editingId === 'new' && !formData.image) newErrors.image = 'This field is required';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -315,6 +336,40 @@ export default function CategoryManagement({ darkMode }: { darkMode: boolean }) 
           </div>
         ))}
       </div>
+      
+      {/* Pagination Footer */}
+      {meta.totalPages > 1 && (
+        <div className={`px-6 py-5 border-t flex flex-col sm:flex-row items-center justify-between gap-6 ${darkMode ? 'border-gray-800' : 'border-gray-100'} bg-transparent mt-8`}>
+          <div className={`text-xs font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            Page <span className={darkMode ? 'text-white' : 'text-gray-800'}>{page}</span> of <span className={darkMode ? 'text-white' : 'text-gray-800'}>{meta.totalPages}</span>
+            <span className="mx-2 opacity-20">|</span>
+            Showing <span className={darkMode ? 'text-white' : 'text-gray-800'}>{Math.min((page - 1) * limit + 1, meta.total)}</span>-
+            <span className={darkMode ? 'text-white' : 'text-gray-800'}>{Math.min(page * limit, meta.total)}</span>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1 || loading}
+              className={`px-5 py-2.5 rounded-2xl border text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
+                darkMode ? 'hover:bg-slate-800 border-gray-700 text-gray-300' : 'hover:bg-slate-50 border-gray-200 text-gray-700'
+              }`}
+            >
+              Previous
+            </button>
+            
+            <button 
+              onClick={() => setPage(p => Math.min(meta.totalPages, p + 1))}
+              disabled={page === meta.totalPages || loading}
+              className={`px-5 py-2.5 rounded-2xl border text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
+                darkMode ? 'hover:bg-slate-800 border-gray-700 text-gray-300' : 'hover:bg-slate-50 border-gray-200 text-gray-700'
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
 
 

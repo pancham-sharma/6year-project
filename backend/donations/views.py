@@ -33,15 +33,14 @@ class IsAdminOrReadOnly(permissions.BasePermission):
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from utils.pagination import CustomPagination
 
 class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all().order_by('name')
     serializer_class = CategorySerializer
     permission_classes = [IsAdminOrReadOnly]
-    pagination_class = None
 
-    @method_decorator(cache_page(60 * 5)) # Cache for 5 minutes
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+
 
     def get_queryset(self):
         user = self.request.user
@@ -53,11 +52,12 @@ class CategoryViewSet(viewsets.ModelViewSet):
 from utils.pagination import CustomPagination
 
 class DonationViewSet(viewsets.ModelViewSet):
+    queryset = Donation.objects.all().select_related('donor', 'pickup_details').order_by('-timestamp')
     serializer_class = DonationSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'category', 'timestamp']
-    search_fields = ['quantity_description']
+    search_fields = ['quantity_description', 'donor__username', 'donor__email', 'id']
     ordering_fields = ['timestamp', 'status']
     ordering = ['-timestamp']
 
@@ -98,7 +98,13 @@ class DonationViewSet(viewsets.ModelViewSet):
                 'impacts': []
             }
             
-            # Dynamic Impact Calculations
+            # Optimized Impact Calculations: One query for all categories
+            category_totals = Donation.objects.filter(status='Completed')\
+                .values('category')\
+                .annotate(total_qty=Sum('quantity'))
+            
+            totals_dict = {item['category']: item['total_qty'] for item in category_totals}
+            
             from .models import Category
             categories = Category.objects.filter(is_active=True)
             
@@ -106,7 +112,7 @@ class DonationViewSet(viewsets.ModelViewSet):
                 if not cat.impact_label:
                     continue
                     
-                total_qty = Donation.objects.filter(category=cat.name, status='Completed').aggregate(Sum('quantity'))['quantity__sum'] or 0
+                total_qty = totals_dict.get(cat.name, 0)
                 impact_divisor = cat.impact_per_quantity or 1
                 impact_count = math.ceil(total_qty / impact_divisor)
                 

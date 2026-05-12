@@ -1,6 +1,7 @@
 from rest_framework import viewsets, permissions
 from .models import InventoryItem, ImpactMetric
 from .serializers import InventoryItemSerializer, ImpactMetricSerializer
+from utils.pagination import CustomPagination
 
 class IsAdminOrReadOnly(permissions.BasePermission):
     """
@@ -17,11 +18,9 @@ class IsAdminOrReadOnly(permissions.BasePermission):
 from django_filters.rest_framework import DjangoFilterBackend
 
 class InventoryItemViewSet(viewsets.ModelViewSet):
-    queryset = InventoryItem.objects.all()
+    queryset = InventoryItem.objects.all().order_by('category')
     serializer_class = InventoryItemSerializer
     permission_classes = [IsAdminOrReadOnly]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['category']
 
 class ImpactMetricViewSet(viewsets.ModelViewSet):
     queryset = ImpactMetric.objects.all()

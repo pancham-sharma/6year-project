@@ -88,7 +88,7 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
         setCounts(countMap);
 
         // Update categories using the same logic as CategoryManagement
-        const categoriesData = Array.isArray(catRes) ? catRes : (catRes.results || []);
+        const categoriesData = Array.isArray(catRes) ? catRes : (catRes.data || catRes.results || []);
         
         // Map everything from the DB
         const dynamicNav = categoriesData.map((cat: any) => {

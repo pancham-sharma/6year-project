@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLocation } from 'react-router-dom';
 import { 
@@ -117,8 +117,11 @@ export default function Dashboard() {
   // Sync notifications to context
   useEffect(() => {
     if (notificationData) {
-      const list = notificationData.results || notificationData || [];
-      setNotifications(list);
+      // Handle CustomPagination {data, meta}, DRF default {results}, or plain array
+      const list = Array.isArray(notificationData)
+        ? notificationData
+        : (notificationData?.data ?? notificationData?.results ?? []);
+      setNotifications(Array.isArray(list) ? list : []);
     }
   }, [notificationData, setNotifications]);
 
@@ -297,6 +300,32 @@ export default function Dashboard() {
     setWs(newWs);
     return () => newWs.close();
   }, [activeTab, appUser.id, adminId]);
+
+  // Notification WebSocket for real-time synchronization
+  useEffect(() => {
+    if (!appUser.id) return;
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    const wsUrl = getWSUrl('/ws/notifications/');
+    const notifyWs = new WebSocket(wsUrl);
+
+    notifyWs.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'data_sync') {
+        const { model } = data.data;
+        if (model === 'donations') {
+          queryClient.invalidateQueries({ queryKey: ['user-donations'] });
+          queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+        }
+      } else if (data.type === 'notification') {
+        // Handle incoming real-time notifications if needed
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      }
+    };
+
+    return () => notifyWs.close();
+  }, [appUser.id, queryClient]);
 
   const handleEditMessage = async (msgId: number, text: string) => {
     if (!text.trim() || !ws) return;

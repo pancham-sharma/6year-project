@@ -66,7 +66,7 @@ export default function Navbar() {
             {isLoggedIn && (
               <Link to="/notifications" className={`relative p-2 rounded-xl transition-all duration-300 ${dark ? 'text-slate-200' : 'text-slate-600'}`}>
                 <Bell className="w-5 h-5" />
-                {notifications?.filter((n: any) => !n.read).length > 0 && (
+                {Array.isArray(notifications) && notifications.filter((n: any) => !n.read).length > 0 && (
                   <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center shadow-sm">
                     {notifications.filter((n: any) => !n.read).length}
                   </span>

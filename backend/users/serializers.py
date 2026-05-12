@@ -114,7 +114,11 @@ class ActiveVolunteerSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'phone_number', 'city', 'profile_picture', 'activities', 'date_joined']
 
     def get_activities(self, obj):
-        apps = obj.volunteer_applications.filter(status='Approved').order_by('-created_at')
+        # Use prefetched data if available to avoid N+1 queries
+        apps = getattr(obj, 'prefetched_approved_apps', None)
+        if apps is None:
+            apps = obj.volunteer_applications.filter(status='Approved').order_by('-created_at')
+            
         return [{
             'id': a.id,
             'role': a.volunteering_role,

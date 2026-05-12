@@ -7,7 +7,7 @@ import { useSearch } from '../context/SearchContext';
 interface Props { darkMode: boolean; }
 
 export default function Notifications({ darkMode }: Props) {
-  const { searchQuery } = useSearch();
+  const { searchQuery, setSearchQuery } = useSearch();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
@@ -75,28 +75,35 @@ export default function Notifications({ darkMode }: Props) {
     }
   };
 
-  const handleNotificationClick = async (n: any) => {
-    // Mark as read if not already
-    if (!n.read) {
-      await markAsRead(n.id);
-    }
+  const handleNotificationClick = (n: any) => {
+    if (!n.read) markAsRead(n.id);
+    
+    let target = 'notifications';
+    const content = (n.title + ' ' + n.message).toLowerCase();
+    
+    // Extract Donation ID if present (#123)
+    const donMatch = content.match(/#(\d+)/);
+    const donId = donMatch ? donMatch[1] : null;
 
-    const title = n.title.toLowerCase();
-    if (title.includes('message')) {
-      const match = n.message.match(/Message from ([^:]+):/i);
-      const username = match ? match[1].trim() : null;
-      (window as any)._navState = { selectUser: username };
-      window.dispatchEvent(new CustomEvent('navigate', { detail: 'messages' }));
-    } else if (title.includes('donation')) {
-      // Try to extract donor email if present: "priya@gmail.com donated..."
-      const donorEmail = n.message.split(' ')[0];
-      (window as any)._navState = { selectDonor: donorEmail };
-      window.dispatchEvent(new CustomEvent('navigate', { detail: 'donations' }));
-    } else if (title.includes('volunteer')) {
-      window.dispatchEvent(new CustomEvent('navigate', { detail: 'volunteers' }));
-    } else if (title.includes('pickup')) {
-      window.dispatchEvent(new CustomEvent('navigate', { detail: 'donations' }));
+    if (content.includes('donation') || donId) {
+      target = 'donations';
+      if (donId) {
+        setSearchQuery(donId);
+      } else {
+        const donorName = n.message.split(' ')[0];
+        setSearchQuery(donorName);
+      }
     }
+    else if (content.includes('pickup')) target = 'pickups';
+    else if (content.includes('volunteer')) target = 'volunteers';
+    else if (content.includes('message')) {
+      target = 'messages';
+      const match = n.message.match(/Message from ([^:]+):/i);
+      const username = match ? match[1].trim() : n.message.split(' ')[0];
+      setSearchQuery(username);
+    }
+    
+    window.dispatchEvent(new CustomEvent('navigate', { detail: target }));
   };
 
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';

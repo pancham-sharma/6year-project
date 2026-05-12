@@ -58,7 +58,7 @@ export default function Inventory({ darkMode }: Props) {
   });
 
   const categoriesList = useMemo(() => {
-    const data = catData?.results || catData || [];
+    const data = catData?.data || catData?.results || catData || [];
     return Array.isArray(data) ? data : [];
   }, [catData]);
   

@@ -37,13 +37,18 @@ export default function UserManagement({ darkMode }: Props) {
   const { data, isLoading: loading, isPlaceholderData } = useQuery({
     queryKey: ['users-list', page, limit, searchQuery, roleFilter, orderBy],
     queryFn: async () => {
-      let url = `/api/users/list/?page=${page}&page_size=${limit}&search=${searchQuery}&ordering=${orderBy}`;
+      let url = `/api/users/list/?page=${page}&page_size=${limit}&ordering=${orderBy}`;
+      if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
       if (roleFilter) url += `&role=${roleFilter}`;
       
-      const usersRes = await fetchAPI(url);
-      const rawUsers = usersRes?.results || [];
-      const total = usersRes?.count || 0;
-      const totalPages = Math.ceil(total / limit) || 1;
+      const res = await fetchAPI(url);
+
+      // Handle CustomPagination {data, meta} format
+      const rawUsers: any[] = Array.isArray(res)
+        ? res
+        : (res?.data ?? res?.results ?? []);
+      const total: number = res?.meta?.total ?? res?.count ?? rawUsers.length;
+      const totalPages: number = res?.meta?.totalPages ?? (Math.ceil(total / limit) || 1);
       
       return {
         users: rawUsers.map((u: any) => ({
@@ -51,10 +56,12 @@ export default function UserManagement({ darkMode }: Props) {
           name: u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : u.username,
           email: u.email,
           phone: u.phone_number || 'N/A',
+          city: u.city || 'N/A',
           joinDate: u.date_joined ? new Date(u.date_joined).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A',
           role: u.role || 'DONOR',
-          avatar: u.username.charAt(0).toUpperCase(),
-          donationCount: u.donation_count || 0,
+          isStaff: u.is_staff,
+          avatar: (u.first_name || u.username).charAt(0).toUpperCase(),
+          donationCount: u.donation_count ?? u.annotated_donation_count ?? 0,
           raw: u
         })),
         meta: { total, totalPages }
@@ -391,7 +398,8 @@ export default function UserManagement({ darkMode }: Props) {
                 {[
                   { label: 'Email Address', value: viewUser.email, icon: Mail },
                   { label: 'Contact Number', value: viewUser.phone, icon: Loader },
-                  { label: 'Total Contributions', value: `${viewUser.donationCount} Donations`, icon: Users },
+                  { label: 'City / Location', value: viewUser.city, icon: UserCheck },
+                  { label: 'Total Contributions', value: `${viewUser.donationCount} Donation${viewUser.donationCount !== 1 ? 's' : ''}`, icon: Users },
                 ].map((item, idx) => (
                   <div key={idx} className={`flex items-center justify-between p-5 rounded-2xl border ${darkMode ? 'bg-slate-800/20 border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                     <div className="flex items-center gap-4">

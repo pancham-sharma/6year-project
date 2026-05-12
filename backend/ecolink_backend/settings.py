@@ -157,9 +157,9 @@ if DATABASE_URL:
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     
-    # if 'pooler.supabase.com' in DATABASE_URL and ':5432/' in DATABASE_URL:
-    #     print("💡 Switching Supabase port to 6543 for Transaction Mode pooling")
-    #     DATABASE_URL = DATABASE_URL.replace(':5432/', ':6543/')
+    if 'pooler.supabase.com' in DATABASE_URL and ':5432/' in DATABASE_URL:
+        print("💡 Switching Supabase port to 6543 for Transaction Mode pooling")
+        DATABASE_URL = DATABASE_URL.replace(':5432/', ':6543/')
 
     # Ensure sslmode=require for Supabase/Render
     if 'sslmode' not in DATABASE_URL:
@@ -277,11 +277,6 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-    'PAGE_SIZE_QUERY_PARAM': 'page_size',
-    'MAX_PAGE_SIZE': 100,
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle'

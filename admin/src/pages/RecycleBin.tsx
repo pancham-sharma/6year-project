@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Trash2, RotateCcw, Loader, Search, Heart, Handshake, MessageSquare, Bell, CheckCircle, XCircle } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { getRecycledItems, restoreItemAPI, deleteItemAPI } from '../api/recycled';
 import { useSearch } from '../context/SearchContext';
 
@@ -11,27 +11,50 @@ export default function RecycleBin({ darkMode }: Props) {
   const { searchQuery: searchTerm } = useSearch();
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
+  // Pagination states
+  const [pages, setPages] = useState({
+    donation: 1,
+    application: 1,
+    notification: 1,
+    message: 1
+  });
+  const limit = 5;
+
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  // React Query
-  const { data, isLoading: loading } = useQuery({
-    queryKey: ['recycled'],
-    queryFn: getRecycledItems,
+  // Queries for each section
+  const donationQuery = useQuery({
+    queryKey: ['recycled', 'donation', pages.donation, searchTerm],
+    queryFn: () => getRecycledItems(pages.donation, limit, searchTerm, 'donation'),
+    placeholderData: keepPreviousData
   });
 
-  const donations = useMemo(() => data?.donations || [], [data]);
-  const applications = useMemo(() => data?.applications || [], [data]);
-  const notifications = useMemo(() => data?.notifications || [], [data]);
-  const messages = useMemo(() => data?.messages || [], [data]);
+  const appQuery = useQuery({
+    queryKey: ['recycled', 'application', pages.application, searchTerm],
+    queryFn: () => getRecycledItems(pages.application, limit, searchTerm, 'application'),
+    placeholderData: keepPreviousData
+  });
+
+  const notifQuery = useQuery({
+    queryKey: ['recycled', 'notification', pages.notification, searchTerm],
+    queryFn: () => getRecycledItems(pages.notification, limit, searchTerm, 'notification'),
+    placeholderData: keepPreviousData
+  });
+
+  const msgQuery = useQuery({
+    queryKey: ['recycled', 'message', pages.message, searchTerm],
+    queryFn: () => getRecycledItems(pages.message, limit, searchTerm, 'message'),
+    placeholderData: keepPreviousData
+  });
 
   // Mutations
   const restoreMutation = useMutation({
     mutationFn: ({ id, type }: { id: any; type: string }) => restoreItemAPI(id, type),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['recycled'] });
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['recycled', variables.type] });
       showToast('Item restored successfully!', 'success');
     },
     onError: () => showToast('Failed to restore item.', 'error')
@@ -39,8 +62,8 @@ export default function RecycleBin({ darkMode }: Props) {
 
   const deleteMutation = useMutation({
     mutationFn: ({ id, type }: { id: any; type: string }) => deleteItemAPI(id, type),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['recycled'] });
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['recycled', variables.type] });
       showToast('Item permanently deleted.', 'success');
     },
     onError: () => showToast('Failed to delete item.', 'error')
@@ -55,7 +78,6 @@ export default function RecycleBin({ darkMode }: Props) {
     deleteMutation.mutate({ id, type });
   };
 
-  // Helper: action buttons with loading state
   const ActionButtons = ({ id, type }: { id: any; type: 'donation' | 'application' | 'notification' | 'message' }) => {
     const isRestoring = restoreMutation.isPending && restoreMutation.variables?.id === id;
     const isDeleting = deleteMutation.isPending && deleteMutation.variables?.id === id;
@@ -81,18 +103,44 @@ export default function RecycleBin({ darkMode }: Props) {
     );
   };
 
+  const Pagination = ({ type, meta, loading }: { type: keyof typeof pages; meta: any; loading: boolean }) => {
+    if (!meta || meta.totalPages <= 1) return null;
+    return (
+      <div className="flex items-center justify-between mt-4 px-2">
+        <p className={`text-[10px] font-bold ${textSub}`}>
+          Page {pages[type]} of {meta.totalPages}
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPages(p => ({ ...p, [type]: Math.max(1, p[type] - 1) }))}
+            disabled={pages[type] === 1 || loading}
+            className={`px-3 py-1 rounded-lg border text-[10px] font-bold uppercase transition-all disabled:opacity-30 ${
+              darkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-white border-gray-200 text-gray-600'
+            }`}
+          >
+            Prev
+          </button>
+          <button
+            onClick={() => setPages(p => ({ ...p, [type]: Math.min(meta.totalPages, p[type] + 1) }))}
+            disabled={pages[type] === meta.totalPages || loading}
+            className={`px-3 py-1 rounded-lg border text-[10px] font-bold uppercase transition-all disabled:opacity-30 ${
+              darkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-white border-gray-200 text-gray-600'
+            }`}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const card = darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100';
   const textMain = darkMode ? 'text-white' : 'text-gray-800';
   const textSub = darkMode ? 'text-gray-400' : 'text-gray-500';
   const rowHover = darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50';
 
-  const filteredDonations = donations.filter((d: any) => d.donor?.toLowerCase().includes(searchTerm.toLowerCase()) || d.id.toString().includes(searchTerm));
-  const filteredApps = applications.filter((a: any) => a.name?.toLowerCase().includes(searchTerm.toLowerCase()) || a.email?.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredNotifs = notifications.filter((n: any) => n.title?.toLowerCase().includes(searchTerm.toLowerCase()) || n.message?.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredMessages = messages.filter((m: any) => m.message_body?.toLowerCase().includes(searchTerm.toLowerCase()));
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl text-sm font-bold animate-fade-in ${
@@ -111,146 +159,157 @@ export default function RecycleBin({ darkMode }: Props) {
           </div>
         </div>
 
-
-        {loading ? (
-          <div className="py-12 text-center"><Loader className="animate-spin mx-auto text-green-500" /></div>
-        ) : (
-          <div className="space-y-8">
-            {/* Donations Section */}
-            <div>
-              <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${textMain}`}>
-                <Heart size={16} className="text-red-500" /> Recycled Donations ({donations.length})
-              </h3>
-              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
-                <table className="w-full text-sm">
-                  <thead className={darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
-                    <tr>
-                      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>ID / Donor</th>
-                      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Details</th>
-                      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Date Recycled</th>
-                      <th className={`px-4 py-3 text-right text-xs font-semibold uppercase ${textSub}`}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {filteredDonations.length === 0 ? (
-                      <tr><td colSpan={4} className={`py-8 text-center ${textSub}`}>No recycled donations found</td></tr>
-                    ) : filteredDonations.map((item: any) => (
-                      <tr key={item.id} className={`transition-colors ${rowHover}`}>
-                        <td className="px-4 py-4">
-                          <p className={`font-semibold ${textMain}`}>Donation #{item.id}</p>
-                          <p className={`text-xs ${textSub}`}>{item.donor}</p>
-                        </td>
-                        <td className={`px-4 py-4 ${textSub}`}>{item.category} - {item.quantity_description}</td>
-                        <td className={`px-4 py-4 ${textSub}`}>{new Date(item.timestamp).toLocaleDateString()}</td>
-                        <td className="px-4 py-4"><ActionButtons id={item.id} type="donation" /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+        <div className="space-y-12">
+          {/* Donations Section */}
+          <section>
+            <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 flex items-center justify-between ${textMain}`}>
+              <div className="flex items-center gap-2">
+                <Heart size={16} className="text-red-500" /> Recycled Donations ({donationQuery.data?.meta.total || 0})
               </div>
-            </div>
-
-            {/* Volunteers Section */}
-            <div>
-              <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${textMain}`}>
-                <Handshake size={16} className="text-blue-500" /> Recycled Volunteer Applications ({applications.length})
-              </h3>
-              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
-                <table className="w-full text-sm">
-                  <thead className={darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
-                    <tr>
-                      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Name / Email</th>
-                      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Details</th>
-                      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Date Recycled</th>
-                      <th className={`px-4 py-3 text-right text-xs font-semibold uppercase ${textSub}`}>Actions</th>
+              {donationQuery.isLoading && <Loader size={14} className="animate-spin text-green-500" />}
+            </h3>
+            <div className={`overflow-x-auto rounded-xl border ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+              <table className="w-full text-sm">
+                <thead className={darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
+                  <tr>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>ID / Donor</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Details</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Date Recycled</th>
+                    <th className={`px-4 py-3 text-right text-xs font-semibold uppercase ${textSub}`}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {donationQuery.data?.data.length === 0 ? (
+                    <tr><td colSpan={4} className={`py-8 text-center ${textSub}`}>No recycled donations found</td></tr>
+                  ) : donationQuery.data?.data.map((item: any) => (
+                    <tr key={item.id} className={`transition-colors ${rowHover}`}>
+                      <td className="px-4 py-4">
+                        <p className={`font-semibold ${textMain}`}>Donation #{item.id}</p>
+                        <p className={`text-xs ${textSub}`}>{item.donor}</p>
+                      </td>
+                      <td className={`px-4 py-4 ${textSub}`}>{item.category} - {item.quantity_description}</td>
+                      <td className={`px-4 py-4 ${textSub}`}>{new Date(item.timestamp).toLocaleDateString()}</td>
+                      <td className="px-4 py-4"><ActionButtons id={item.id} type="donation" /></td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {filteredApps.length === 0 ? (
-                      <tr><td colSpan={4} className={`py-8 text-center ${textSub}`}>No recycled applications found</td></tr>
-                    ) : filteredApps.map((item: any) => (
-                      <tr key={item.id} className={`transition-colors ${rowHover}`}>
-                        <td className="px-4 py-4">
-                          <p className={`font-semibold ${textMain}`}>{item.name}</p>
-                          <p className={`text-xs ${textSub}`}>{item.email}</p>
-                        </td>
-                        <td className={`px-4 py-4 ${textSub}`}>{item.volunteering_role} in {item.city}</td>
-                        <td className={`px-4 py-4 ${textSub}`}>{new Date(item.created_at).toLocaleDateString()}</td>
-                        <td className="px-4 py-4"><ActionButtons id={item.id} type="application" /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
+            <Pagination type="donation" meta={donationQuery.data?.meta} loading={donationQuery.isLoading} />
+          </section>
 
-            {/* Notifications Section */}
-            <div>
-              <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${textMain}`}>
-                <Bell size={16} className="text-yellow-500" /> Recycled Notifications ({notifications.length})
-              </h3>
-              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
-                <table className="w-full text-sm">
-                  <thead className={darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
-                    <tr>
-                      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Title / Message</th>
-                      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Date Recycled</th>
-                      <th className={`px-4 py-3 text-right text-xs font-semibold uppercase ${textSub}`}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {filteredNotifs.length === 0 ? (
-                      <tr><td colSpan={3} className={`py-8 text-center ${textSub}`}>No recycled notifications found</td></tr>
-                    ) : filteredNotifs.map((item: any) => (
-                      <tr key={item.id} className={`transition-colors ${rowHover}`}>
-                        <td className="px-4 py-4">
-                          <p className={`font-semibold ${textMain}`}>{item.title}</p>
-                          <p className={`text-xs ${textSub} truncate max-w-md`}>{item.message}</p>
-                        </td>
-                        <td className={`px-4 py-4 ${textSub}`}>{new Date(item.timestamp).toLocaleDateString()}</td>
-                        <td className="px-4 py-4"><ActionButtons id={item.id} type="notification" /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* Volunteers Section */}
+          <section>
+            <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 flex items-center justify-between ${textMain}`}>
+              <div className="flex items-center gap-2">
+                <Handshake size={16} className="text-blue-500" /> Recycled Volunteer Applications ({appQuery.data?.meta.total || 0})
               </div>
+              {appQuery.isLoading && <Loader size={14} className="animate-spin text-green-500" />}
+            </h3>
+            <div className={`overflow-x-auto rounded-xl border ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+              <table className="w-full text-sm">
+                <thead className={darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
+                  <tr>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Name / Email</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Details</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Date Recycled</th>
+                    <th className={`px-4 py-3 text-right text-xs font-semibold uppercase ${textSub}`}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {appQuery.data?.data.length === 0 ? (
+                    <tr><td colSpan={4} className={`py-8 text-center ${textSub}`}>No recycled applications found</td></tr>
+                  ) : appQuery.data?.data.map((item: any) => (
+                    <tr key={item.id} className={`transition-colors ${rowHover}`}>
+                      <td className="px-4 py-4">
+                        <p className={`font-semibold ${textMain}`}>{item.name}</p>
+                        <p className={`text-xs ${textSub}`}>{item.email}</p>
+                      </td>
+                      <td className={`px-4 py-4 ${textSub}`}>{item.volunteering_role} in {item.city}</td>
+                      <td className={`px-4 py-4 ${textSub}`}>{new Date(item.created_at).toLocaleDateString()}</td>
+                      <td className="px-4 py-4"><ActionButtons id={item.id} type="application" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+            <Pagination type="application" meta={appQuery.data?.meta} loading={appQuery.isLoading} />
+          </section>
 
-            {/* Messages Section */}
-            <div>
-              <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${textMain}`}>
-                <MessageSquare size={16} className="text-purple-500" /> Recycled Messages ({messages.length})
-              </h3>
-              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
-                <table className="w-full text-sm">
-                  <thead className={darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
-                    <tr>
-                      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>From / To</th>
-                      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Content</th>
-                      <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Date Recycled</th>
-                      <th className={`px-4 py-3 text-right text-xs font-semibold uppercase ${textSub}`}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {filteredMessages.length === 0 ? (
-                      <tr><td colSpan={4} className={`py-8 text-center ${textSub}`}>No recycled messages found</td></tr>
-                    ) : filteredMessages.map((item: any) => (
-                      <tr key={item.id} className={`transition-colors ${rowHover}`}>
-                        <td className="px-4 py-4">
-                          <p className={`font-semibold ${textMain}`}>From: {item.sender_username}</p>
-                          <p className={`text-xs ${textSub}`}>To: {item.receiver_username}</p>
-                        </td>
-                        <td className={`px-4 py-4 ${textSub} max-w-md truncate`}>{item.message_body}</td>
-                        <td className={`px-4 py-4 ${textSub}`}>{new Date(item.timestamp).toLocaleDateString()}</td>
-                        <td className="px-4 py-4"><ActionButtons id={item.id} type="message" /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* Notifications Section */}
+          <section>
+            <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 flex items-center justify-between ${textMain}`}>
+              <div className="flex items-center gap-2">
+                <Bell size={16} className="text-yellow-500" /> Recycled Notifications ({notifQuery.data?.meta.total || 0})
               </div>
+              {notifQuery.isLoading && <Loader size={14} className="animate-spin text-green-500" />}
+            </h3>
+            <div className={`overflow-x-auto rounded-xl border ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+              <table className="w-full text-sm">
+                <thead className={darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
+                  <tr>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Title / Message</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Date Recycled</th>
+                    <th className={`px-4 py-3 text-right text-xs font-semibold uppercase ${textSub}`}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {notifQuery.data?.data.length === 0 ? (
+                    <tr><td colSpan={3} className={`py-8 text-center ${textSub}`}>No recycled notifications found</td></tr>
+                  ) : notifQuery.data?.data.map((item: any) => (
+                    <tr key={item.id} className={`transition-colors ${rowHover}`}>
+                      <td className="px-4 py-4">
+                        <p className={`font-semibold ${textMain}`}>{item.title}</p>
+                        <p className={`text-xs ${textSub} truncate max-w-md`}>{item.message}</p>
+                      </td>
+                      <td className={`px-4 py-4 ${textSub}`}>{new Date(item.timestamp).toLocaleDateString()}</td>
+                      <td className="px-4 py-4"><ActionButtons id={item.id} type="notification" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-        )}
+            <Pagination type="notification" meta={notifQuery.data?.meta} loading={notifQuery.isLoading} />
+          </section>
+
+          {/* Messages Section */}
+          <section>
+            <h3 className={`text-sm font-bold uppercase tracking-wider mb-4 flex items-center justify-between ${textMain}`}>
+              <div className="flex items-center gap-2">
+                <MessageSquare size={16} className="text-purple-500" /> Recycled Messages ({msgQuery.data?.meta.total || 0})
+              </div>
+              {msgQuery.isLoading && <Loader size={14} className="animate-spin text-green-500" />}
+            </h3>
+            <div className={`overflow-x-auto rounded-xl border ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+              <table className="w-full text-sm">
+                <thead className={darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}>
+                  <tr>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>From / To</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Content</th>
+                    <th className={`px-4 py-3 text-left text-xs font-semibold uppercase ${textSub}`}>Date Recycled</th>
+                    <th className={`px-4 py-3 text-right text-xs font-semibold uppercase ${textSub}`}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {msgQuery.data?.data.length === 0 ? (
+                    <tr><td colSpan={4} className={`py-8 text-center ${textSub}`}>No recycled messages found</td></tr>
+                  ) : msgQuery.data?.data.map((item: any) => (
+                    <tr key={item.id} className={`transition-colors ${rowHover}`}>
+                      <td className="px-4 py-4">
+                        <p className={`font-semibold ${textMain}`}>From: {item.sender_username}</p>
+                        <p className={`text-xs ${textSub}`}>To: {item.receiver_username}</p>
+                      </td>
+                      <td className={`px-4 py-4 ${textSub} max-w-md truncate`}>{item.message_body}</td>
+                      <td className={`px-4 py-4 ${textSub}`}>{new Date(item.timestamp).toLocaleDateString()}</td>
+                      <td className="px-4 py-4"><ActionButtons id={item.id} type="message" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination type="message" meta={msgQuery.data?.meta} loading={msgQuery.isLoading} />
+          </section>
+        </div>
       </div>
     </div>
   );

@@ -12,13 +12,14 @@ class CategorySerializer(serializers.ModelSerializer):
     impact_badge = serializers.CharField(required=False, allow_blank=True)
     impact_label = serializers.CharField(required=False, allow_blank=True)
     impact_per_quantity = serializers.IntegerField(required=False, default=1)
-    image = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Category
-        fields = '__all__'
+        fields = ['id', 'name', 'description', 'image', 'image_url', 'impact_badge', 'impact_label', 'impact_per_quantity', 'icon_name', 'unit_name', 'is_active']
+        read_only_fields = ['id']
 
-    def get_image(self, obj):
+    def get_image_url(self, obj):
         if not obj.image: return None
         try:
             url = obj.image.url
@@ -52,14 +53,14 @@ class DonationSerializer(serializers.ModelSerializer):
     donor = serializers.ReadOnlyField(source='donor.username')
     donor_email = serializers.ReadOnlyField(source='donor.email')
     donor_phone = serializers.ReadOnlyField(source='donor.phone_number')
-    image = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Donation
-        fields = ['id', 'donor', 'donor_email', 'donor_phone', 'category', 'quantity_description', 'quantity', 'unit', 'image', 'status', 'timestamp', 'pickup_details', 'transaction_id', 'donor_mobile']
+        fields = ['id', 'donor', 'donor_email', 'donor_phone', 'category', 'quantity_description', 'quantity', 'unit', 'image', 'image_url', 'status', 'timestamp', 'pickup_details', 'transaction_id', 'donor_mobile']
         read_only_fields = ['timestamp', 'donor', 'donor_email', 'donor_phone']
 
-    def get_image(self, obj):
+    def get_image_url(self, obj):
         if not obj.image: return None
         try:
             url = obj.image.url

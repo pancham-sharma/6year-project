@@ -1,23 +1,35 @@
 import { fetchAPI } from '../utils/api';
 
-export const getRecycledItems = async () => {
-  const [donRes, appRes, notifRes, msgRes] = await Promise.all([
-    fetchAPI('/api/donations/'),
-    fetchAPI('/api/users/volunteer/admin/list/'),
-    fetchAPI('/api/chat/notifications/'),
-    fetchAPI('/api/chat/messages/')
-  ]);
+export const getRecycledItems = async (
+  page: number = 1,
+  limit: number = 10,
+  search: string = '',
+  type: 'donation' | 'application' | 'notification' | 'message' = 'donation'
+) => {
+  let endpoint = '';
+  if (type === 'donation')      endpoint = '/api/donations/';
+  else if (type === 'application') endpoint = '/api/users/volunteer/admin/list/';
+  else if (type === 'notification') endpoint = '/api/chat/notifications/';
+  else if (type === 'message')  endpoint = '/api/chat/messages/';
+
+  const queryParams = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    status: 'Recycled'
+  });
   
-  const allDons = donRes.results || donRes || [];
-  const allApps = appRes.results || appRes || [];
-  const allNotifs = notifRes.results || notifRes || [];
-  const allMsgs = msgRes.results || msgRes || [];
+  if (search) queryParams.append('search', search);
+
+  const response = await fetchAPI(`${endpoint}?${queryParams.toString()}`);
   
+  // All these viewsets use CustomPagination now
   return {
-    donations: allDons.filter((d: any) => d.status === 'Recycled'),
-    applications: allApps.filter((a: any) => a.status === 'Recycled'),
-    notifications: allNotifs.filter((n: any) => n.status === 'Recycled'),
-    messages: allMsgs.filter((m: any) => m.status === 'Recycled')
+    data: response.data || [],
+    meta: {
+      total: response.meta?.total || 0,
+      page: response.meta?.page || 1,
+      totalPages: response.meta?.totalPages || 1
+    }
   };
 };
 

@@ -10,6 +10,7 @@ from .serializers import (
 from .models import VolunteerApplication
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from utils.pagination import CustomPagination
 import os
 import random
 from django.conf import settings
@@ -189,6 +190,7 @@ class FirebaseAuthView(APIView):
 class UserListView(generics.ListAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
+    pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['role']
     search_fields = ['username', 'email', 'first_name', 'last_name', 'phone_number', 'city']
@@ -197,7 +199,7 @@ class UserListView(generics.ListAPIView):
     def get_queryset(self):
         return User.objects.annotate(
             annotated_donation_count=Count('donations')
-        ).all().order_by('-date_joined')
+        ).select_related().order_by('-date_joined')
 
 class UserStatsView(APIView):
     permission_classes = [permissions.IsAdminUser]
@@ -236,6 +238,10 @@ class VolunteerApplicationAdminListView(generics.ListAPIView):
     permission_classes = [permissions.IsAdminUser]
     serializer_class = AdminVolunteerApplicationSerializer
     queryset = VolunteerApplication.objects.all().order_by('-created_at')
+    pagination_class = CustomPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['status']
+    search_fields = ['name', 'email', 'phone', 'city', 'volunteering_role']
 
 class VolunteerApplicationAdminDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAdminUser]
@@ -243,11 +249,24 @@ class VolunteerApplicationAdminDetailView(generics.RetrieveUpdateAPIView):
     queryset = VolunteerApplication.objects.all()
 
     def perform_update(self, serializer):
+        from chat.models import Notification
         application = serializer.save()
+        user = application.user
+        
         if application.status == 'Approved':
-            user = application.user
             user.role = 'VOLUNTEER'
             user.save()
+            Notification.objects.create(
+                user=user,
+                title="Volunteer Application Approved! 🎉",
+                message="Congratulations! Your application to become a volunteer has been approved. You can now see assigned tasks in your dashboard."
+            )
+        elif application.status == 'Rejected':
+            Notification.objects.create(
+                user=user,
+                title="Application Update",
+                message="Thank you for your interest in volunteering. Unfortunately, we cannot move forward with your application at this time."
+            )
 
 class ActiveVolunteerListView(generics.ListAPIView):
     permission_classes = [permissions.IsAdminUser]
@@ -255,9 +274,15 @@ class ActiveVolunteerListView(generics.ListAPIView):
 
     def get_queryset(self):
         # Users who are marked as VOLUNTEER OR have at least one approved application
+        from django.db.models import Prefetch
+        from .models import VolunteerApplication
         return User.objects.filter(
             Q(role='VOLUNTEER') | Q(volunteer_applications__status='Approved')
-        ).distinct().order_by('-date_joined')
+        ).distinct().prefetch_related(
+            Prefetch('volunteer_applications', 
+                     queryset=VolunteerApplication.objects.filter(status='Approved').order_by('-created_at'),
+                     to_attr='prefetched_approved_apps')
+        ).order_by('-date_joined')
 
 class ChangePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]

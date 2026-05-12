@@ -53,6 +53,7 @@ export default function Messages({ darkMode }: Props) {
     initialPageParam: 1,
     getNextPageParam: (lastPage) => lastPage.meta?.nextPage || undefined,
     enabled: !!activeId,
+    refetchInterval: 8000, // Poll every 8s as WebSocket fallback
   });
 
   // Flatten messages from pages
@@ -99,9 +100,13 @@ export default function Messages({ darkMode }: Props) {
           if (!old) return old;
           const newPages = [...old.pages];
           if (newPages.length > 0) {
-            // Remove temp message if it exists, and add real one
-            const filtered = (newPages[0].data || []).filter((m: any) => !m.temp || m.message !== msg.message);
-            newPages[0] = { ...newPages[0], data: [msg, ...filtered] };
+            // page.data holds the messages array (from CustomPagination)
+            const existingData = newPages[0].data || [];
+            // Remove temp message if it exists, then add real one at front
+            const filtered = existingData.filter((m: any) => !m.temp || m.message !== msg.message);
+            // Only add if not already present (dedup by id)
+            const alreadyExists = filtered.some((m: any) => m.id === msg.id);
+            newPages[0] = { ...newPages[0], data: alreadyExists ? filtered : [msg, ...filtered] };
           }
           return { ...old, pages: newPages };
         });
@@ -187,7 +192,8 @@ export default function Messages({ darkMode }: Props) {
       messages: allMessages.map(m => ({
         id: m.id,
         text: m.message,
-        type: m.sender_is_staff ? 'sent' : 'received',
+        // Determine direction: if the sender is me (the admin), it's 'sent'
+        type: (String(m.sender) === String(myId) || m.sender_is_staff) ? 'sent' : 'received',
         is_read: m.is_read,
         is_edited: m.is_edited,
         isDeleted: m.is_deleted,

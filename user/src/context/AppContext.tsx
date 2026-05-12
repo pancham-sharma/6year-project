@@ -117,9 +117,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         // Use fetchAPI so expired tokens are silently auto-refreshed
         const data = await fetchAPI('/api/chat/notifications/');
-        const results = data.results || data || [];
+        // Handle CustomPagination {data, meta}, DRF default {results}, or plain array
+        const rawResults = Array.isArray(data)
+          ? data
+          : (data?.data ?? data?.results ?? []);
         
-        const notifs = Array.isArray(results) ? results.map((n: any) => ({
+        const notifs = Array.isArray(rawResults) ? rawResults.map((n: any) => ({
           id: n.id,
           title: n.title || '',
           text: n.message || n.text || n.title || '',

@@ -1,5 +1,6 @@
 import { Bell, Search, Moon, Sun, Menu, Loader } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, getWSUrl } from '../utils/api';
 import { useSearch } from '../context/SearchContext';
 
@@ -63,6 +64,14 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
             if (prev.some((x: any) => x.id === n.id)) return prev;
             return [n, ...prev].filter((x: any) => x.status !== 'Recycled');
           });
+        } else if (data.type === 'data_sync') {
+          // Global synchronization logic
+          const { model } = data.data;
+          if (model === 'donations') {
+            queryClient.invalidateQueries({ queryKey: ['donations'] });
+          } else if (model === 'users') {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+          }
         }
       };
 
@@ -137,6 +146,8 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
     }
   };
 
+  const queryClient = useQueryClient();
+
   const handleNotifClick = (n: any) => {
     // Mark as read immediately in UI
     if (!n.read) {
@@ -151,19 +162,26 @@ export default function Topbar({ darkMode, onToggleDark, onMobileMenuOpen, pageT
     let target = 'notifications';
     const content = (n.title + ' ' + n.message).toLowerCase();
     
-    if (content.includes('donation')) target = 'donations';
+    // Extract Donation ID if present (#123)
+    const donMatch = content.match(/#(\d+)/);
+    const donId = donMatch ? donMatch[1] : null;
+
+    if (content.includes('donation') || donId) {
+      target = 'donations';
+      if (donId) {
+        setSearchQuery(donId);
+      } else {
+        const donorName = n.message.split(' ')[0];
+        setSearchQuery(donorName);
+      }
+    }
     else if (content.includes('pickup')) target = 'pickups';
     else if (content.includes('volunteer')) target = 'volunteers';
-    else if (content.includes('message') || n.type === 'message') target = 'messages';
-    
-    // Extract context for navigation
-    if (target === 'messages') {
+    else if (content.includes('message') || n.type === 'message') {
+      target = 'messages';
       const match = n.message.match(/Message from ([^:]+):/i);
-      const username = match ? match[1].trim() : null;
-      (window as any)._navState = { selectUser: username };
-    } else if (target === 'donations') {
-      const donorEmail = n.message.split(' ')[0];
-      (window as any)._navState = { selectDonor: donorEmail };
+      const username = match ? match[1].trim() : n.message.split(' ')[0];
+      setSearchQuery(username);
     }
     
     window.dispatchEvent(new CustomEvent('navigate', { detail: target }));

@@ -6,8 +6,13 @@ export const getVolunteersData = async () => {
     fetchAPI('/api/users/volunteer/admin/active/')
   ]);
   return {
-    applications: appsRes.results || appsRes || [],
-    active: activeRes.results || activeRes || []
+    // Handle CustomPagination {data, meta}, DRF default {results}, or plain array
+    applications: Array.isArray(appsRes)
+      ? appsRes
+      : (appsRes?.data ?? appsRes?.results ?? []),
+    active: Array.isArray(activeRes)
+      ? activeRes
+      : (activeRes?.data ?? activeRes?.results ?? [])
   };
 };
 

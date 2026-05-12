@@ -29,7 +29,7 @@ export const getWSUrl = (path: string) => {
   return `${protocol}://${host}${path}${path.includes('?') ? '&' : '?'}token=${token}`;
 };
 
-function onRefreshed(newToken: string) {
+function onRefreshed(newToken: string | null) {
   refreshSubscribers.forEach(cb => cb(newToken));
   refreshSubscribers = [];
 }
@@ -65,7 +65,7 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+let refreshSubscribers: ((token: string | null) => void)[] = [];
 
 export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Promise<any> => {
   const headers = new Headers(options.headers || {});
@@ -109,12 +109,11 @@ export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Pro
       isRefreshing = true;
       const newToken = await refreshAccessToken();
       isRefreshing = false;
+      onRefreshed(newToken);
 
       if (!newToken) {
         throw new Error('Session expired. Please log in again.');
       }
-
-      onRefreshed(newToken);
 
       const retryHeaders = new Headers(options.headers || {});
       if (!retryHeaders.has('Content-Type') && !(options.body instanceof FormData)) {
@@ -134,7 +133,11 @@ export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Pro
       return retryResponse.json();
     } else {
       return new Promise((resolve, reject) => {
-        refreshSubscribers.push(async (newToken: string) => {
+        refreshSubscribers.push(async (newToken: string | null) => {
+          if (!newToken) {
+            reject(new Error('Session expired. Please log in again.'));
+            return;
+          }
           try {
             const retryHeaders = new Headers(options.headers || {});
             if (!retryHeaders.has('Content-Type') && !(options.body instanceof FormData)) {

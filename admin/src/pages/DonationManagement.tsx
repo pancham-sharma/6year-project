@@ -61,7 +61,7 @@ export default function DonationManagement({ darkMode }: Props) {
     queryFn: () => fetchAPI('/api/donations/categories/'),
   });
 
-  const CATEGORIES = (catData?.results || catData || []).map((c: any) => c.name);
+  const CATEGORIES = (catData?.data || catData?.results || catData || []).map((c: any) => c.name);
   const STATUSES = ['Pending', 'Scheduled', 'Completed', 'Cancelled'];
 
   // Reset page when filters change
