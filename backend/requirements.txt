@@ -9,7 +9,7 @@ cloudinary
 django-cloudinary-storage
 Pillow
 reportlab
-django-filter
+django-filter>=24.2
 channels
 channels-redis
 daphne

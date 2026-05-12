@@ -157,9 +157,9 @@ if DATABASE_URL:
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     
-    if 'pooler.supabase.com' in DATABASE_URL and ':5432/' in DATABASE_URL:
-        print("💡 Switching Supabase port to 6543 for Transaction Mode pooling")
-        DATABASE_URL = DATABASE_URL.replace(':5432/', ':6543/')
+    # if 'pooler.supabase.com' in DATABASE_URL and ':5432/' in DATABASE_URL:
+    #     print("💡 Switching Supabase port to 6543 for Transaction Mode pooling")
+    #     DATABASE_URL = DATABASE_URL.replace(':5432/', ':6543/')
 
     # Ensure sslmode=require for Supabase/Render
     if 'sslmode' not in DATABASE_URL:

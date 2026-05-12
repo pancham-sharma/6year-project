@@ -14,7 +14,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         try:
             user = self.request.user
-            queryset = Message.objects.select_related('sender', 'receiver')
+            queryset = Message.objects.select_related('sender', 'receiver').order_by('-timestamp')
             
             other_user_id = self.request.query_params.get('other_user_id')
             if other_user_id:
@@ -129,9 +129,16 @@ class MessageViewSet(viewsets.ModelViewSet):
                         (Q(sender=p_user) & Q(receiver=user))
                     ).order_by('-timestamp').first()
                 
-                unread_count = Message.objects.filter(
-                    sender=p_user, receiver=user, is_read=False
-                ).count()
+                if is_admin:
+                    # For admins, count unread messages from this user sent to ANY admin/staff
+                    unread_count = Message.objects.filter(
+                        sender=p_user, 
+                        is_read=False
+                    ).filter(Q(receiver__is_staff=True) | Q(receiver__role='ADMIN')).count()
+                else:
+                    unread_count = Message.objects.filter(
+                        sender=p_user, receiver=user, is_read=False
+                    ).count()
                 
                 user_data = UserSerializer(p_user, context={'request': request}).data
                 results.append({

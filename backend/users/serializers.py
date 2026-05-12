@@ -13,7 +13,10 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone_number', 'city', 'address', 'profile_picture', 'is_staff', 'is_superuser', 'date_joined', 'donation_count']
 
     def get_donation_count(self, obj):
-        return getattr(obj, 'annotated_donation_count', obj.donations.count())
+        try:
+            return getattr(obj, 'annotated_donation_count', obj.donations.count())
+        except Exception:
+            return 0
 
     def get_profile_picture(self, obj):
         if not obj.profile_picture:

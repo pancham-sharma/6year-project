@@ -1,4 +1,6 @@
 import io
+import math
+from django.db.models import Sum
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -122,6 +124,64 @@ class DonationViewSet(viewsets.ModelViewSet):
             return Response({
                 'total_donations': 0, 'total_donors': 0, 'impacts': []
             })
+
+    @action(detail=False, methods=['get'])
+    def user_stats(self, request):
+        user = request.user
+        if not user.is_authenticated:
+            return Response({"error": "Authentication required"}, status=401)
+            
+        donations = Donation.objects.filter(donor=user).exclude(status='Recycled')
+        total_count = donations.count()
+        
+        # Calculate impact metrics
+        # Formula: impact = ceil(total_quantity / impact_per_quantity)
+        from django.db.models import Sum
+        import math
+        
+        # Fetch active categories for impact rules
+        categories = {c.name.lower(): c for c in Category.objects.filter(is_active=True)}
+        
+        # Group by category
+        cat_stats = donations.values('category').annotate(total_qty=Sum('quantity'))
+        
+        impact_metrics = []
+        
+        for stat in cat_stats:
+            cat_name = stat['category']
+            qty = stat['total_qty'] or 0
+            
+            cat_config = categories.get(cat_name.lower())
+            if cat_config:
+                impact_value = math.ceil(qty / (cat_config.impact_per_quantity or 1))
+                impact_metrics.append({
+                    'category': cat_name,
+                    'label': cat_config.impact_label or f"{cat_config.unit_name} Donated",
+                    'value': impact_value,
+                    'unit': cat_config.unit_name,
+                    'icon': cat_config.icon_name
+                })
+            else:
+                # Fallback for categories not in the Category model
+                impact_metrics.append({
+                    'category': cat_name,
+                    'label': f"{cat_name} Donated",
+                    'value': qty,
+                    'unit': 'Units',
+                    'icon': 'Heart'
+                })
+
+        # Get unique addresses from pickup details
+        from .models import PickupDetails
+        addresses = list(PickupDetails.objects.filter(donation__donor=user)
+                        .values('full_address', 'city', 'state', 'pincode', 'landmark')
+                        .distinct())
+        
+        return Response({
+            'total_donations': total_count,
+            'impact_metrics': impact_metrics,
+            'saved_addresses': addresses
+        })
 
     def perform_create(self, serializer):
         serializer.save(donor=self.request.user)

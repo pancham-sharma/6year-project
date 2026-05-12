@@ -276,10 +276,17 @@ class ChangePasswordView(APIView):
 class GetAdminIdView(APIView):
     permission_classes = [permissions.AllowAny]
     def get(self, request):
-        admin = User.objects.filter(role='ADMIN').first() or User.objects.filter(is_superuser=True).first()
-        if admin:
-            return Response({"id": admin.id, "username": admin.username})
-        return Response({"error": "Admin not found"}, status=404)
+        try:
+            admin = User.objects.filter(role='ADMIN').first() or User.objects.filter(is_superuser=True).first()
+            if admin:
+                return Response({"id": admin.id, "username": admin.username})
+            return Response({"error": "Admin not found"}, status=404)
+        except Exception as e:
+            import traceback
+            return Response({
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            }, status=500)
 
 class CustomTokenObtainPairView(APIView):
     permission_classes = (permissions.AllowAny,)
