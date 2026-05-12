@@ -92,7 +92,40 @@ export default function Messages({ darkMode }: Props) {
 
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data);
-      if (data.type === 'new_message' || data.type === 'edit_message' || data.type === 'delete_message') {
+      if (data.type === 'new_message') {
+        const msg = data.message;
+        // Update messages query
+        queryClient.setQueryData(['messages', activeId], (old: any) => {
+          if (!old) return old;
+          const newPages = [...old.pages];
+          if (newPages.length > 0) {
+            // Remove temp message if it exists, and add real one
+            const filtered = (newPages[0].data || []).filter((m: any) => !m.temp || m.message !== msg.message);
+            newPages[0] = { ...newPages[0], data: [msg, ...filtered] };
+          }
+          return { ...old, pages: newPages };
+        });
+        
+        // Update sidebar
+        queryClient.setQueryData(['conversations'], (old: any) => {
+          if (!old) return old;
+          const convs = [...old];
+          const idx = convs.findIndex((c: any) => String(c.id) === String(msg.sender) || String(c.id) === String(msg.receiver));
+          if (idx !== -1) {
+            const [target] = convs.splice(idx, 1);
+            target.last_message = msg.message;
+            target.last_message_time = msg.timestamp;
+            // If message is from user and not current active chat, increase unread
+            if (String(msg.sender) === String(target.id) && String(activeId) !== String(target.id)) {
+              target.unread_count = (target.unread_count || 0) + 1;
+            }
+            convs.unshift(target);
+          }
+          return convs;
+        });
+
+        window.dispatchEvent(new Event('chatMessagesUpdated'));
+      } else if (data.type === 'edit_message' || data.type === 'delete_message') {
         queryClient.invalidateQueries({ queryKey: ['messages', activeId] });
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
         window.dispatchEvent(new Event('chatMessagesUpdated'));
@@ -203,18 +236,41 @@ export default function Messages({ darkMode }: Props) {
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || !activeId) return;
+    const trimmedText = text.trim();
+    
+    // Optimistic Update: Create a temporary message to show immediately
+    const tempMsg = {
+      id: Date.now(),
+      message: trimmedText,
+      sender: myId,
+      sender_is_staff: true,
+      timestamp: new Date().toISOString(),
+      is_read: false,
+      temp: true
+    };
+    
+    // Manually update the query cache to show the message instantly
+    queryClient.setQueryData(['messages', activeId], (old: any) => {
+      if (!old) return { pages: [{ data: [tempMsg] }], pageParams: [1] };
+      const newPages = [...old.pages];
+      if (newPages.length > 0) {
+        newPages[0] = { ...newPages[0], data: [tempMsg, ...(newPages[0].data || [])] };
+      }
+      return { ...old, pages: newPages };
+    });
+
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         action: 'send_message',
         receiver_id: activeId,
-        message: text.trim()
+        message: trimmedText
       }));
       setInput('');
     } else {
       try {
         await fetchAPI('/api/chat/messages/', {
           method: 'POST',
-          body: JSON.stringify({ receiver: activeId, message: text.trim() })
+          body: JSON.stringify({ receiver: activeId, message: trimmedText })
         });
         queryClient.invalidateQueries({ queryKey: ['messages', activeId] });
         setInput('');
@@ -222,6 +278,19 @@ export default function Messages({ darkMode }: Props) {
         console.error("Failed to send", err);
       }
     }
+    // Also move this conversation to top in sidebar
+    queryClient.setQueryData(['conversations'], (old: any) => {
+      if (!old) return old;
+      const convs = [...old];
+      const idx = convs.findIndex((c: any) => String(c.id) === String(activeId));
+      if (idx !== -1) {
+        const [target] = convs.splice(idx, 1);
+        target.last_message = trimmedText;
+        target.last_message_time = new Date().toISOString();
+        convs.unshift(target);
+      }
+      return convs;
+    });
   };
 
   const selectConv = async (id: string) => {

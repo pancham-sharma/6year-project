@@ -12,3 +12,7 @@ export const getUserDonations = async (page: number = 1, limit: number = 5) => {
 export const getCategories = async () => {
   return await fetchAPI('/api/donations/categories/');
 };
+
+export const getUserStats = async () => {
+  return await fetchAPI('/api/donations/user_stats/');
+};

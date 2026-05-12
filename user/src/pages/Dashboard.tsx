@@ -7,9 +7,9 @@ import {
   Users, GraduationCap, Megaphone, HeartPulse, Shirt, Apple, 
   MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Sprout, Heart
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, getWSUrl } from '../utils/api';
-import { getUserDonations } from '../api/donations';
+import { getUserDonations, getUserStats } from '../api/donations';
 import { DonationItem } from '../components/dashboard/DonationItem';
 
 
@@ -19,6 +19,7 @@ const SkeletonItem = ({ dark }: { dark: boolean }) => (
 );
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
   const { dark, t, user: appUser, setUser: setAppUser, setNotifications, logout } = useApp();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -54,6 +55,12 @@ export default function Dashboard() {
   const { data: donationData, isLoading: loadingDonations } = useQuery({
     queryKey: ['user-donations', page],
     queryFn: () => getUserDonations(page, limit),
+    enabled: !!appUser.id,
+  });
+
+  const { data: userStats } = useQuery({
+    queryKey: ['user-stats'],
+    queryFn: () => getUserStats(),
     enabled: !!appUser.id,
   });
 
@@ -161,10 +168,12 @@ export default function Dashboard() {
         method: 'POST',
         body: JSON.stringify({ other_user_id: adminId })
       }).then(() => {
-        // Optionally refetch notifications or chat history if needed
+        // Refetch unread counts immediately to clear badge
+        refetchUnreadChat();
+        queryClient.invalidateQueries({ queryKey: ['unread-chat-count'] });
       }).catch(e => console.error("Mark read error:", e));
     }
-  }, [activeTab, adminId]);
+  }, [activeTab, adminId, refetchUnreadChat]);
 
   // Sync chatMessages from chatHistory query
   useEffect(() => {
@@ -220,9 +229,20 @@ export default function Dashboard() {
             next[existingIdx] = m;
             return next;
           }
-          return [...prev, m];
+          const updatedMessages = [...prev, m];
+          
+          // If we are currently looking at the messages tab, mark this new message as read locally
+          if (activeTab === 'messages') {
+             fetchAPI('/api/chat/messages/mark_read/', {
+                method: 'POST',
+                body: JSON.stringify({ other_user_id: adminId })
+             }).then(() => refetchUnreadChat());
+          }
+          
+          return updatedMessages;
         });
         window.dispatchEvent(new Event('chatMessagesUpdated'));
+        refetchUnreadChat();
       } else if (data.type === 'edit_message') {
         const m = data.message;
         setMessages((prev: any[]) => prev.map((msg: any) => String(msg.id) === String(m.id) ? m : msg));
@@ -445,31 +465,17 @@ export default function Dashboard() {
   const totalPages = donationData?.meta?.totalPages || 1;
   const totalCount = donationData?.meta?.total || (Array.isArray(safeDonations) ? safeDonations.length : 0);
 
-  const totalDonations = totalCount;
-  
-  // Calculate category-specific impact
-  const foodDonations = safeDonations.filter((d: any) => 
-    d.category?.toLowerCase() === 'food' || d.category?.toLowerCase() === 'meals'
-  );
-  const treeDonations = safeDonations.filter((d: any) => 
-    d.category?.toLowerCase() === 'trees' || d.category?.toLowerCase() === 'environment'
-  );
-  const otherDonations = safeDonations.filter((d: any) => 
-    !['food', 'meals', 'trees', 'environment'].includes(d.category?.toLowerCase())
-  );
-
-  const foodMeals = foodDonations.reduce((sum: number, d: any) => sum + (Number(d.quantity) || 1), 0) * 10;
-  const treesPlanted = treeDonations.reduce((sum: number, d: any) => sum + (Number(d.quantity) || 1), 0);
-  const familiesHelped = otherDonations.reduce((sum: number, d: any) => sum + (Number(d.quantity) || 1), 0);
+  const totalDonations = userStats?.total_donations || 0;
+  const impactMetrics = Array.isArray(userStats?.impact_metrics) ? userStats.impact_metrics : [];
 
   // Extract unique addresses for display
   const uniqueAddresses = useMemo(() => {
-    const safeDonationsArray = Array.isArray(safeDonations) ? safeDonations : [];
     const seen = new Set();
     const result: any[] = [];
     
-    safeDonationsArray.forEach((d: any) => {
-      const p = d.pickup_details;
+    // Add addresses from stats (all-time history)
+    const statsAddresses = userStats?.saved_addresses || [];
+    statsAddresses.forEach((p: any) => {
       if (!p || !p.full_address) return;
       const key = `${p.full_address}-${p.city}-${p.state}-${p.pincode}`;
       if (!seen.has(key)) {
@@ -494,7 +500,7 @@ export default function Dashboard() {
     }
 
     return result;
-  }, [safeDonations, appUser.address, appUser.city]);
+  }, [userStats, appUser.address, appUser.city]);
 
   const loading = loadingDonations;
 
@@ -522,7 +528,7 @@ export default function Dashboard() {
           <div className="absolute inset-0 opacity-10 bg-gradient-to-br from-brand to-transparent" />
           <div className="relative z-10">
             <h2 className="text-xl font-bold mb-1">{t.dashboard.impact}</h2>
-            <p className="text-white/80 text-sm mb-6">{t.dashboard.helped} <span className="text-2xl font-bold">{familiesHelped}</span> {t.dashboard.people}</p>
+            <p className="text-white/80 text-sm mb-6">You've helped approximately <span className="text-2xl font-bold">{impactMetrics[0]?.value || 0}</span> people through your kindness.</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
                 <Package className={`w-6 h-6 mx-auto mb-2 text-brand`} />
@@ -530,23 +536,29 @@ export default function Dashboard() {
                 <div className="text-xs text-white/70">Total Donations</div>
               </div>
               
-              <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
-                <Utensils className={`w-6 h-6 mx-auto mb-2 text-brand`} />
-                <div className="text-2xl font-bold">{foodMeals}</div>
-                <div className="text-xs text-white/70">Meals Provided</div>
-              </div>
+              {impactMetrics.slice(0, 3).map((metric: any, idx: number) => (
+                <div key={idx} className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                  <Heart className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                  <div className="text-2xl font-bold">{metric.value}</div>
+                  <div className="text-xs text-white/70">{metric.label}</div>
+                </div>
+              ))}
 
-              <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
-                <Sprout className={`w-6 h-6 mx-auto mb-2 text-brand`} />
-                <div className="text-2xl font-bold">{treesPlanted}</div>
-                <div className="text-xs text-white/70">Trees Planted</div>
-              </div>
-
-              <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
-                <Heart className={`w-6 h-6 mx-auto mb-2 text-brand`} />
-                <div className="text-2xl font-bold">{familiesHelped}</div>
-                <div className="text-xs text-white/70">Families Helped</div>
-              </div>
+              {/* Fallback if less than 3 impact metrics */}
+              {impactMetrics.length < 1 && (
+                <>
+                  <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                    <Utensils className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                    <div className="text-2xl font-bold">0</div>
+                    <div className="text-xs text-white/70">Meals Provided</div>
+                  </div>
+                  <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                    <Sprout className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                    <div className="text-2xl font-bold">0</div>
+                    <div className="text-xs text-white/70">Trees Planted</div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -562,7 +574,7 @@ export default function Dashboard() {
               }`}>
               <tab.icon className="w-4 h-4" />
               {tab.label}
-              {tab.key === 'messages' && unreadChatCount?.count > 0 && (
+              {tab.key === 'messages' && unreadChatCount?.count > 0 && activeTab !== 'messages' && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
                   {unreadChatCount.count}
                 </span>

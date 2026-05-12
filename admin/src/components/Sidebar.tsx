@@ -159,14 +159,14 @@ export default function Sidebar({ active, onNavigate, collapsed, onToggleCollaps
       >
         <Icon size={18} className={`flex-shrink-0 transition-colors ${isActiveItem ? 'text-green-600' : iconColor || ''}`} />
         {!collapsed && <span className="truncate">{item.label}</span>}
-        {!collapsed && counts[item.id] !== undefined && (
+        {!collapsed && counts[item.id] !== undefined && counts[item.id] > 0 && (
           <>
             {!isCategory ? (
-            (
+              !isActiveItem && (
                 <span className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500 text-white`}>
                   {counts[item.id]}
                 </span>
-            )
+              )
             ) : (
               hasNew && <span className="ml-auto w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)] animate-pulse" />
             )}
