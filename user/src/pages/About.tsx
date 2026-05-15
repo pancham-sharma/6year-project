@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Heart, Target, Eye, BookOpen, Users, TreePine, Utensils, HandHeart, Award, Globe, ChevronRight, ChevronLeft } from 'lucide-react';
+import { getImageUrl } from '../utils/api';
 
 function useCountUp(end: number, dur = 2000) {
   const [count, setCount] = useState(0);
@@ -49,12 +50,14 @@ export default function About() {
       <section className="max-w-7xl mx-auto px-4 mb-16">
         <div className={`relative rounded-[32px] overflow-hidden shadow-2xl group border border-gray-100`}>
           <img 
-            src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1200" 
+            src="/images/about-team.jpg" 
             alt="Our Team" 
             className="w-full h-[250px] sm:h-[320px] md:h-[400px] lg:h-[450px] object-cover transition-transform duration-1000 group-hover:scale-105" 
+            loading="lazy"
+            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images/hero.jpg'; }}
           />
 
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
+          <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/40 to-black/20" />
           
           <div className="absolute inset-0 flex flex-col justify-end p-8 sm:p-12 md:p-16">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-6 bg-white/20 backdrop-blur-md text-white border border-white/10 w-fit">
@@ -99,9 +102,11 @@ export default function About() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
           <div className="rounded-3xl overflow-hidden shadow-2xl">
             <img 
-              src="https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=1200" 
+              src="/images/volunteer-hero.jpg" 
               alt="Our story" 
               className="w-full h-[350px] sm:h-[450px] md:h-[500px] lg:h-[550px] object-cover hover:scale-105 transition-transform duration-700" 
+              loading="lazy"
+              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images/hero.jpg'; }}
             />
 
           </div>
@@ -168,7 +173,7 @@ export default function About() {
               { ref: d4.ref, count: d4.count, label: 'Meals Served', icon: Utensils, color: 'from-orange-400 to-red-400' },
             ].map((item, i) => (
               <div key={i} ref={item.ref} className={`text-center p-6 rounded-2xl transition-all hover:-translate-y-1 hover:shadow-lg ${dark ? 'bg-slate-800' : 'bg-white shadow-sm border border-gray-100'}`}>
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center mx-auto mb-3 shadow-lg`}>
+                <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${item.color} flex items-center justify-center mx-auto mb-3 shadow-lg`}>
                   <item.icon className="w-6 h-6 text-white" />
                 </div>
                 <div className={`text-xl font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{item.count.toLocaleString()}+</div>
@@ -185,15 +190,19 @@ export default function About() {
           <h2 className={`text-3xl font-bold font-serif text-center mb-12 ${dark ? 'text-white' : 'text-gray-900'}`}>Our Work in Pictures</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?q=80&w=800',
-              'https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=800',
-              'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?q=80&w=800',
-              'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=800'
+              'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c',
+              'https://images.unsplash.com/photo-1593113598332-cd288d649433',
+              'https://images.unsplash.com/photo-1497633762265-9d179a990aa6',
+              'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09'
             ].map((img, i) => (
-
-
               <div key={i} className="rounded-2xl overflow-hidden shadow-lg group cursor-pointer aspect-square">
-                <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                <img 
+                  src={getImageUrl(img)} 
+                  alt={`Gallery ${i + 1}`} 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                  loading="lazy"
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images/hero.jpg'; }}
+                />
               </div>
             ))}
           </div>
@@ -228,7 +237,7 @@ export default function About() {
               { icon: BookOpen, title: 'Education', desc: 'Empowering through knowledge and awareness', color: 'from-[#b5179e] to-[#4cc9f0]' },
             ].map((v, i) => (
               <div key={i} className={`text-center p-8 rounded-[40px] transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl group ${dark ? 'bg-[#1e293b]/50 border border-white/5' : 'bg-white shadow-xl shadow-gray-200/40 border border-gray-50'}`}>
-                <div className={`w-20 h-20 rounded-[28px] bg-gradient-to-br ${v.color} flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-${v.color.split('-')[1]}/20 transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-6`}>
+                <div className={`w-20 h-20 rounded-[28px] bg-linear-to-br ${v.color} flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-${v.color.split('-')[1]}/20 transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-6`}>
                   <v.icon className="w-10 h-10 text-white" strokeWidth={1.5} fill="none" />
                 </div>
                 <h3 className={`font-bold text-2xl mb-4 ${dark ? 'text-white' : 'text-slate-900'}`}>{v.title}</h3>

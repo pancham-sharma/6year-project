@@ -8,6 +8,20 @@ import {
   Check, ChevronRight, ChevronLeft, Package, MapPin, Navigation, Shield, Upload, Calendar, Clock, Loader,
   Utensils, Shirt, BookOpen, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins
 } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix Leaflet marker icon issue in local builds
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 const getCategoryIcon = (iconName: string) => {
   const iconMap: Record<string, any> = { Utensils, Shirt, BookOpen, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins };
@@ -25,7 +39,7 @@ const categoryColors: string[] = [
   'from-emerald-400 to-teal-500',
 ];
 
-declare const L: any;
+// L is now imported from 'leaflet'
 
 const MapEffect = ({ coords, onSelect, dark, mapRef }: any) => {
   // Initialization & Cleanup
@@ -378,11 +392,11 @@ export default function DonationForm() {
   };
 
   return (
-    <div className={`min-h-screen pt-24 pb-16 ${dark ? 'bg-slate-900' : 'bg-gradient-to-b from-primary-50/30 to-white'}`}>
+    <div className={`min-h-screen pt-24 pb-16 ${dark ? 'bg-slate-900' : 'bg-linear-to-b from-primary-50/30 to-white'}`}>
       <div className="max-w-3xl mx-auto px-4">
         <div className="text-center mb-10">
           <h1 className={`text-3xl sm:text-4xl font-bold font-serif ${dark ? 'text-white' : 'text-gray-900'}`}>{t.donate.title}</h1>
-          <div className="w-20 h-1 bg-gradient-to-r from-primary-500 to-accent-500 mx-auto mt-4 rounded-full" />
+          <div className="w-20 h-1 bg-linear-to-r from-primary-500 to-accent-500 mx-auto mt-4 rounded-full" />
         </div>
 
         {errorMsg && (
@@ -438,7 +452,7 @@ export default function DonationForm() {
                           update('types', newTypes);
                         }}
                         className={`p-4 rounded-2xl border-2 text-center transition-all ${isSelected ? (dark ? 'border-brand bg-brand/10 shadow-lg shadow-brand/20' : 'border-slate-900 bg-slate-50 shadow-lg shadow-slate-900/10') : dark ? 'border-slate-700 hover:border-slate-600' : 'border-gray-100 hover:border-gray-200 shadow-sm'}`}>
-                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${dt.color} flex items-center justify-center mx-auto mb-2 ${isSelected ? 'scale-110 shadow-lg' : ''} transition-transform`}>
+                        <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${dt.color} flex items-center justify-center mx-auto mb-2 ${isSelected ? 'scale-110 shadow-lg' : ''} transition-transform`}>
                           <dt.icon className="w-5 h-5 text-white" />
                         </div>
                         <span className={`text-[13px] font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>{dt.label}</span>
@@ -456,7 +470,7 @@ export default function DonationForm() {
                      return (
                        <div key={type} className="p-6 rounded-2xl border-2 border-primary-100 bg-primary-50/20 space-y-4 animate-fade-in">
                          <div className="flex items-center gap-3 mb-2">
-                           <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${dt.color} flex items-center justify-center`}>
+                           <div className={`w-8 h-8 rounded-lg bg-linear-to-br ${dt.color} flex items-center justify-center`}>
                              <dt.icon className="w-4 h-4 text-white" />
                            </div>
                            <h4 className={`font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{dt.label} Details</h4>
@@ -596,7 +610,7 @@ export default function DonationForm() {
                           }));
                           // If coordinates exist from previous donation, we could set mapCoords here too if available
                         }}
-                        className={`flex-shrink-0 p-4 rounded-2xl border-2 text-left transition-all max-w-[240px] ${dark ? 'bg-slate-700/50 border-slate-700 hover:border-brand/50' : 'bg-gray-50 border-gray-100 hover:border-slate-300'}`}
+                        className={`shrink-0 p-4 rounded-2xl border-2 text-left transition-all max-w-[240px] ${dark ? 'bg-slate-700/50 border-slate-700 hover:border-brand/50' : 'bg-gray-50 border-gray-100 hover:border-slate-300'}`}
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <MapPin className="w-3.5 h-3.5 text-brand" />

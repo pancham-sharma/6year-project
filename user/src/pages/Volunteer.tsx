@@ -66,9 +66,9 @@ export default function Volunteer() {
 
   if (submitted) {
     return (
-      <div className={`min-h-screen pt-24 pb-16 flex items-center justify-center ${dark ? 'bg-slate-900' : 'bg-gradient-to-b from-primary-50/30 to-white'}`}>
+      <div className={`min-h-screen pt-24 pb-16 flex items-center justify-center ${dark ? 'bg-slate-900' : 'bg-linear-to-b from-primary-50/30 to-white'}`}>
         <div className={`max-w-md w-full mx-4 rounded-3xl p-8 text-center animate-scale-in ${dark ? 'bg-slate-800' : 'bg-white shadow-xl'}`}>
-          <div className="w-20 h-20 bg-gradient-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 bg-linear-to-br from-primary-400 to-primary-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-10 h-10 text-white" />
           </div>
           <h2 className={`text-2xl font-bold font-serif mb-4 ${dark ? 'text-white' : 'text-gray-900'}`}>Welcome to the Family! 🎉</h2>
@@ -93,11 +93,13 @@ export default function Volunteer() {
       <div className="max-w-7xl mx-auto px-4 mb-12 pt-8">
         <div className={`relative rounded-[32px] overflow-hidden shadow-2xl group`}>
           <img 
-            src="https://images.unsplash.com/photo-1593113598332-cd288d649433?q=80&w=2000" 
+            src="/images/volunteer-hero.jpg" 
             alt="Join the Movement" 
             className="w-full h-[300px] md:h-[450px] object-cover transition-transform duration-1000 group-hover:scale-105" 
+            loading="lazy"
+            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images/hero.jpg'; }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
+          <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/40 to-black/10" />
           
           <div className="absolute inset-0 flex flex-col justify-end p-8 sm:p-12 md:p-16">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-6 bg-white/20 backdrop-blur-md text-white border border-white/10 w-fit">
@@ -147,7 +149,7 @@ export default function Volunteer() {
                       form.role === role.value ? 'border-primary-500 shadow-md shadow-primary-500/10' : 
                       dark ? 'border-slate-600 hover:border-slate-500' : 'border-gray-200 hover:border-gray-300'
                     }`}>
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${role.color} flex items-center justify-center flex-shrink-0 shadow-lg ${isDisabled ? 'grayscale opacity-50' : ''}`}>
+                    <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${role.color} flex items-center justify-center shrink-0 shadow-lg ${isDisabled ? 'grayscale opacity-50' : ''}`}>
                       <role.icon className="w-6 h-6 text-white" />
                     </div>
                     <div className="flex-1">
@@ -159,7 +161,7 @@ export default function Volunteer() {
                       <p className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{role.desc}</p>
                     </div>
                     {form.role === role.value && !isDisabled && (
-                      <CheckCircle className={`w-5 h-5 ml-auto flex-shrink-0 ${dark ? 'text-white' : 'text-primary-500'}`} />
+                      <CheckCircle className={`w-5 h-5 ml-auto shrink-0 ${dark ? 'text-white' : 'text-primary-500'}`} />
                     )}
                   </button>
                 );

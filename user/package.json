@@ -10,11 +10,14 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.9",
+    "@types/leaflet": "^1.9.21",
     "clsx": "2.1.1",
     "firebase": "^10.14.1",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.8.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.14.2",
     "tailwind-merge": "3.4.0"
   },

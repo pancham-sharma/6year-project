@@ -15,6 +15,39 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (
     : 'https://donation-admin-panel.onrender.com'
 );
 
+/**
+ * Global utility to resolve image paths correctly for production.
+ * Ensures HTTPS, handles local assets, and provides a default fallback.
+ */
+export const getImageUrl = (path: string) => {
+  if (!path || path === '' || typeof path !== 'string' || path.includes('placeholder')) return '/images/hero.jpg';
+  
+  const cleanPath = path.trim();
+
+  // If it's already a local image path, return as is
+  if (cleanPath.startsWith('/images/') || cleanPath.startsWith('images/')) {
+    return cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+  }
+
+  // Handle external URLs (ensure HTTPS, except for local dev)
+  if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+    const isLocal = cleanPath.includes('localhost') || cleanPath.includes('127.0.0.1');
+    let securePath = isLocal ? cleanPath : cleanPath.replace('http://', 'https://');
+    if (securePath.includes('images.unsplash.com') && !securePath.includes('w=')) {
+      securePath = `${securePath}${securePath.includes('?') ? '&' : '?'}w=800&q=80&auto=format&fit=crop`;
+    }
+    return securePath;
+  }
+
+  const base = API_BASE_URL;
+  // Handle paths from Django Media
+  if (cleanPath.startsWith('/media/')) return `${base}${cleanPath}`;
+  if (cleanPath.startsWith('media/')) return `${base}/${cleanPath}`;
+  
+  // Default to media path if it's just a filename or relative path
+  return `${base}/media/${cleanPath}`;
+};
+
 export const getWSUrl = (path: string) => {
   const token = localStorage.getItem('access_token');
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';

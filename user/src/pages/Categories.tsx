@@ -2,30 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { ArrowRight, Utensils, BookOpen, Shirt, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins } from 'lucide-react';
-import { API_BASE_URL } from '../utils/api';
+import { getImageUrl } from '../utils/api';
 import { useQuery } from '@tanstack/react-query';
 import { getCategories } from '../api/donations';
-
-const getImageUrl = (path: string) => {
-  if (!path) return '/images/hero.jpg';
-  
-  if (path.startsWith('http') || path.startsWith('https')) {
-    // For Unsplash images, ensure we have good quality/size parameters
-    if (path.includes('images.unsplash.com') && !path.includes('w=')) {
-      return `${path}${path.includes('?') ? '&' : '?'}w=800&q=80&auto=format&fit=crop`;
-    }
-    
-    // For Cloudinary images (from our backend), we already add optimization in the serializer
-    // so we can return it as is.
-    return path;
-  }
-
-  
-  const base = API_BASE_URL;
-  if (path.startsWith('/media/')) return `${base}${path}`;
-  if (path.startsWith('/') || path.startsWith('images/')) return path;
-  return `${base}/media/${path}`;
-};
 
 
 const iconMap: Record<string, any> = {
@@ -107,15 +86,20 @@ export default function Categories() {
                     src={(() => {
                       const name = cat.name.toLowerCase();
                       const path = cat.image || '';
-                      // If it's a known category with a generic or missing path, use Unsplash directly
-                      // But ONLY if the path is truly missing or a clear placeholder
+                      // If it's a known category with a generic or missing path, use local directly
                       if (!path || path.includes('placeholder') || path === '') {
                         if (name.includes('money') || name.includes('monetar') || name.includes('fund')) 
-                          return "https://images.unsplash.com/photo-1554224155-1696413565d3?w=800&q=80&auto=format&fit=crop";
+                          return "/images/cat-money.jpg";
                         if (name.includes('gift'))
-                          return "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&q=80&auto=format&fit=crop";
+                          return "/images/cat-gifts.jpg";
                         if (name.includes('food'))
-                          return "https://images.unsplash.com/photo-1488459711635-0c00289b8046?w=800&q=80&auto=format&fit=crop";
+                          return "/images/stories-food.jpg";
+                        if (name.includes('book') || name.includes('education'))
+                          return "/images/cat-books.jpg";
+                        if (name.includes('clothes'))
+                          return "/images/cat-clothes.jpg";
+                        if (name.includes('tree') || name.includes('environment'))
+                          return "/images/stories-trees.jpg";
                       }
                       return getImageUrl(path);
                     })()} 
@@ -124,13 +108,14 @@ export default function Categories() {
                     loading="lazy"
                     decoding="async"
                     onError={(e) => {
+                      e.currentTarget.onerror = null; // Prevent infinite loop
                       const name = cat.name.toLowerCase();
                       if (name.includes('food')) e.currentTarget.src = "/images/stories-food.jpg";
-                      else if (name.includes('clothes')) e.currentTarget.src = "https://i.pinimg.com/736x/0c/59/51/0c5951d6535588129d8cb0deaabb35d0.jpg";
-                      else if (name.includes('book') || name.includes('education')) e.currentTarget.src = "/images/stories-education.jpg";
-                      else if (name.includes('money') || name.includes('monetar') || name.includes('fund')) e.currentTarget.src = "https://images.unsplash.com/photo-1554224155-1696413565d3?w=800&q=80&auto=format&fit=crop";
-                      else if (name.includes('tree') || name.includes('environment')) e.currentTarget.src = "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80&auto=format&fit=crop";
-                      else if (name.includes('gift')) e.currentTarget.src = "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&q=80&auto=format&fit=crop";
+                      else if (name.includes('clothes')) e.currentTarget.src = "/images/cat-clothes.jpg";
+                      else if (name.includes('book') || name.includes('education')) e.currentTarget.src = "/images/cat-books.jpg";
+                      else if (name.includes('money') || name.includes('monetar') || name.includes('fund')) e.currentTarget.src = "/images/cat-money.jpg";
+                      else if (name.includes('tree') || name.includes('environment')) e.currentTarget.src = "/images/stories-trees.jpg";
+                      else if (name.includes('gift')) e.currentTarget.src = "/images/cat-gifts.jpg";
                       else e.currentTarget.src = '/images/hero.jpg';
                     }}
                   />

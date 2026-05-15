@@ -8,7 +8,7 @@ import {
   MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Sprout, Heart
 } from 'lucide-react';
 import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI, getWSUrl } from '../utils/api';
+import { fetchAPI, getWSUrl, getImageUrl } from '../utils/api';
 import { getUserDonations, getUserStats } from '../api/donations';
 import { DonationItem } from '../components/dashboard/DonationItem';
 
@@ -574,7 +574,7 @@ export default function Dashboard() {
         {showDonationToast && (
           <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
             <div className={`flex items-center gap-3 px-5 py-3.5 ${dark ? 'bg-white text-slate-900' : 'bg-[#0f172b] text-white'} rounded-2xl shadow-2xl shadow-slate-900/20 animate-fade-in border ${dark ? 'border-gray-200' : 'border-slate-800'}`}>
-              <CheckCircle className={`w-5 h-5 flex-shrink-0 ${dark ? 'text-green-600' : 'text-brand'}`} />
+              <CheckCircle className={`w-5 h-5 shrink-0 ${dark ? 'text-green-600' : 'text-brand'}`} />
               <span className="text-sm font-bold">🎉 Donation saved successfully! Thank you for your generosity.</span>
             </div>
           </div>
@@ -588,7 +588,7 @@ export default function Dashboard() {
 
         {/* Impact Summary */}
         <div className={`rounded-3xl p-6 sm:p-8 mb-8 relative overflow-hidden text-white transition-all duration-500 ${dark ? 'bg-white/5 border border-white/10' : 'bg-[#0f172b] shadow-2xl shadow-slate-900/20'}`}>
-          <div className="absolute inset-0 opacity-10 bg-gradient-to-br from-brand to-transparent" />
+          <div className="absolute inset-0 opacity-10 bg-linear-to-br from-brand to-transparent" />
           <div className="relative z-10">
             <h2 className="text-xl font-bold mb-1">{t.dashboard.impact}</h2>
             <p className="text-white/80 text-sm mb-6">You've helped approximately <span className="text-2xl font-bold">{impactMetrics.reduce((acc: number, m: any) => acc + (m.value || 0), 0) || totalDonations}</span> people through your kindness.</p>
@@ -803,9 +803,15 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center gap-4 mb-8">
                     <div className="relative">
-                      <div className={`w-24 h-24 rounded-3xl flex items-center justify-center text-4xl font-black text-white shadow-[0_20px_50px_-12px_rgba(24,226,153,0.5)] transform transition-all duration-500 hover:scale-105 hover:rotate-2 overflow-hidden ${!appUser.image ? 'bg-gradient-to-br from-[#18E299] to-[#0fa76e]' : ''}`}>
+                      <div className={`w-24 h-24 rounded-3xl flex items-center justify-center text-4xl font-black text-white shadow-[0_20px_50px_-12px_rgba(24,226,153,0.5)] transform transition-all duration-500 hover:scale-105 hover:rotate-2 overflow-hidden ${!appUser.image ? 'bg-linear-to-br from-[#18E299] to-[#0fa76e]' : ''}`}>
                         {appUser.image ? (
-                          <img src={appUser.image} alt="Profile" className="w-full h-full object-cover" />
+                          <img 
+                            src={getImageUrl(appUser.image)} 
+                            alt="Profile" 
+                            className="w-full h-full object-cover" 
+                            loading="lazy"
+                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images/hero.jpg'; }}
+                          />
                         ) : (
                           appUser.name ? appUser.name.charAt(0).toUpperCase() : <User className="w-10 h-10" />
                         )}
@@ -952,7 +958,7 @@ export default function Dashboard() {
 
               {/* Messages from Admin (Chat Inbox) */}
               {activeTab === 'messages' && (
-                <div className={`animate-fade-in flex flex-col h-[calc(100vh-16rem)] min-h-[600px] border shadow-2xl rounded-[2rem] overflow-hidden relative ${dark ? 'border-white/10' : 'border-gray-100'}`}>
+                <div className={`animate-fade-in flex flex-col h-[calc(100vh-16rem)] min-h-[600px] border shadow-2xl rounded-4xl overflow-hidden relative ${dark ? 'border-white/10' : 'border-gray-100'}`}>
                   {/* Glassmorphism Background Overlay */}
                   <div className={`absolute inset-0 z-0 ${dark ? 'bg-[#0f172b]/60' : 'bg-white/70'} backdrop-blur-3xl`} />
                   
@@ -961,7 +967,7 @@ export default function Dashboard() {
                     <div className={`px-8 py-6 border-b flex items-center justify-between ${dark ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50/50'}`}>
                       <div className="flex items-center gap-4">
                         <div className="relative">
-                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white shadow-lg">
+                          <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white shadow-lg">
                             <Users className="w-6 h-6" />
                           </div>
                           {messages.filter((m: any) => !m.is_read && m.sender_is_staff).length > 0 && (

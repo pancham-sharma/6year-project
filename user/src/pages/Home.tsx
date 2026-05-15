@@ -2,27 +2,8 @@ import { memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { ArrowRight, Utensils, BookOpen, Shirt, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins } from 'lucide-react';
-import { fetchAPI, API_BASE_URL } from '../utils/api';
+import { fetchAPI, getImageUrl } from '../utils/api';
 import { useQuery } from '@tanstack/react-query';
-
-const getImageUrl = (path: string) => {
-  if (!path) return '/images/hero.jpg';
-  
-  // If it's already a local image path, return as isa
-  if (path.startsWith('/images/')) return path;
-
-  if (path.startsWith('http')) {
-    if (path.includes('images.unsplash.com') && !path.includes('w=')) {
-      return `${path}${path.includes('?') ? '&' : '?'}w=800&q=80&auto=format&fit=crop`;
-    }
-    return path;
-  }
-
-  const base = API_BASE_URL;
-  if (path.startsWith('/media/')) return `${base}${path}`;
-  if (path.startsWith('images/')) return `/${path}`;
-  return `${base}/media/${path}`;
-};
 
 const iconMap: Record<string, any> = {
   utensils: Utensils,
@@ -53,12 +34,14 @@ const CategoryCard = memo(({ cat, dark, getImageUrl }: any) => {
           src={getImageUrl(cat.image)} 
           alt={cat.name} 
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          loading="lazy"
           onError={(e) => {
+            e.currentTarget.onerror = null; // Prevent infinite loop
             const name = cat.name?.toLowerCase() || '';
             if (name.includes('food')) e.currentTarget.src = "/images/stories-food.jpg";
             else if (name.includes('clothes')) e.currentTarget.src = "/images/cat-clothes.jpg";
             else if (name.includes('book') || name.includes('education')) e.currentTarget.src = "/images/cat-books.jpg";
-            else if (name.includes('money') || name.includes('fund')) e.currentTarget.src = "https://images.unsplash.com/photo-1579621970795-87faff2f9070?w=800&q=80&auto=format&fit=crop";
+            else if (name.includes('money') || name.includes('fund')) e.currentTarget.src = "/images/cat-money.jpg";
             else if (name.includes('tree') || name.includes('environment')) e.currentTarget.src = "/images/stories-trees.jpg";
             else if (name.includes('gift')) e.currentTarget.src = "/images/cat-gifts.jpg";
             else e.currentTarget.src = '/images/hero.jpg';
@@ -195,7 +178,7 @@ export default function Home() {
       </section>
 
       {/* Featured Categories */}
-      <section className="py-12 sm:py-16 bg-slate-50/50 dark:bg-white/[0.02]">
+      <section className="py-12 sm:py-16 bg-slate-50/50 dark:bg-white/2">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16 md:mb-24 px-4">
             <p className={`mono-label mb-4 uppercase tracking-[0.2em] text-[11px] font-extrabold ${dark ? 'text-brand' : 'text-brand-deep'}`}>{t.categories.title}</p>
@@ -220,7 +203,7 @@ export default function Home() {
             <div className={`
               rounded-[48px] p-8 sm:p-12 md:p-16 relative overflow-hidden text-center transition-all duration-500 
               ${dark 
-                ? 'bg-gradient-to-br from-[#0a0f1e] via-[#0f172a] to-[#050814] border-white/10' 
+                ? 'bg-linear-to-br from-[#0a0f1e] via-[#0f172a] to-[#050814] border-white/10' 
                 : 'bg-white border-emerald-50'}
               border shadow-[0_30px_70px_rgba(0,0,0,0.08)]
               group-hover:scale-[1.005] group-hover:shadow-[0_40px_90px_rgba(0,0,0,0.12)]
@@ -236,7 +219,7 @@ export default function Home() {
               {dark && (
                 <div className="absolute inset-0 pointer-events-none overflow-hidden">
                   <div className="absolute -top-32 -left-32 w-96 h-96 bg-[#18E299] opacity-10 blur-[120px] rounded-full animate-glow-pulse"></div>
-                  <div className="absolute -bottom-40 -right-40 w-[30rem] h-[30rem] bg-[#18E299] opacity-10 blur-[130px] rounded-full animate-glow-float"></div>
+                  <div className="absolute -bottom-40 -right-40 w-120 h-120 bg-[#18E299] opacity-10 blur-[130px] rounded-full animate-glow-float"></div>
                 </div>
               )}
 

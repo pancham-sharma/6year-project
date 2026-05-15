@@ -7,8 +7,8 @@ const stories = [
   { id: 1, title: 'From Hunger to Hope', name: 'Lakshmi Devi', location: 'Mumbai', before: 'A family of 5 struggling to find daily meals', after: 'Now receives regular nutritious food packages every week', quote: 'SevaSetu gave us hope when we had lost everything. My children can now focus on studies instead of hunger.', image: '/images/stories-food.jpg', category: 'Food', color: 'from-orange-400 to-red-400' },
   { id: 2, title: 'Education Changes Everything', name: 'Arjun Kumar', location: 'Rural Bihar', before: 'Dropped out of school at age 10 due to lack of resources', after: 'Now studying in 8th grade with donated books and mentorship', quote: 'The books and guidance I received opened a new world for me. I want to become a teacher someday.', image: '/images/stories-education.jpg', category: 'Education', color: 'from-purple-400 to-pink-400' },
   { id: 3, title: 'A Greener Tomorrow', name: 'Ramesh Patel', location: 'Rajasthan', before: 'Barren land with no shade, water scarcity in the village', after: 'Over 500 trees planted, transforming the landscape', quote: 'Our village is green again. The trees bring rain, shade, and hope for our children\'s future.', image: '/images/stories-trees.jpg', category: 'Trees', color: 'from-green-400 to-emerald-400' },
-  { id: 4, title: 'Clothes that Brought Dignity', name: 'Meena Yadav', location: 'Delhi', before: 'Children going to school in torn clothes, facing ridicule', after: 'Received quality clothing, restored confidence and dignity', quote: 'When my children got new clothes, I saw their faces light up. They stood taller that day.', image: '/images/volunteer-hero.jpg', category: 'Clothes', color: 'from-blue-400 to-indigo-400' },
-  { id: 5, title: 'Rebuilding After Loss', name: 'Suresh Sharma', location: 'Kerala', before: 'Lost everything in floods, family displaced', after: 'Received monetary aid, groceries, and rehabilitation support', quote: 'When the flood took everything, SevaSetu volunteers were the first to arrive. They helped us rebuild.', image: '/images/about-team.jpg', category: 'Monetary', color: 'from-yellow-400 to-orange-400' },
+  { id: 4, title: 'Clothes that Brought Dignity', name: 'Meena Yadav', location: 'Delhi', before: 'Children going to school in torn clothes, facing ridicule', after: 'Received quality clothing, restored confidence and dignity', quote: 'When my children got new clothes, I saw their faces light up. They stood taller that day.', image: '/images/cat-clothes.jpg', category: 'Clothes', color: 'from-blue-400 to-indigo-400' },
+  { id: 5, title: 'Rebuilding After Loss', name: 'Suresh Sharma', location: 'Kerala', before: 'Lost everything in floods, family displaced', after: 'Received monetary aid, groceries, and rehabilitation support', quote: 'When the flood took everything, SevaSetu volunteers were the first to arrive. They helped us rebuild.', image: '/images/cat-money.jpg', category: 'Monetary', color: 'from-yellow-400 to-orange-400' },
   { id: 6, title: 'The Power of Community', name: 'Fatima Begum', location: 'Hyderabad', before: 'Elderly woman living alone with no support', after: 'Connected with volunteer network, receives regular care', quote: 'I thought I was forgotten. But these young volunteers visit me every week. I feel like I have a family again.', image: '/images/hero.jpg', category: 'Community', color: 'from-pink-400 to-rose-400' },
 ];
 
@@ -43,8 +43,14 @@ export default function Stories() {
       <section className="relative overflow-hidden mb-12">
         <div className="max-w-6xl mx-auto px-4">
           <div className={`relative rounded-3xl overflow-hidden ${dark ? 'shadow-2xl shadow-slate-950/50' : 'shadow-2xl'}`}>
-            <img src="/images/stories-food.jpg" alt="Impact stories" className="w-full h-64 sm:h-80 object-cover" />
-            <div className={`absolute inset-0 ${dark ? 'bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-900/40' : 'bg-gradient-to-r from-black/70 via-black/50 to-black/20'}`} />
+            <img 
+              src="/images/stories-food.jpg" 
+              alt="Impact stories" 
+              className="w-full h-64 sm:h-80 object-cover"
+              loading="lazy"
+              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images/hero.jpg'; }}
+            />
+            <div className={`absolute inset-0 ${dark ? 'bg-linear-to-r from-slate-900/90 via-slate-900/70 to-slate-900/40' : 'bg-linear-to-r from-black/70 via-black/50 to-black/20'}`} />
             <div className="absolute inset-0 flex flex-col justify-center px-8 sm:px-12">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white text-xs font-medium mb-3 w-fit">
                 <BookOpen className="w-3 h-3" /> Real Impact Stories
@@ -116,8 +122,14 @@ export default function Stories() {
             <div key={story.id} className={`group rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${dark ? 'bg-slate-800 hover:shadow-slate-700/30' : 'bg-white shadow-lg border border-gray-100'}`}>
               {/* Image Header */}
               <div className="relative h-52 overflow-hidden">
-                <img src={story.image} alt={story.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent`} />
+                <img 
+                  src={story.image} 
+                  alt={story.title} 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  loading="lazy"
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/images/hero.jpg'; }}
+                />
+                <div className={`absolute inset-0 bg-linear-to-t from-black/80 via-black/30 to-transparent`} />
                 <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-medium">
                   {story.category}
                 </div>
