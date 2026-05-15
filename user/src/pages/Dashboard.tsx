@@ -5,7 +5,7 @@ import {
   User, MapPin, Clock, HandHeart, TreePine, Utensils,
   CheckCircle, Check, CheckCheck, Package, Loader, Mail, Send, Truck, Calendar, LogOut, 
   Users, GraduationCap, Megaphone, HeartPulse, Shirt, Apple, 
-  MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Sprout, Heart
+  MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Sprout, Heart, Coins
 } from 'lucide-react';
 import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, getWSUrl, getImageUrl } from '../utils/api';
@@ -599,16 +599,50 @@ export default function Dashboard() {
                 <div className="text-xs text-white/70">Total Donations</div>
               </div>
               
-              {impactMetrics.slice(0, 3).map((metric: any, idx: number) => (
-                <div key={idx} className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
-                  <Heart className={`w-6 h-6 mx-auto mb-2 text-brand`} />
-                  <div className="text-2xl font-bold">{metric.value}</div>
-                  <div className="text-xs text-white/70">{metric.label}</div>
-                </div>
-              ))}
+              {(() => {
+                // Map of labels/categories to icons
+                const getMetricIcon = (metric: any) => {
+                  const l = (metric.label || '').toLowerCase();
+                  const c = (metric.category || '').toLowerCase();
+                  const str = l + ' ' + c;
+                  if (str.includes('meal') || str.includes('food')) return Utensils;
+                  if (str.includes('tree') || str.includes('plant') || str.includes('envir')) return Sprout;
+                  if (str.includes('book') || str.includes('educat')) return GraduationCap;
+                  if (str.includes('cloth')) return Shirt;
+                  if (str.includes('monet') || str.includes('money') || str.includes('fund') || str.includes('cash')) return Coins;
+                  if (str.includes('famil') || str.includes('peopl')) return Users;
+                  if (str.includes('health') || str.includes('med')) return HeartPulse;
+                  return Heart;
+                };
+
+                const getBetterLabel = (metric: any) => {
+                  const l = (metric.label || '').toLowerCase();
+                  if (l && !l.includes('units donated')) return metric.label;
+                  
+                  const c = (metric.category || '').toLowerCase();
+                  if (c.includes('food')) return 'Meals Provided';
+                  if (c.includes('cloth')) return 'Clothes Donated';
+                  if (c.includes('book')) return 'Books Distributed';
+                  if (c.includes('tree') || c.includes('envir')) return 'Trees Planted';
+                  if (c.includes('money') || c.includes('monet')) return 'Funds Raised';
+                  return metric.label || 'Impact Made';
+                };
+
+                return impactMetrics.slice(0, 3).map((metric: any, idx: number) => {
+                  const Icon = getMetricIcon(metric);
+                  const label = getBetterLabel(metric);
+                  return (
+                    <div key={idx} className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                      <Icon className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                      <div className="text-2xl font-bold">{metric.value}</div>
+                      <div className="text-xs text-white/70">{label}</div>
+                    </div>
+                  );
+                });
+              })()}
 
               {/* Fallback if less than 3 impact metrics */}
-              {impactMetrics.length < 1 && (
+              {impactMetrics.length === 0 && (
                 <>
                   <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
                     <Utensils className={`w-6 h-6 mx-auto mb-2 text-brand`} />
@@ -621,6 +655,22 @@ export default function Dashboard() {
                     <div className="text-xs text-white/70">Trees Planted</div>
                   </div>
                 </>
+              )}
+              
+              {impactMetrics.length === 1 && (
+                <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                  <Utensils className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                  <div className="text-2xl font-bold">0</div>
+                  <div className="text-xs text-white/70">Meals Provided</div>
+                </div>
+              )}
+              
+              {impactMetrics.length === 2 && (
+                <div className={`rounded-2xl p-4 text-center backdrop-blur-sm transition-colors ${dark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/10 hover:bg-white/20'}`}>
+                  <Users className={`w-6 h-6 mx-auto mb-2 text-brand`} />
+                  <div className="text-2xl font-bold">0</div>
+                  <div className="text-xs text-white/70">Families Helped</div>
+                </div>
               )}
             </div>
           </div>
