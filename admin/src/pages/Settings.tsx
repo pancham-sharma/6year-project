@@ -306,13 +306,13 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
 
   return (
     <div className={`rounded-2xl border shadow-sm overflow-hidden flex flex-col lg:flex-row min-h-[600px] ${card}`}>
-      <div className={`w-full lg:w-56 border-b lg:border-b-0 lg:border-r ${divider} flex-shrink-0 p-3 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible no-scrollbar`}>
+      <div className={`w-full lg:w-56 border-b lg:border-b-0 lg:border-r ${divider} shrink-0 p-3 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible no-scrollbar`}>
         <p className={`hidden lg:block text-xs font-semibold uppercase tracking-wider px-3 py-2 ${textSub}`}>Configuration</p>
         {settingsSections.map(s => {
           const Icon = s.icon;
           return (
             <button key={s.id} onClick={() => setActiveSection(s.id)}
-              className={`flex-shrink-0 lg:w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${activeSection === s.id ? sideActive : sideInactive}`}>
+              className={`shrink-0 lg:w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${activeSection === s.id ? sideActive : sideInactive}`}>
               <Icon size={15} />
               <span className="whitespace-nowrap">{s.label}</span>
             </button>
@@ -364,7 +364,7 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
             <div className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-700/30' : 'border-gray-100 bg-gray-50'}`}>
               <p className={`text-sm font-semibold ${textMain} mb-3`}>Add New Category</p>
               <div className="flex flex-wrap gap-2 mb-3 items-center">
-                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
                   {(() => {
                     const Icon = iconMap[newCatIcon.toLowerCase()];
                     return Icon ? <Icon size={20} className="text-green-500" /> : <span className="text-xl">{newCatIcon}</span>;
@@ -522,23 +522,28 @@ export default function Settings({ darkMode, onToggleDark }: Props) {
               </div>
 
               <div className={`p-4 rounded-xl border ${darkMode ? 'border-gray-700 bg-gray-700/30' : 'border-gray-100 bg-gray-50'}`}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-blue-500/10 rounded-lg">
-                    <Database className="w-5 h-5 text-blue-500" />
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-lg">
+                      <Database className="w-5 h-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <p className={`font-medium text-sm ${textMain}`}>Database Backup</p>
+                      <p className={`text-xs ${textSub}`}>Create a full snapshot (JSON + CSV).</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className={`font-medium text-sm ${textMain}`}>Database Backup</p>
-                    <p className={`text-xs ${textSub}`}>Create a full snapshot of the database.</p>
-                  </div>
+                  <button 
+                    onClick={handleBackup}
+                    disabled={actionLoading['backup']}
+                    className={`p-2 rounded-lg transition-all ${darkMode ? 'hover:bg-blue-900/30 text-blue-400' : 'hover:bg-blue-50 text-blue-600'} disabled:opacity-50`}
+                    title="Run New Backup"
+                  >
+                    {actionLoading['backup'] ? <Loader size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
+                  </button>
                 </div>
-                <button 
-                  onClick={handleBackup}
-                  disabled={actionLoading['backup']}
-                  className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {actionLoading['backup'] ? <Loader size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
-                  Create New Backup
-                </button>
+                <p className={`text-[10px] ${textSub} mt-2 italic opacity-80`}>
+                  💡 Creates a ZIP containing full JSON data and Excel-ready CSV files.
+                </p>
               </div>
 
               <div className={`p-4 rounded-xl border ${darkMode ? 'border-red-900/20 bg-red-900/5' : 'border-red-100 bg-red-50/30'}`}>

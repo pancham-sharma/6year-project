@@ -289,39 +289,86 @@ class DataManagementViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def backup(self, request):
+        import logging
+        import zipfile
+        import csv
+        from django.core.files.base import ContentFile
+        from django.core.files import File
+        
+        logger = logging.getLogger(__name__)
+        
         try:
             timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"backup_{timestamp}.json"
+            zip_filename = f"backup_{timestamp}.zip"
+            json_filename = f"data_{timestamp}.json"
             
             # Directory for backups in media root
             backup_dir = os.path.join(settings.MEDIA_ROOT, 'backups')
             if not os.path.exists(backup_dir):
                 os.makedirs(backup_dir, exist_ok=True)
             
-            filepath = os.path.join(backup_dir, filename)
+            zip_filepath = os.path.join(backup_dir, zip_filename)
             
-            # Perform the data dump
-            # We specify the apps we want; excluding system apps we aren't dumping anyway
-            with open(filepath, 'w', encoding='utf-8') as f:
-                call_command('dumpdata', 
-                            'users', 'donations', 'inventory', 'chat',
-                            indent=2, 
-                            stdout=f)
-            
-            size_bytes = os.path.getsize(filepath)
+            with zipfile.ZipFile(zip_filepath, 'w') as zipf:
+                # 1. Generate JSON Backup
+                json_data = io.StringIO()
+                try:
+                    call_command('dumpdata', 
+                                'users', 'donations', 'inventory', 'chat',
+                                indent=2, 
+                                use_natural_foreign_keys=True,
+                                use_natural_primary_keys=True,
+                                stdout=json_data)
+                    zipf.writestr(json_filename, json_data.getvalue())
+                except Exception as e:
+                    logger.error(f"JSON Dump failed: {str(e)}")
+
+                # 2. Generate CSVs for key models
+                models_to_export = [
+                    (Donation, 'donations.csv'),
+                    (get_user_model(), 'users.csv'),
+                    (Category, 'categories.csv'),
+                    (PickupDetails, 'pickups.csv'),
+                ]
+
+                for model, csv_name in models_to_export:
+                    try:
+                        csv_buffer = io.StringIO()
+                        writer = csv.writer(csv_buffer)
+                        
+                        # Get fields
+                        fields = [f.name for f in model._meta.fields]
+                        writer.writerow(fields)
+                        
+                        # Write data
+                        for obj in model.objects.all():
+                            row = []
+                            for field in fields:
+                                val = getattr(obj, field)
+                                if hasattr(val, 'pk'): val = val.pk
+                                row.append(str(val))
+                            writer.writerow(row)
+                        
+                        zipf.writestr(csv_name, csv_buffer.getvalue())
+                    except Exception as e:
+                        logger.error(f"CSV Export failed for {csv_name}: {str(e)}")
+
+            size_bytes = os.path.getsize(zip_filepath)
             size_str = f"{size_bytes / 1024:.2f} KB" if size_bytes < 1024 * 1024 else f"{size_bytes / (1024 * 1024):.2f} MB"
             
             # Create the backup record
-            # file=... should be the relative path inside MEDIA_ROOT
-            backup = DatabaseBackup.objects.create(
-                file=f"backups/{filename}",
-                size=size_str,
-                backup_type='json'
-            )
+            with open(zip_filepath, 'rb') as f:
+                backup = DatabaseBackup.objects.create(
+                    size=size_str,
+                    backup_type='zip'
+                )
+                backup.file.save(zip_filename, File(f), save=True)
             
             return Response(DatabaseBackupSerializer(backup).data, status=status.HTTP_201_CREATED)
+            
         except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"Unexpected backup error: {str(e)}")
+            return Response({"error": f"Unexpected error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['get'])
     def list_backups(self, request):

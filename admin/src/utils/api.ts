@@ -29,6 +29,9 @@ export const getWSUrl = (path: string) => {
   return `${protocol}://${host}${path}${path.includes('?') ? '&' : '?'}token=${token}`;
 };
 
+let isRefreshing = false;
+let refreshSubscribers: ((token: string | null) => void)[] = [];
+
 function onRefreshed(newToken: string | null) {
   refreshSubscribers.forEach(cb => cb(newToken));
   refreshSubscribers = [];
@@ -64,117 +67,111 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
-let isRefreshing = false;
-let refreshSubscribers: ((token: string | null) => void)[] = [];
+// --- In-flight request deduplication and caching ---
+const inflightRequests = new Map<string, Promise<any>>();
+const cache = new Map<string, { data: any; expiry: number }>();
+const CACHE_TTL = 5000; // 5 seconds cache for identical GET requests
 
 export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Promise<any> => {
-  const headers = new Headers(options.headers || {});
+  const method = (options.method || 'GET').toUpperCase();
+  const cacheKey = `${method}:${endpoint}:${options.body ? JSON.stringify(options.body) : ''}`;
 
-  const isSafeMethod = ['GET', 'HEAD'].includes((options.method || 'GET').toUpperCase());
-
-  if (!isSafeMethod && !headers.has('Content-Type') && !(options.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json');
-  }
-
-  const token = localStorage.getItem('access_token');
-  // Only set Authorization if token exists and is a non-empty, non-null-string value
-  if (token && token !== 'null' && token !== 'undefined' && token.length > 10) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-
-  // Diagnostic logging in development
-  if (import.meta.env.DEV) {
-    console.log(`[fetchAPI] Requesting: ${endpoint}`, {
-      method: options.method || 'GET',
-      hasToken: !!token && token !== 'null'
-    });
-  }
-
-  const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-  const response = await fetch(fullUrl, { ...options, headers });
-
-
-  if (response.status === 400) {
-    const errorBody = await response.clone().text();
-    console.error(`[fetchAPI] 400 Bad Request at ${endpoint}:`, errorBody);
-  }
-
-  // ── Auto-refresh on 401 ──────────────────────────────────────────────────
-  if (response.status === 401) {
-    if (!localStorage.getItem('refresh_token')) {
-      throw new Error('Authentication required. Please log in.');
+  // 1. Check cache for GET requests
+  if (method === 'GET' && cache.has(cacheKey)) {
+    const entry = cache.get(cacheKey)!;
+    if (Date.now() < entry.expiry) {
+      return entry.data;
     }
+    cache.delete(cacheKey);
+  }
 
-    if (!isRefreshing) {
-      isRefreshing = true;
-      const newToken = await refreshAccessToken();
-      isRefreshing = false;
-      onRefreshed(newToken);
+  // 2. Check for in-flight requests (deduplication)
+  if (inflightRequests.has(cacheKey)) {
+    return inflightRequests.get(cacheKey);
+  }
 
-      if (!newToken) {
-        throw new Error('Session expired. Please log in again.');
+  const requestPromise = (async () => {
+    try {
+      const headers = new Headers(options.headers || {});
+      const isSafeMethod = ['GET', 'HEAD'].includes(method);
+
+      if (!isSafeMethod && !headers.has('Content-Type') && !(options.body instanceof FormData)) {
+        headers.set('Content-Type', 'application/json');
       }
 
-      const retryHeaders = new Headers(options.headers || {});
-      if (!retryHeaders.has('Content-Type') && !(options.body instanceof FormData)) {
-        retryHeaders.set('Content-Type', 'application/json');
+      const token = localStorage.getItem('access_token');
+      if (token && token !== 'null' && token !== 'undefined' && token.length > 10) {
+        headers.set('Authorization', `Bearer ${token}`);
       }
-      retryHeaders.set('Authorization', `Bearer ${newToken}`);
 
-      const retryResponse = await fetch(fullUrl, { ...options, headers: retryHeaders });
-      if (!retryResponse.ok) {
-        const errData = await retryResponse.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Request failed after token refresh.');
+      if (import.meta.env.DEV) {
+        console.log(`[fetchAPI] Requesting: ${endpoint}`, { method, hasToken: !!token });
       }
-      if (retryResponse.status === 204) return null;
-      if (retryResponse.headers.get('Content-Type')?.includes('application/pdf')) {
-        return retryResponse.blob();
+
+      const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+      const response = await fetch(fullUrl, { ...options, headers });
+
+      if (response.status === 401) {
+        // Handle token refresh logic...
+        // (Moving the existing refresh logic inside this promise)
+        if (!localStorage.getItem('refresh_token')) {
+          throw new Error('Authentication required. Please log in.');
+        }
+
+        if (!isRefreshing) {
+          isRefreshing = true;
+          const newToken = await refreshAccessToken();
+          isRefreshing = false;
+          onRefreshed(newToken);
+
+          if (!newToken) throw new Error('Session expired. Please log in again.');
+
+          const retryHeaders = new Headers(options.headers || {});
+          retryHeaders.set('Authorization', `Bearer ${newToken}`);
+          const retryRes = await fetch(fullUrl, { ...options, headers: retryHeaders });
+          if (!retryRes.ok) throw new Error('Request failed after token refresh.');
+          
+          const result = retryRes.status === 204 ? null : await retryRes.json();
+          if (method === 'GET') cache.set(cacheKey, { data: result, expiry: Date.now() + CACHE_TTL });
+          return result;
+        } else {
+          return new Promise((resolve, reject) => {
+            refreshSubscribers.push(async (newToken: string | null) => {
+              if (!newToken) return reject(new Error('Session expired.'));
+              try {
+                const h = new Headers(options.headers || {});
+                h.set('Authorization', `Bearer ${newToken}`);
+                const r = await fetch(fullUrl, { ...options, headers: h });
+                resolve(r.status === 204 ? null : await r.json());
+              } catch (e) { reject(e); }
+            });
+          });
+        }
       }
-      return retryResponse.json();
-    } else {
-      return new Promise((resolve, reject) => {
-        refreshSubscribers.push(async (newToken: string | null) => {
-          if (!newToken) {
-            reject(new Error('Session expired. Please log in again.'));
-            return;
-          }
-          try {
-            const retryHeaders = new Headers(options.headers || {});
-            if (!retryHeaders.has('Content-Type') && !(options.body instanceof FormData)) {
-              retryHeaders.set('Content-Type', 'application/json');
-            }
-            retryHeaders.set('Authorization', `Bearer ${newToken}`);
-            const retryResponse = await fetch(fullUrl, { ...options, headers: retryHeaders });
-            if (!retryResponse.ok) {
-              const errData = await retryResponse.json().catch(() => ({}));
-              reject(new Error(errData.detail || 'Request failed.'));
-            } else {
-              resolve(retryResponse.status === 204 ? null : retryResponse.json());
-            }
-          } catch (err) {
-            reject(err);
-          }
-        });
-      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(String(errorData.error || errorData.detail || 'API Request failed'));
+      }
+
+      if (response.headers.get('Content-Type')?.includes('application/pdf')) {
+        return response.blob();
+      }
+
+      const result = response.status === 204 ? null : await response.json();
+      
+      // 3. Cache the result for GET requests
+      if (method === 'GET') {
+        cache.set(cacheKey, { data: result, expiry: Date.now() + CACHE_TTL });
+      }
+
+      return result;
+    } finally {
+      // 4. Remove from in-flight requests once done
+      inflightRequests.delete(cacheKey);
     }
-  }
-  // ── End auto-refresh ─────────────────────────────────────────────────────
+  })();
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    // Extract error message from common fields or the first key-value pair
-    const errorMessage = errorData.error || errorData.detail || 
-                        (typeof errorData === 'object' ? Object.values(errorData)[0] : null) || 
-                        'Something went wrong with the API request';
-    throw new Error(String(errorMessage));
-  }
-
-
-  if (response.headers.get('Content-Type')?.includes('application/pdf')) {
-    return response.blob();
-  }
-
-  if (response.status === 204) return null;
-
-  return response.json();
+  inflightRequests.set(cacheKey, requestPromise);
+  return requestPromise;
 };
