@@ -47,42 +47,21 @@ export default function Footer() {
             <h4 className={`mono-label text-[11px] mb-3 font-bold tracking-widest ${dark ? 'text-white' : 'text-slate-900'}`}>{t.footer.contact}</h4>
             <div className="space-y-2.5">
               <div className={`flex items-start gap-2.5 text-[14px] justify-center md:justify-start ${dark ? 'text-slate-300' : 'text-slate-600 font-medium'}`}>
-                <MapPin className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${dark ? 'text-brand' : 'text-slate-400'}`} />
+                <MapPin className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${dark ? 'text-brand' : 'text-slate-400'}`} />
                 <span>123 Seva Marg, Andheri West, Mumbai 400058</span>
               </div>
               <div className={`flex items-center gap-2.5 text-[14px] justify-center md:justify-start ${dark ? 'text-slate-300' : 'text-slate-600 font-medium'}`}>
-                <Phone className={`w-3.5 h-3.5 flex-shrink-0 ${dark ? 'text-brand' : 'text-slate-400'}`} />
+                <Phone className={`w-3.5 h-3.5 shrink-0 ${dark ? 'text-brand' : 'text-slate-400'}`} />
                 <span>+91 98765 43210</span>
               </div>
               <div className={`flex items-center gap-2.5 text-[14px] justify-center md:justify-start ${dark ? 'text-slate-300' : 'text-slate-600 font-medium'}`}>
-                <Mail className={`w-3.5 h-3.5 flex-shrink-0 ${dark ? 'text-brand' : 'text-slate-400'}`} />
+                <Mail className={`w-3.5 h-3.5 shrink-0 ${dark ? 'text-brand' : 'text-slate-400'}`} />
                 <span>hello@sevamarg.org</span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col items-center md:items-start">
-            <h4 className={`mono-label text-[11px] mb-3 font-bold tracking-widest ${dark ? 'text-white' : 'text-slate-900'}`}>Newsletter</h4>
-            <p className={`text-[13px] mb-3 ${dark ? 'text-slate-300' : 'text-slate-600 font-medium'}`}>Stay updated with our impact stories</p>
-            <div className="relative group w-full max-w-xs">
-              <input 
-                type="email" 
-                placeholder="your@email.com" 
-                className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-center md:text-left ${
-                  dark 
-                    ? 'bg-slate-800/50 border-slate-700 text-white placeholder:text-gray-500 focus:border-brand' 
-                    : 'bg-slate-50 border-gray-100 text-near-black placeholder:text-gray-400 focus:border-slate-900'
-                }`} 
-              />
-              <button className={`absolute right-1 top-1 bottom-1 px-3 rounded-lg text-[9px] font-bold transition-all active:scale-95 ${
-                dark 
-                  ? 'bg-white text-slate-900 hover:bg-brand hover:text-white' 
-                  : 'bg-slate-900 text-white shadow-md shadow-slate-900/20 hover:bg-brand'
-              }`}>
-                Join
-              </button>
-            </div>
-          </div>
+
         </div>
 
         <div className={`mt-6 pt-4 border-t ${dark ? 'border-white/5' : 'border-gray-50'} flex flex-col sm:flex-row items-center justify-between gap-1 sm:gap-4 text-center sm:text-left`}>

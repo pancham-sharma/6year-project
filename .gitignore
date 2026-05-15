@@ -70,6 +70,10 @@ sync_assets.bat
 PUSH_TO_GITHUB.bat
 PUSH.bat
 git_push.bat
+check_db.py
+check_django.py
+test_db_conn.py
+
 # Firebase
 firebase-service-account*.json
 backend/firebase-service-account*.json
@@ -79,7 +83,7 @@ firebase-debug.log*
 firestore-debug.log*
 ui-debug.log*
 
-# Waste & Assets
+# General Waste & Assets
 image.png
 backend/category_images/
 backend/media/
@@ -88,18 +92,19 @@ backend/db.sqlite3
 *.bat
 tmp/
 temp/
-venv/
-.venv/
-__pycache__/
-*.pyc
-.env
-*.env
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.DS_Store
-Thumbs.db
-backend/media/
-backend/static_root/
-backend/db.sqlite3
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.DS_Store
+**/Thumbs.db
+**/*.bak
+**/*.tmp
+**/*.swp
+**/*.swo
+**/.env
+**/*.env
+**/__pycache__/
+**/*.py[cod]
+**/node_modules/
+

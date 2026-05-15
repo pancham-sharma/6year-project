@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 const getImageUrl = (path: string) => {
   if (!path) return '/images/hero.jpg';
   
-  // If it's already a local image path, return as is
+  // If it's already a local image path, return as isa
   if (path.startsWith('/images/')) return path;
 
   if (path.startsWith('http')) {
