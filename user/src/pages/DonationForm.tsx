@@ -5,9 +5,10 @@ import { fetchAPI } from '../utils/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCategories } from '../api/donations';
 import { 
-  Check, ChevronRight, ChevronLeft, Package, MapPin, Navigation, Shield, Upload, Calendar, Clock, Loader,
-  Utensils, Shirt, BookOpen, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins
+  Check, ChevronRight, ChevronLeft, Package, MapPin, Navigation, Shield, Calendar, Clock, Loader,
+  Utensils, Shirt, BookOpen, Banknote, Sprout, Heart, LayoutGrid, HandHeart, Users, TreePine, Gift, ShoppingBag, GraduationCap, Coins, X, Image as ImageIcon
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -110,6 +111,8 @@ export default function DonationForm() {
     address: '', city: '', state: '', pincode: '', landmark: '', phone: '', date: '', time: '',
     useCurrentLocation: false, consent: false, transactionId: '', donorMobile: '',
   });
+  const [dragActive, setDragActive] = useState<Record<string, boolean>>({});
+  const [imageErrors, setImageErrors] = useState<Record<string, string>>({});
   const [existingDonations, setExistingDonations] = useState<any[]>([]);
 
   // React Query for Categories
@@ -296,11 +299,54 @@ export default function DonationForm() {
   const updateUnits = (type: string, val: string) => setForm(p => ({ ...p, units: { ...p.units, [type]: val } }));
   const updateDescriptions = (type: string, val: string) => setForm(p => ({ ...p, descriptions: { ...p.descriptions, [type]: val } }));
 
+  const validateAndSetImage = (type: string, file: File) => {
+    setImageErrors(p => ({ ...p, [type]: '' }));
+    if (!file.type.startsWith('image/')) {
+      setImageErrors(p => ({ ...p, [type]: 'Please upload an image file (JPEG, PNG, WebP)' }));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setImageErrors(p => ({ ...p, [type]: 'File size must be less than 5MB' }));
+      return;
+    }
+    setForm(p => ({ ...p, images: { ...p.images, [type]: file } }));
+  };
+
+  const handleDrag = (type: string, e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(p => ({ ...p, [type]: true }));
+    } else if (e.type === 'dragleave') {
+      setDragActive(p => ({ ...p, [type]: false }));
+    }
+  };
+
+  const handleDrop = (type: string, e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(p => ({ ...p, [type]: false }));
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      validateAndSetImage(type, e.dataTransfer.files[0]);
+    }
+  };
+
   const handleImageChange = (type: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setForm(p => ({ ...p, images: { ...p.images, [type]: file } }));
+      validateAndSetImage(type, file);
     }
+  };
+
+  const removeImage = (type: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setForm(p => {
+      const newImages = { ...p.images };
+      delete newImages[type];
+      return { ...p, images: newImages };
+    });
+    setImageErrors(p => ({ ...p, [type]: '' }));
   };
 
   const validateStep = (s: number) => {
@@ -493,22 +539,63 @@ export default function DonationForm() {
                                    className={`w-full px-4 py-2.5 rounded-xl border-2 text-sm ${dark ? 'bg-slate-800 border-slate-600 text-white placeholder:text-gray-500 focus:border-primary-500' : 'bg-white border-gray-200 focus:border-primary-500'} outline-none transition-colors`} />
                              </div>
                              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
-                                 <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Payment Proof (Optional)</label>
-                                 <label className={`flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${dark ? 'border-slate-600 hover:border-slate-500' : 'border-gray-300 hover:border-primary-400'} ${form.images[type] ? 'border-primary-500' : ''}`}>
-                                   {form.images[type] ? (
-                                     <img 
-                                       src={form.images[type] instanceof File ? URL.createObjectURL(form.images[type] as File) : (form.images[type] as string)} 
-                                       alt="Preview" 
-                                       className="h-full w-full object-cover rounded-xl" 
-                                     />
-                                   ) : (
-                                     <div className="flex flex-col items-center p-2 text-center">
-                                       <Upload className={`w-6 h-6 mb-2 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
-                                       <span className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Click to upload</span>
-                                     </div>
-                                   )}
-                                   <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(type, e)} />
-                                 </label>
+                                 <div className="mb-2 flex items-center justify-between">
+                                   <label className={`block text-sm font-semibold ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Payment Proof (Optional)</label>
+                                   {imageErrors[type] && <span className="text-xs text-red-500 font-medium">{imageErrors[type]}</span>}
+                                 </div>
+                                 <motion.div
+                                   whileHover={!form.images[type] ? { scale: 1.01 } : {}}
+                                   whileTap={!form.images[type] ? { scale: 0.98 } : {}}
+                                   onDragEnter={(e: any) => handleDrag(type, e)}
+                                   onDragLeave={(e: any) => handleDrag(type, e)}
+                                   onDragOver={(e: any) => handleDrag(type, e)}
+                                   onDrop={(e: any) => handleDrop(type, e)}
+                                   className={`relative flex flex-col items-center justify-center w-full h-36 rounded-xl border-2 border-dashed transition-colors overflow-hidden
+                                     ${form.images[type] ? 'border-primary-500' : dragActive[type] ? 'border-brand bg-brand/5' : dark ? 'border-slate-600 bg-slate-800/50 hover:border-slate-500' : 'border-gray-300 bg-gray-50 hover:border-primary-400'}
+                                   `}
+                                 >
+                                   <AnimatePresence mode="wait">
+                                     {form.images[type] ? (
+                                       <motion.div 
+                                         key="image-preview"
+                                         initial={{ opacity: 0, scale: 0.9 }}
+                                         animate={{ opacity: 1, scale: 1 }}
+                                         exit={{ opacity: 0, scale: 0.9 }}
+                                         className="w-full h-full relative group"
+                                       >
+                                         <img 
+                                           src={form.images[type] instanceof File ? URL.createObjectURL(form.images[type] as File) : (form.images[type] as string)} 
+                                           alt="Preview" 
+                                           className="w-full h-full object-cover" 
+                                         />
+                                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                           <button 
+                                             onClick={(e) => removeImage(type, e)}
+                                             className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-transform hover:scale-110 shadow-lg"
+                                             title="Remove Image"
+                                           >
+                                             <X className="w-5 h-5" />
+                                           </button>
+                                         </div>
+                                       </motion.div>
+                                     ) : (
+                                       <motion.label 
+                                         key="upload-prompt"
+                                         initial={{ opacity: 0 }}
+                                         animate={{ opacity: 1 }}
+                                         exit={{ opacity: 0 }}
+                                         className="flex flex-col items-center p-4 text-center cursor-pointer w-full h-full justify-center"
+                                       >
+                                         <div className={`p-3 rounded-full mb-3 ${dark ? 'bg-slate-700' : 'bg-white shadow-sm'}`}>
+                                           <ImageIcon className={`w-6 h-6 ${dark ? 'text-gray-400' : 'text-primary-500'}`} />
+                                         </div>
+                                         <span className={`text-sm font-semibold mb-1 ${dark ? 'text-gray-300' : 'text-gray-700'}`}>Click to upload or drag & drop</span>
+                                         <span className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>SVG, PNG, JPG or GIF (max. 5MB)</span>
+                                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(type, e)} />
+                                       </motion.label>
+                                     )}
+                                   </AnimatePresence>
+                                 </motion.div>
                              </div>
                              
                              {/* Real-time Impact for Money */}
@@ -558,22 +645,63 @@ export default function DonationForm() {
                                 </p>
                               </div>
                               <div>
-                                <label className={`block text-sm font-semibold mb-2 ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Upload Image (Optional)</label>
-                                <label className={`flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${dark ? 'border-slate-600 hover:border-slate-500' : 'border-gray-300 hover:border-primary-400'} ${form.images[type] ? 'border-primary-500' : ''}`}>
-                                  {form.images[type] ? (
-                                    <img 
-                                      src={form.images[type] instanceof File ? URL.createObjectURL(form.images[type] as File) : (form.images[type] as string)} 
-                                      alt="Preview" 
-                                      className="h-full w-full object-cover rounded-xl" 
-                                    />
-                                  ) : (
-                                    <div className="flex flex-col items-center p-2 text-center">
-                                      <Upload className={`w-6 h-6 mb-2 ${dark ? 'text-gray-500' : 'text-gray-400'}`} />
-                                      <span className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Click to upload</span>
-                                    </div>
-                                  )}
-                                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(type, e)} />
-                                </label>
+                                <div className="mb-2 flex items-center justify-between">
+                                  <label className={`block text-sm font-semibold ${dark ? 'text-gray-200' : 'text-gray-700'}`}>Upload Image (Optional)</label>
+                                  {imageErrors[type] && <span className="text-xs text-red-500 font-medium">{imageErrors[type]}</span>}
+                                </div>
+                                <motion.div
+                                  whileHover={!form.images[type] ? { scale: 1.01 } : {}}
+                                  whileTap={!form.images[type] ? { scale: 0.98 } : {}}
+                                  onDragEnter={(e: any) => handleDrag(type, e)}
+                                  onDragLeave={(e: any) => handleDrag(type, e)}
+                                  onDragOver={(e: any) => handleDrag(type, e)}
+                                  onDrop={(e: any) => handleDrop(type, e)}
+                                  className={`relative flex flex-col items-center justify-center w-full h-36 rounded-xl border-2 border-dashed transition-colors overflow-hidden
+                                    ${form.images[type] ? 'border-primary-500' : dragActive[type] ? 'border-brand bg-brand/5' : dark ? 'border-slate-600 bg-slate-800/50 hover:border-slate-500' : 'border-gray-300 bg-gray-50 hover:border-primary-400'}
+                                  `}
+                                >
+                                  <AnimatePresence mode="wait">
+                                    {form.images[type] ? (
+                                      <motion.div 
+                                        key="image-preview"
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        className="w-full h-full relative group"
+                                      >
+                                        <img 
+                                          src={form.images[type] instanceof File ? URL.createObjectURL(form.images[type] as File) : (form.images[type] as string)} 
+                                          alt="Preview" 
+                                          className="w-full h-full object-cover" 
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                          <button 
+                                            onClick={(e) => removeImage(type, e)}
+                                            className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-transform hover:scale-110 shadow-lg"
+                                            title="Remove Image"
+                                          >
+                                            <X className="w-5 h-5" />
+                                          </button>
+                                        </div>
+                                      </motion.div>
+                                    ) : (
+                                      <motion.label 
+                                        key="upload-prompt"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="flex flex-col items-center p-4 text-center cursor-pointer w-full h-full justify-center"
+                                      >
+                                        <div className={`p-3 rounded-full mb-3 ${dark ? 'bg-slate-700' : 'bg-white shadow-sm'}`}>
+                                          <ImageIcon className={`w-6 h-6 ${dark ? 'text-gray-400' : 'text-primary-500'}`} />
+                                        </div>
+                                        <span className={`text-sm font-semibold mb-1 ${dark ? 'text-gray-300' : 'text-gray-700'}`}>Click to upload or drag & drop</span>
+                                        <span className={`text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>SVG, PNG, JPG or GIF (max. 5MB)</span>
+                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(type, e)} />
+                                      </motion.label>
+                                    )}
+                                  </AnimatePresence>
+                                </motion.div>
                               </div>
                             </>
                          )}

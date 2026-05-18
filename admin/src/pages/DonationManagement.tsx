@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Search, Filter, Eye, Edit3, CheckCircle, Trash2, 
-  ChevronDown, X, Phone, MapPin
+  ChevronDown, X, Phone, MapPin, Download, Image as ImageIcon, Loader
 } from 'lucide-react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { getDonations } from '../api/donations';
@@ -10,6 +10,7 @@ import { useToast } from '../context/ToastContext';
 import { useDebounce } from '../hooks/useDebounce';
 import { fetchAPI } from '../utils/api';
 import TableSkeleton from '../components/TableSkeleton';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props { darkMode: boolean; }
 
@@ -55,6 +56,8 @@ export default function DonationManagement({ darkMode }: Props) {
   const [editForm, setEditForm] = useState<any>({ 
     status: '', assigned_team: '', scheduled_date: '', scheduled_time: '', notes: '' 
   });
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const { data: catData } = useQuery({
     queryKey: ['categories'],
@@ -345,46 +348,128 @@ export default function DonationManagement({ darkMode }: Props) {
       </div>
 
       {/* Modals (View & Edit) - Kept mostly same but using refetch() */}
-      {viewItem && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setViewItem(null)}>
-           <div className={`rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden ${modalBg}`} onClick={e => e.stopPropagation()}>
-            <div className={`px-6 py-4 flex items-center justify-between border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-              <div>
-                <h3 className={`font-bold text-base ${textMain}`}>Donation Details</h3>
-                <p className="text-xs text-green-500 font-mono font-semibold">DON-{viewItem.id}</p>
+      <AnimatePresence>
+        {viewItem && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" 
+            onClick={() => setViewItem(null)}
+          >
+             <motion.div 
+               initial={{ scale: 0.95, opacity: 0, y: 20 }}
+               animate={{ scale: 1, opacity: 1, y: 0 }}
+               exit={{ scale: 0.95, opacity: 0, y: 20 }}
+               className={`rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] ${modalBg}`} 
+               onClick={(e: React.MouseEvent) => e.stopPropagation()}
+             >
+              <div className={`px-6 py-4 flex items-center justify-between border-b shrink-0 ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                <div>
+                  <h3 className={`font-bold text-base ${textMain}`}>Donation Details</h3>
+                  <p className="text-xs text-green-500 font-mono font-semibold">DON-{viewItem.id}</p>
+                </div>
+                <button onClick={() => setViewItem(null)} className={`p-2 rounded-xl transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><X size={16} /></button>
               </div>
-              <button onClick={() => setViewItem(null)} className={`p-2 rounded-xl transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><X size={16} /></button>
-            </div>
-            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
-              {viewItem.image && (
-                <div className="mb-6 rounded-2xl overflow-hidden border-2 border-gray-100 dark:border-gray-700 shadow-sm">
-                  <img 
-                    src={viewItem.image} 
-                    alt="Donated Item" 
-                    className="w-full h-64 object-cover"
-                    onError={(e) => e.currentTarget.style.display = 'none'}
-                  />
+              <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+                {[
+                  { label: 'Donor Name', value: viewItem.donorName },
+                  { label: 'Contact', value: viewItem.contact },
+                  { label: 'Full Address', value: viewItem.address },
+                  { label: 'Category', value: viewItem.category },
+                  { label: 'Quantity', value: `${viewItem.quantity} ${viewItem.unit || 'Units'}` },
+                  { label: 'Details', value: viewItem.quantity_description || 'N/A' },
+                  { label: 'Submission Date', value: viewItem.date },
+                  { label: 'Current Status', value: viewItem.status },
+                ].map(item => (
+                  <div key={item.label} className={`flex justify-between items-start gap-4 py-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-50'}`}>
+                    <span className={`text-sm font-semibold ${textSub} min-w-[140px]`}>{item.label}</span>
+                    <span className={`text-sm text-right ${textMain}`}>{item.value}</span>
+                  </div>
+                ))}
+
+                {/* Donation Image Section */}
+                <div className="pt-4 mt-6 border-t border-dashed border-gray-200 dark:border-gray-700">
+                  <h4 className={`text-sm font-bold mb-4 flex items-center gap-2 ${textMain}`}>
+                    <ImageIcon className="w-4 h-4 text-brand" />
+                    Donation Image
+                  </h4>
+                  
+                  {viewItem.image ? (
+                    <div className="relative group rounded-2xl overflow-hidden border-2 border-gray-100 dark:border-gray-700 shadow-sm bg-gray-50 dark:bg-gray-800/50 aspect-video flex items-center justify-center">
+                      {!imageLoaded && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 animate-pulse">
+                          <Loader className="w-6 h-6 text-gray-400 animate-spin" />
+                        </div>
+                      )}
+                      <img 
+                        src={viewItem.image} 
+                        alt="Donated Item" 
+                        className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 cursor-zoom-in ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                        onLoad={() => setImageLoaded(true)}
+                        onClick={() => setFullScreenImage(viewItem.image)}
+                        onError={(e) => {
+                           e.currentTarget.style.display = 'none';
+                           setImageLoaded(true);
+                        }}
+                      />
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <a 
+                          href={viewItem.image} 
+                          download={`donation-${viewItem.id}-image.jpg`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center justify-center w-8 h-8 rounded-full bg-black/60 text-white hover:bg-black/80 backdrop-blur-md transition-all shadow-lg"
+                          title="Download Image"
+                        >
+                          <Download size={14} />
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                      <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-3">
+                        <ImageIcon className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <p className={`text-sm font-semibold ${textMain}`}>No Image Uploaded</p>
+                      <p className={`text-xs mt-1 ${textSub}`}>The donor did not provide an image.</p>
+                    </div>
+                  )}
                 </div>
-              )}
-              {[
-                { label: 'Donor Name', value: viewItem.donorName },
-                { label: 'Contact', value: viewItem.contact },
-                { label: 'Full Address', value: viewItem.address },
-                { label: 'Category', value: viewItem.category },
-                { label: 'Quantity', value: `${viewItem.quantity} ${viewItem.unit || 'Units'}` },
-                { label: 'Details', value: viewItem.quantity_description || 'N/A' },
-                { label: 'Submission Date', value: viewItem.date },
-                { label: 'Current Status', value: viewItem.status },
-              ].map(item => (
-                <div key={item.label} className={`flex justify-between items-start gap-4 py-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-50'}`}>
-                  <span className={`text-sm font-semibold ${textSub} min-w-[140px]`}>{item.label}</span>
-                  <span className={`text-sm text-right ${textMain}`}>{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {fullScreenImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-60 bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm cursor-zoom-out"
+            onClick={() => setFullScreenImage(null)}
+          >
+            <button 
+              onClick={() => setFullScreenImage(null)}
+              className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors backdrop-blur-md"
+            >
+              <X size={20} />
+            </button>
+            <motion.img
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              src={fullScreenImage}
+              alt="Full Screen Preview"
+              className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {editItem && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setEditItem(null)}>
