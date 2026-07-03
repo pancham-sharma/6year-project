@@ -159,9 +159,9 @@ if DATABASE_URL:
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     
-    if 'pooler.supabase.com' in DATABASE_URL and ':5432/' in DATABASE_URL:
-        print("💡 Switching Supabase port to 6543 for Transaction Mode pooling")
-        DATABASE_URL = DATABASE_URL.replace(':5432/', ':6543/')
+    # We removed the automatic replacement to port 6543 because Django requires
+    # Session mode (port 5432 on the pooler) for migrations to run successfully.
+    # Ensure your DATABASE_URL in Render uses port 5432.
 
     # Ensure sslmode=require for Supabase/Render
     if 'sslmode' not in DATABASE_URL:
