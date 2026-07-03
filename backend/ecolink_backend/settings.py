@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 import environ
 from datetime import timedelta
@@ -159,9 +160,15 @@ if DATABASE_URL:
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     
-    # We removed the automatic replacement to port 6543 because Django requires
-    # Session mode (port 5432 on the pooler) for migrations to run successfully.
-    # Ensure your DATABASE_URL in Render uses port 5432.
+    # Check if we are running migrations
+    is_migration = len(sys.argv) > 1 and sys.argv[1] in ('migrate', 'makemigrations')
+
+    if not is_migration:
+        # Use transaction pooler (6543) for normal application runs to avoid exhausting the 15-client limit
+        DATABASE_URL = DATABASE_URL.replace(':5432', ':6543')
+    else:
+        # Django requires Session mode (port 5432) for migrations to run successfully.
+        DATABASE_URL = DATABASE_URL.replace(':6543', ':5432')
 
     # Ensure sslmode=require for Supabase/Render
     if 'sslmode' not in DATABASE_URL:
@@ -187,7 +194,7 @@ else:
 
 
 # Production Database Tweaks
-DATABASES['default']['CONN_MAX_AGE'] = 600 # Re-use connections
+DATABASES['default']['CONN_MAX_AGE'] = 0 # Do not keep connections alive to prevent exhausting the 15-connection pool
 
 if not DATABASES['default'].get('ENGINE'):
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
@@ -207,7 +214,9 @@ if 'localhost' not in DATABASES['default'].get('HOST', '') and '127.0.0.1' not i
         
     DATABASES['default']['OPTIONS']['connect_timeout'] = 10
 
-
+    # If using transaction pooler (port 6543), we must disable server-side cursors
+    if not is_migration or '6543' in DATABASES['default'].get('HOST', '') or DATABASES['default'].get('PORT') == 6543 or str(DATABASES['default'].get('PORT')) == '6543':
+        DATABASES['default']['OPTIONS']['DISABLE_SERVER_SIDE_CURSORS'] = True
 
 CACHES = {
     'default': {
