@@ -172,13 +172,6 @@ if DATABASE_URL:
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-    if not is_migration:
-        # Use transaction pooler (6543) for normal application runs to avoid exhausting the 15-client limit
-        DATABASE_URL = DATABASE_URL.replace(':5432', ':6543')
-    else:
-        # Django requires Session mode (port 5432) for migrations to run successfully.
-        DATABASE_URL = DATABASE_URL.replace(':6543', ':5432')
-
     # Ensure sslmode=require for Supabase/Render
     if 'sslmode' not in DATABASE_URL:
         sep = '&' if '?' in DATABASE_URL else '?'
