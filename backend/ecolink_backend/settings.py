@@ -1,0 +1,316 @@
+import os
+import sys
+from pathlib import Path
+import environ
+from datetime import timedelta
+
+env = environ.Env(
+    DEBUG=(bool, False)
+)
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-default-key-for-dev')
+DEBUG = env.bool('DEBUG', default=True)
+
+ALLOWED_HOSTS = [
+    'donation-admin-panel.onrender.com', 
+    'sewa-marg.vercel.app', 
+    'admin-panel-blush-ten.vercel.app', 
+    'localhost', 
+    '127.0.0.1', 
+    '*'
+]
+
+
+CORS_ALLOWED_ORIGINS = [
+    "https://sewa-marg.vercel.app",
+    "https://admin-panel-blush-ten.vercel.app",
+    "https://pancham-sharma-6year-project.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+CORS_ALLOW_ALL_ORIGINS = True # Temporary to solve CORB
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://donation-admin-panel.onrender.com",
+    "https://sewa-marg.vercel.app",
+    "https://admin-panel-blush-ten.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+# Production Security Settings
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    CSRF_COOKIE_SAMESITE = 'None'
+    SESSION_COOKIE_SAMESITE = 'None'
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+
+
+INSTALLED_APPS = [
+    'daphne',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'cloudinary_storage',
+    'django.contrib.staticfiles',
+
+    # Third party
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+    'corsheaders',
+    'drf_spectacular',
+    'django_filters',
+    'cloudinary',
+
+
+    # Local apps
+    'users',
+    'donations',
+    'inventory',
+    'chat',
+    'channels',
+]
+
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+CORS_ALLOW_ALL_ORIGINS = True # Broad support for production stability
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Use WhiteNoise for static files storage (compression and caching)
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
+
+
+
+ROOT_URLCONF = 'ecolink_backend.urls'
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = 'ecolink_backend.wsgi.application'
+ASGI_APPLICATION = 'ecolink_backend.asgi.application'
+
+# Channel layers for WebSockets
+# Note: In production, use RedisChannelLayer
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    },
+}
+
+# Database configuration
+DATABASE_URL = os.environ.get('DATABASE_URL') or env('DATABASE_URL', default='')
+
+# Check if we are running migrations (must be defined before both branches use it)
+is_migration = len(sys.argv) > 1 and sys.argv[1] in ('migrate', 'makemigrations')
+
+if DATABASE_URL:
+    # Diagnostic for Render logs (does not reveal password)
+    print(f"--- Database URL detected (Scheme: {DATABASE_URL.split(':')[0]}) ---")
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+    if not is_migration:
+        # Use transaction pooler (6543) for normal application runs to avoid exhausting the 15-client limit
+        DATABASE_URL = DATABASE_URL.replace(':5432', ':6543')
+    else:
+        # Django requires Session mode (port 5432) for migrations to run successfully.
+        DATABASE_URL = DATABASE_URL.replace(':6543', ':5432')
+
+    # Ensure sslmode=require for Supabase/Render
+    if 'sslmode' not in DATABASE_URL:
+        sep = '&' if '?' in DATABASE_URL else '?'
+        DATABASE_URL += f'{sep}sslmode=require'
+    
+    DATABASES = {
+        'default': env.db_url_config(DATABASE_URL)
+    }
+
+else:
+    print("--- WARNING: No DATABASE_URL found. Using local fallback (localhost:5433) ---")
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'donation_db',
+            'USER': 'postgres',
+            'PASSWORD': 'pancham6',
+            'HOST': 'localhost',
+            'PORT': '5433',
+        }
+    }
+
+
+# Production Database Tweaks
+DATABASES['default']['CONN_MAX_AGE'] = 0 # Do not keep connections alive to prevent exhausting the 15-connection pool
+
+if not DATABASES['default'].get('ENGINE'):
+    DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
+
+# Ensure SSL for remote databases (Supabase/Render)
+if 'localhost' not in DATABASES['default'].get('HOST', '') and '127.0.0.1' not in DATABASES['default'].get('HOST', ''):
+    if 'OPTIONS' not in DATABASES['default']:
+        DATABASES['default']['OPTIONS'] = {}
+    
+    # Use require for Supabase compatibility
+    # On Windows local dev, if SSL verify fails, 'prefer' is a safer fallback
+    import sys
+    if sys.platform == 'win32' and DEBUG:
+        DATABASES['default']['OPTIONS']['sslmode'] = 'prefer'
+    else:
+        DATABASES['default']['OPTIONS']['sslmode'] = 'require'
+        
+    DATABASES['default']['OPTIONS']['connect_timeout'] = 10
+
+    # If using transaction pooler (port 6543), we must disable server-side cursors
+    if not is_migration or '6543' in DATABASES['default'].get('HOST', '') or DATABASES['default'].get('PORT') == 6543 or str(DATABASES['default'].get('PORT')) == '6543':
+        DATABASES['default']['OPTIONS']['DISABLE_SERVER_SIDE_CURSORS'] = True
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
+
+AUTH_USER_MODEL = 'users.User'
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
+
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
+
+STATIC_URL = 'static/'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+SECURE_REFERRER_POLICY = 'no-referrer-when-downgrade'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+# File Storage
+if env('CLOUDINARY_CLOUD_NAME', default='') == '':
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+else:
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME'),
+        'API_KEY': env('CLOUDINARY_API_KEY'),
+        'API_SECRET': env('CLOUDINARY_API_SECRET'),
+    }
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = env.int('EMAIL_PORT', default=465)
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=False)
+EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=True)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='SevaMarg <panchamprince6@gmail.com>')
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CORS_ALLOW_CREDENTIALS = True
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '500/day',
+        'user': '5000/day'
+    }
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=24),   # Extended from 60min — auto-refresh handles expiry gracefully
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'EcoLink API',
+    'DESCRIPTION': 'Donation Management System API',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
