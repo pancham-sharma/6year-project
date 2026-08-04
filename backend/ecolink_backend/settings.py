@@ -123,6 +123,9 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
+# Legacy compatibility shim — django-cloudinary-storage's collectstatic
+# override checks this attribute directly, which Django 6.0 removed.
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 
 
