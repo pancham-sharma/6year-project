@@ -117,15 +117,17 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# Use WhiteNoise for static files storage (compression and caching)
+# Static files storage — use Django's default; WhiteNoise middleware
+# (already in MIDDLEWARE) handles serving, compression, and caching at runtime.
+# NOTE: CompressedStaticFilesStorage causes FileNotFoundError on Render/Python 3.14
+# due to concurrent compression of select2 i18n files.
 STORAGES = {
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
-# Legacy compatibility shim — django-cloudinary-storage's collectstatic
-# override checks this attribute directly, which Django 6.0 removed.
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+# Legacy compat shim for django-cloudinary-storage's collectstatic override
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 
 
