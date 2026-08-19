@@ -79,7 +79,7 @@ class SocialAuthGoogleView(APIView):
                 uid = decoded_token.get('uid')
                 email = decoded_token.get('email')
             except Exception as token_err:
-                print(f"❌ Firebase Token Verification Failed: {str(token_err)}")
+                print(f"Firebase Token Verification Failed: {str(token_err)}")
                 return Response({'error': f'Invalid token: {str(token_err)}'}, status=401)
                 
             if not email:
@@ -117,7 +117,7 @@ class SocialAuthGoogleView(APIView):
                             user.save()
                         except: pass 
                 except Exception as db_err:
-                    print(f"❌ Database User Creation Failed: {str(db_err)}")
+                    print(f"Database User Creation Failed: {str(db_err)}")
                     return Response({"error": f"Database error: {str(db_err)}"}, status=500)
             else:
                 # Update existing user info
@@ -144,14 +144,14 @@ class SocialAuthGoogleView(APIView):
                     if changed:
                         user.save()
                 except Exception as db_err:
-                    print(f"❌ Database User Update Failed: {str(db_err)}")
+                    print(f"Database User Update Failed: {str(db_err)}")
                     return Response({"error": f"Database update error: {str(db_err)}"}, status=500)
 
             refresh = RefreshToken.for_user(user)
             try:
                 user_data = UserSerializer(user, context={'request': request}).data
             except Exception as ser_err:
-                print(f"❌ User Serialization Failed: {str(ser_err)}")
+                print(f"User Serialization Failed: {str(ser_err)}")
                 user_data = {
                     'id': user.id,
                     'username': user.username,
@@ -167,7 +167,7 @@ class SocialAuthGoogleView(APIView):
                 'user': user_data
             })
         except Exception as e:
-            print(f"❌ SocialAuthGoogleView Critical Error: {str(e)}")
+            print(f"SocialAuthGoogleView Critical Error: {str(e)}")
             import traceback
             traceback.print_exc()
             return Response({"error": f"Server authentication error: {str(e)}"}, status=500)
@@ -311,7 +311,7 @@ class GetAdminIdView(APIView):
             return Response({
                 "error": str(e),
                 "traceback": traceback.format_exc()
-            }, status=500)
+            })
 
 class CustomTokenObtainPairView(APIView):
     permission_classes = (permissions.AllowAny,)
@@ -343,7 +343,7 @@ class CheckEmailStatusView(APIView):
                 return Response({"exists": False, "verified": False})
             return Response({"exists": True, "verified": user.is_email_verified})
         except Exception as e:
-            print(f"❌ CheckEmailStatusView Error: {str(e)}")
+            print(f"CheckEmailStatusView Error: {str(e)}")
             import traceback
             traceback.print_exc()
             return Response({"error": str(e)}, status=500)

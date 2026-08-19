@@ -218,7 +218,7 @@ if 'localhost' not in DATABASES['default'].get('HOST', '') and '127.0.0.1' not i
 
     # If using transaction pooler (port 6543), we must disable server-side cursors
     if not is_migration or '6543' in DATABASES['default'].get('HOST', '') or DATABASES['default'].get('PORT') == 6543 or str(DATABASES['default'].get('PORT')) == '6543':
-        DATABASES['default']['OPTIONS']['DISABLE_SERVER_SIDE_CURSORS'] = True
+        DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
 
 CACHES = {
     'default': {
@@ -256,9 +256,23 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # File Storage
 if env('CLOUDINARY_CLOUD_NAME', default='') == '':
-    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 else:
-    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
     CLOUDINARY_STORAGE = {
         'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME'),
         'API_KEY': env('CLOUDINARY_API_KEY'),

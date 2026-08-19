@@ -8,7 +8,7 @@ def initialize_firebase():
     """Robust initialization of Firebase Admin SDK"""
     if not firebase_admin._apps:
         try:
-            print("🚀 Initializing Firebase Admin SDK...")
+            print("Initializing Firebase Admin SDK...")
             
             # 1. Try local JSON file first (it's the most reliable)
             # Check multiple possible locations
@@ -33,10 +33,10 @@ def initialize_firebase():
                         
                         cred = credentials.Certificate(cert_dict)
                         firebase_admin.initialize_app(cred)
-                        print(f"✅ Firebase Admin SDK initialized from: {os.path.basename(path)}")
+                        print(f"Firebase Admin SDK initialized from: {os.path.basename(path)}")
                         return True
                     except Exception as e:
-                        print(f"⚠️ Failed to init from {path}: {e}")
+                        print(f"Failed to init from {path}: {e}")
 
             # 2. Fallback to Environment Variables
             project_id = os.getenv("FIREBASE_PROJECT_ID")
@@ -44,7 +44,7 @@ def initialize_firebase():
             client_email = os.getenv("FIREBASE_CLIENT_EMAIL")
 
             if project_id and private_key:
-                print("📝 Attempting initialization from Environment Variables...")
+                print("Attempting initialization from Environment Variables...")
                 # Thorough cleaning of the private key
                 clean_key = private_key.strip().strip('"').strip("'")
                 
@@ -74,13 +74,13 @@ def initialize_firebase():
 
                 cred = credentials.Certificate(cred_dict)
                 firebase_admin.initialize_app(cred)
-                print("✅ Firebase Admin SDK successfully initialized from environment variables.")
+                print("Firebase Admin SDK successfully initialized from environment variables.")
                 return True
             else:
-                print("⚠️ Firebase credentials missing in both JSON file and environment variables.")
+                print("Firebase credentials missing in both JSON file and environment variables.")
                 return False
         except Exception as e:
-            print(f"❌ Firebase Initialization Error: {str(e)}")
+            print(f"Firebase Initialization Error: {str(e)}")
             import traceback
             # Log the full error to help debug the PEM issue
             traceback.print_exc()
