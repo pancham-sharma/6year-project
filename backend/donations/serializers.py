@@ -60,6 +60,23 @@ class DonationSerializer(serializers.ModelSerializer):
         fields = ['id', 'donor', 'donor_email', 'donor_phone', 'category', 'quantity_description', 'quantity', 'unit', 'image', 'image_url', 'status', 'timestamp', 'pickup_details', 'transaction_id', 'donor_mobile']
         read_only_fields = ['timestamp', 'donor', 'donor_email', 'donor_phone']
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        
+        # Only show PII if the user is an admin or the owner of the donation
+        if request and request.user and request.user.is_authenticated:
+            is_admin = request.user.is_staff or getattr(request.user, 'role', '') == 'ADMIN'
+            is_owner = instance.donor == request.user
+            if is_admin or is_owner:
+                return ret
+                
+        # For public/other users, mask or remove PII
+        ret['donor_email'] = None
+        ret['donor_phone'] = None
+        ret['donor_mobile'] = None
+        return ret
+
     def get_image_url(self, obj):
         if not obj.image: return None
         try:
