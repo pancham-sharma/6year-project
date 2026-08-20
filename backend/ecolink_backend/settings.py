@@ -177,9 +177,29 @@ if DATABASE_URL:
         sep = '&' if '?' in DATABASE_URL else '?'
         DATABASE_URL += f'{sep}sslmode=require'
     
+    from urllib.parse import urlparse, parse_qs
+    parsed = urlparse(DATABASE_URL)
+    
     DATABASES = {
-        'default': env.db_url_config(DATABASE_URL)
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': parsed.path.lstrip('/') or 'postgres',
+            'USER': parsed.username or 'postgres',
+            'PASSWORD': parsed.password or '',
+            'HOST': parsed.hostname or 'localhost',
+            'PORT': str(parsed.port or 5432),
+        }
     }
+    # Apply query params (e.g. sslmode)
+    query_params = parse_qs(parsed.query)
+    if query_params:
+        DATABASES['default'].setdefault('OPTIONS', {})
+        for key, values in query_params.items():
+            DATABASES['default']['OPTIONS'][key] = values[0]
+    
+    # Debug: show parsed DB config (mask password)
+    _db = DATABASES['default']
+    print(f"--- Parsed DB: USER={_db.get('USER')}, HOST={_db.get('HOST')}, PORT={_db.get('PORT')}, NAME={_db.get('NAME')} ---")
 
 else:
     print("--- WARNING: No DATABASE_URL found. Using local fallback (localhost:5433) ---")

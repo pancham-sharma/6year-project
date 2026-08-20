@@ -105,7 +105,7 @@ export const fetchAPI = async (endpoint: string, options: RequestInit = {}): Pro
       }
 
       if (import.meta.env.DEV) {
-        console.log(`[fetchAPI] Requesting: ${endpoint}`, { method, hasToken: !!token });
+        if (import.meta.env.DEV) console.log(`[fetchAPI] Requesting: ${endpoint}`, { method, hasToken: !!token });
       }
 
       const fullUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;

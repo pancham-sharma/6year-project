@@ -154,7 +154,7 @@ export default function Messages({ darkMode }: Props) {
     };
 
     ws.onerror = (err) => console.error("WebSocket Error:", err);
-    ws.onclose = () => console.log("WebSocket Disconnected");
+    ws.onclose = () => { if (import.meta.env.DEV) console.log("WebSocket Disconnected"); };
 
     return () => ws.close();
   }, [myId]); // Only reconnect if myId changes (unlikely)
@@ -167,7 +167,7 @@ export default function Messages({ darkMode }: Props) {
         action: 'join_room',
         room_id: `${ids[0]}_${ids[1]}`
       }));
-      console.log(`Joining room: ${ids[0]}_${ids[1]}`);
+      if (import.meta.env.DEV) console.log(`Joining room: ${ids[0]}_${ids[1]}`);
     }
   }, [activeId, myId]);
 

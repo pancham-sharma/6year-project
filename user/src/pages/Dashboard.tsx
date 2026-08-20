@@ -400,7 +400,7 @@ export default function Dashboard() {
   const handleSendMessage = async () => {
     if (!replyText.trim() || sendingMsg) return;
     const effectiveAdminId = adminId || 1;
-    console.log("Sending message to admin ID:", effectiveAdminId);
+    if (import.meta.env.DEV) console.log("Sending message to admin ID:", effectiveAdminId);
     
     const textToSend = replyText.trim();
     setReplyText(''); // Clear early for better UX
